@@ -41,9 +41,15 @@ class 设置页 : SettingsActivity() {
         super.onCreate(savedInstanceState)
         val linear = findViewById<View>(2114521834).parent.parent.asGroup()
         linear.parent.asGroup().requestFocus()
+        linear.parent.asGroup().forEachAll { view ->
+            if (view is TextView) {
+                val t = view.text?.toString() ?: return@forEachAll
+                if (t.contains("QQPro")) view.text = t.replace("QQPro", "QQ Max")
+            }
+        }
         (linear.getChildAt(linear.childCount - 1) as? TextView)?.let {
             it.text =
-                "禁止删除\"爅峫\"署名或进行商用,否则将会追究\n下面是QQPro的设置 by java30433\n不准你们骂才羽桃井😭😭"
+                "禁止删除\"爅峫\"署名或进行商用,否则将会追究\n下面是QQ Max的设置 by java30433\n不准你们骂才羽桃井😭😭"
             (it.layoutParams as? MarginLayoutParams)?.setMargins(0, 0, 0, 0)
         }
         GroupScope(linear).apply {

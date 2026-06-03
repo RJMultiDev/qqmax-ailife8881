@@ -118,10 +118,12 @@ object AIOCell {
             super.i(view, item, p3, p4, p5, p6)
             val widget = view as? AIOCellGroupWidget ?: return
             if (CurrentContact.isGroup) {
-                val raw = widget.getNickWidget<TextView>()?.text!!
-                CurrentGroupMembers.get(item.d.senderUid) { member ->
+                val senderUid = item.d.senderUid
+                val nickView = widget.getNickWidget<TextView>()
+                nickView?.tag = senderUid
+                CurrentGroupMembers.get(senderUid) { member ->
                     widget.post {
-                        if (widget.getNickWidget<TextView>()?.text == raw) {
+                        if (widget.getNickWidget<TextView>()?.tag == senderUid) {
                             GroupAvatarHook.update(widget, item.d, member)
                         }
                     }

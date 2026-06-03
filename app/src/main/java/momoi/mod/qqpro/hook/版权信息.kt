@@ -8,6 +8,8 @@ import android.view.ViewGroup
 import android.widget.TextView
 import com.tencent.qqnt.watch.selftab.ui.SelfFragment
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.asGroup
+import momoi.mod.qqpro.forEachAll
 
 const val VERSION_CODE = 11
 
@@ -20,9 +22,15 @@ class 版权信息 : SelfFragment() {
         savedInstanceState: Bundle?
     ): View {
         val result = super.Y(inflater, container, savedInstanceState)
+        result.asGroup()?.forEachAll { view ->
+            if (view is TextView) {
+                val t = view.text?.toString() ?: return@forEachAll
+                if (t.contains("QQPro")) view.text = t.replace("QQPro", "QQ Max")
+            }
+        }
         val tv = result.findViewById<TextView>(2114521808)
         tv.text = buildString {
-            appendLine("QQPro - v1.5.1")
+            appendLine("QQ Max - v1.5.1")
             appendLine()
             appendLine("更新日志：")
             appendLine("优化回复消息溯源")
