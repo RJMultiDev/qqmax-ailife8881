@@ -26,19 +26,19 @@ import com.tencent.qqnt.kernel.nativeinterface.AddFavEmojiReq
 import com.tencent.qqnt.kernel.nativeinterface.IAddFavEmojiCallback
 import com.tencent.qqnt.kernel.nativeinterface.IOperateCallback
 import com.tencent.qqnt.watch.api.IMsgApi
-import com.tencent.qqnt.watch.contact.api.IContactRuntimeService
 import com.tencent.richframework.widget.matrix.RFWMatrixImageView
 import com.tencent.watch.aio_impl.ui.menu.AIOLongClickMenuFragment
 import com.tencent.watch.aio_impl.ui.menu.MenuItemFactory
 import com.tencent.watch.ime.util.ImeTextUtil
 import loadPicElement
 import download
-import mqq.app.MobileQQ
 import java.io.File
 import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.child
 import momoi.mod.qqpro.hook.action.CurrentContact
+import momoi.mod.qqpro.hook.forwardText
+import momoi.mod.qqpro.hook.forwardToFriends
 import momoi.mod.qqpro.hook.style.MyImageView
 import momoi.mod.qqpro.hook.view.MyDialogFragment
 import momoi.mod.qqpro.lib.FILL
@@ -201,35 +201,14 @@ private fun doAddFavEmoji(context: Context, file: File) {
     })
 }
 
-/** Forward the image to selected friends (分享), mirroring DefaultMenuHandler.doSharePic. */
+/** Forward the image to selected friends/groups (转发). */
 private fun View.sharePic(context: Context, pic: PicElement) {
     val path = picLocalPath(context, pic) ?: run {
         Utils.log("sharePic: no local path for ${pic.md5HexStr}")
         return
     }
-    val navFragment = WatchPicElementExtKt.W(this)?.let { WatchPicElementExtKt.Y(it) } ?: return
-    val app = MobileQQ.getMobileQQ().peekAppRuntime() ?: return
-    val contactService = app.getRuntimeService(IContactRuntimeService::class.java, "")
-    contactService.startFriendSelect(
-        navFragment,
-        emptyList(),
-        arrayListOf(app.currentUid),
-        "分享",
-        0x7e0805cd, // R.drawable.icon_share
-        1, 10, null, false, true
-    ) { _, friends ->
-        if (friends.isNotEmpty()) {
-            val element = QRoute.api(IMsgApi::class.java).createPicElement(path, 0)
-            friends.forEach { friend ->
-                // jar fields: b = uid, e = isGroup
-                val contact = Contact(if (friend.e) 2 else 1, friend.b, "")
-                MsgUtil.msgService.sendMsg(
-                    contact, 0L, arrayListOf(element),
-                    IOperateCallback { code, msg -> Utils.log("share send result=$code msg=$msg") }
-                )
-            }
-        }
-        kotlin.Unit
+    forwardToFriends {
+        arrayListOf(QRoute.api(IMsgApi::class.java).createPicElement(path, 0))
     }
 }
 
@@ -322,13 +301,15 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                                 .longClickable {
                                                     showHistoryMenu(
                                                         msg.msgId,
-                                                        listOf(MENU_COPY, MENU_REPEAT)
+                                                        listOf(MENU_COPY, MENU_REPEAT, MENU_SHARE)
                                                     ) { item ->
                                                         when (item) {
                                                             MENU_COPY ->
                                                                 copyText(group.context, summary)
                                                             MENU_REPEAT ->
                                                                 repeatText(summary)
+                                                            MENU_SHARE ->
+                                                                forwardText(summary)
                                                             else -> {}
                                                         }
                                                     }

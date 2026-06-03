@@ -5,6 +5,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.widget.AppCompatTextView
@@ -17,10 +18,13 @@ import com.tencent.watch.aio_impl.ui.menu.AIOLongClickMenuFragment
 import com.tencent.watch.aio_impl.ui.menu.MenuItemFactory
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Colors
+import momoi.mod.qqpro.MsgUtil
+import momoi.mod.qqpro.hook.forwardText
 import momoi.mod.qqpro.asGroup
 import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.forEachAll
 import momoi.mod.qqpro.hook.action.CurrentContact
+import momoi.mod.qqpro.hook.action.CurrentMsgList
 import momoi.mod.qqpro.hook.action.CurrentGroupMembers
 import momoi.mod.qqpro.hook.action.SelfContact
 import momoi.mod.qqpro.hook.action.isGroup
@@ -51,7 +55,7 @@ val menuSort = arrayOf(
     "删除",
 )
 
-private fun process(group: ViewGroup, msg: MsgRecord?) {
+private fun process(group: ViewGroup, msg: MsgRecord?, dismiss: () -> Unit) {
     group.removeViewAt(0)
     val linear = group.getChildAt(0).asGroup()
         .getChildAt(0).asGroup()
@@ -105,6 +109,41 @@ private fun process(group: ViewGroup, msg: MsgRecord?) {
             linear.addView(it, 1)
         }
     }
+    // 图片消息的"分享"就是转发到其它会话，改名为"转发"。
+    var hasShare = false
+    linear.forEachAll {
+        if (it is AppCompatTextView && it.text?.toString() == "分享") {
+            it.text = "转发"
+            hasShare = true
+        }
+    }
+    // 文本消息没有分享按钮。注入一个真正的"转发"(打开好友选择器把文本发到其它会话)，
+    // 注意复读文本只能在当前会话重发，不能转发到别处。
+    val fwdText = msg?.elements
+        ?.mapNotNull { it.textElement?.content }
+        ?.joinToString("")
+        ?.takeIf { it.isNotBlank() }
+    Utils.log("menu inject: hasShare=$hasShare fwdText=${fwdText?.take(20)} elems=${msg?.elements?.map { it.elementType }}")
+    if (!hasShare && fwdText != null) {
+        // Clone the native menu item layout (icon + desc + switch) so 转发 matches the other items.
+        val ctx = linear.context
+        val res = ctx.resources
+        val pkg = ctx.packageName
+        val itemView = LayoutInflater.from(ctx).inflate(
+            res.getIdentifier("item_setting_with_switch", "layout", pkg), linear, false
+        )
+        itemView.findViewById<ImageView>(res.getIdentifier("icon", "id", pkg))
+            ?.setImageResource(0x7e0805cd) // R.drawable.icon_share
+        itemView.findViewById<TextView>(res.getIdentifier("desc", "id", pkg))
+            ?.text = "转发"
+        itemView.findViewById<View>(res.getIdentifier("button", "id", pkg))
+            ?.visibility = View.GONE
+        itemView.setOnClickListener {
+            linear.forwardText(fwdText)
+            dismiss()
+        }
+        linear.addView(itemView, 1)
+    }
     if (Utils.isRoundScreen) {
         LinearScope(linear).add<View>()
             .width(FILL)
@@ -128,10 +167,14 @@ class 长按菜单调整(p0: (MenuItemFactory.ItemEnum) -> Unit, p1: String?) :
             field.isAccessible = true
             val cell = field.get(this.b) as WatchAIOGroupWidgetItemCell<*, *>
             cell.f()!!.d
+        }.getOrNull() ?: runCatching {
+            val msgId = arguments?.getLong("key_msg_id") ?: 0L
+            CurrentMsgList.msgList.value.find { it.d.msgId == msgId }?.d
         }.getOrNull()
+        Utils.log("menu: msg=${msg != null} msgId=${arguments?.getLong("key_msg_id")}")
         return super.onCreateView(inflater, container, savedInstanceState).apply {
             this.asGroup().getChildAt(0).asGroup().let { group ->
-                process(group, msg)
+                process(group, msg) { dismiss() }
             }
         }
     }
