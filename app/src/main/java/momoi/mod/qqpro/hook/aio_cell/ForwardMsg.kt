@@ -1,6 +1,9 @@
 package momoi.mod.qqpro.hook.aio_cell
 
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -8,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.tencent.qqnt.kernel.api.impl.MsgService
@@ -16,10 +20,25 @@ import com.tencent.qqnt.kernel.nativeinterface.MsgElement
 import com.tencent.qqnt.kernel.nativeinterface.MsgRecord
 import com.tencent.qqnt.kernel.nativeinterface.PicElement
 import com.tencent.qqnt.msg.KernelServiceUtil
+import com.tencent.biz.richframework.util.RFWSaveUtil
+import com.tencent.mobileqq.qroute.QRoute
+import com.tencent.qqnt.kernel.nativeinterface.AddFavEmojiReq
+import com.tencent.qqnt.kernel.nativeinterface.IAddFavEmojiCallback
+import com.tencent.qqnt.kernel.nativeinterface.IOperateCallback
+import com.tencent.qqnt.watch.api.IMsgApi
+import com.tencent.qqnt.watch.contact.api.IContactRuntimeService
 import com.tencent.richframework.widget.matrix.RFWMatrixImageView
+import com.tencent.watch.aio_impl.ui.menu.AIOLongClickMenuFragment
+import com.tencent.watch.aio_impl.ui.menu.MenuItemFactory
+import com.tencent.watch.ime.util.ImeTextUtil
 import loadPicElement
+import download
+import mqq.app.MobileQQ
+import java.io.File
 import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.child
+import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.style.MyImageView
 import momoi.mod.qqpro.hook.view.MyDialogFragment
 import momoi.mod.qqpro.lib.FILL
@@ -33,6 +52,7 @@ import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.id
 import momoi.mod.qqpro.lib.layoutParams
 import momoi.mod.qqpro.lib.linearLayout
+import momoi.mod.qqpro.lib.longClickable
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.paddingHorizontal
@@ -42,8 +62,11 @@ import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
 import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.width
+import momoi.mod.qqpro.msg.getImageUrl
 import momoi.mod.qqpro.removeAfter
 import momoi.mod.qqpro.showDialog
+import momoi.mod.qqpro.showFragment
+import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.util.linkify
 import momoi.mod.qqpro.util.runOnUi
 
@@ -67,6 +90,162 @@ class BigImageFragment(private val pic: PicElement) : MyDialogFragment() {
                     }
             }
     }
+}
+
+/**
+ * Show the native long-press menu (the same [AIOLongClickMenuFragment] normal chat uses) for a
+ * message inside the forward-history view, with the given menu items. Because these messages are
+ * not backed by a real on-screen cell, the actions are performed by our [onItem] callback rather
+ * than the cell's native handler. The 长按菜单调整 Mixin still styles/reorders the menu, and degrades
+ * gracefully (no 撤回 button) since it can't resolve a cell from our callback.
+ */
+// The enum field names are obfuscated in the target APK, but each constant's `name` (the string
+// passed to its constructor) is preserved, so resolve them by name to stay obfuscation-proof.
+private val MENU_COPY = MenuItemFactory.ItemEnum.valueOf("CopyMsg")
+private val MENU_REPEAT = MenuItemFactory.ItemEnum.valueOf("RepeatMsg")
+private val MENU_SAVE_PIC = MenuItemFactory.ItemEnum.valueOf("SavePic")
+private val MENU_SAVE_FAV_EMOJI = MenuItemFactory.ItemEnum.valueOf("SaveFavEmoji")
+private val MENU_SHARE = MenuItemFactory.ItemEnum.valueOf("Share")
+
+private fun View.showHistoryMenu(
+    msgId: Long,
+    items: List<MenuItemFactory.ItemEnum>,
+    onItem: (MenuItemFactory.ItemEnum) -> Unit,
+) {
+    val fragment = AIOLongClickMenuFragment({ onItem(it) }, "pg_watch_long_press_menu")
+    fragment.arguments = Bundle().apply {
+        putLong("key_msg_id", msgId)
+        putStringArrayList("key_item_list", ArrayList(items.map { it.name }))
+    }
+    showFragment(fragment)
+}
+
+private fun copyText(context: Context, text: CharSequence) {
+    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    cm.setPrimaryClip(ClipData.newPlainText("text", text))
+}
+
+private fun savePic(context: Context, pic: PicElement) {
+    val cacheFile = context.externalCacheDir!!.child("${pic.md5HexStr}.jpg")
+    if (cacheFile.exists()) {
+        RFWSaveUtil.a(context, cacheFile.path, null)
+    } else {
+        download(pic.getImageUrl(), cacheFile) { ok ->
+            if (ok) runOnUi { RFWSaveUtil.a(context, cacheFile.path, null) }
+            else Utils.log("savePic: download failed for ${pic.md5HexStr}")
+        }
+    }
+}
+
+/**
+ * Resolve a local file path for [pic]. Prefer QQ's own resolved path; fall back to the file we
+ * already cached when rendering the image in the history view.
+ */
+private fun picLocalPath(context: Context, pic: PicElement): String? {
+    runCatching { WatchPicElementExtKt.C0(pic) }
+        .getOrNull()
+        ?.takeIf { it.isNotEmpty() && File(it).exists() }
+        ?.let { return it }
+    val cacheFile = context.externalCacheDir!!.child("${pic.md5HexStr}.jpg")
+    return cacheFile.takeIf { it.exists() }?.path
+}
+
+private fun fileMd5(file: File): String {
+    val md = java.security.MessageDigest.getInstance("MD5")
+    file.inputStream().use { ins ->
+        val buf = ByteArray(8192)
+        while (true) {
+            val n = ins.read(buf)
+            if (n < 0) break
+            md.update(buf, 0, n)
+        }
+    }
+    return md.digest().joinToString("") { "%02x".format(it) }
+}
+
+/**
+ * Add the image as a favourite emoji (收藏表情). The forwarded [pic]'s own md5/size describe QQ's
+ * original which we never downloaded, so — like Share's createPicElement — we upload the file we
+ * actually have and describe it with its own md5/size to keep the request self-consistent.
+ */
+private fun saveFavEmoji(context: Context, pic: PicElement) {
+    val cacheFile = context.externalCacheDir!!.child("${pic.md5HexStr}.jpg")
+    if (cacheFile.exists()) {
+        doAddFavEmoji(context, cacheFile)
+    } else {
+        download(pic.getImageUrl(), cacheFile) { ok ->
+            if (ok) runOnUi { doAddFavEmoji(context, cacheFile) }
+            else Utils.log("saveFavEmoji: download failed for ${pic.md5HexStr}")
+        }
+    }
+}
+
+private fun doAddFavEmoji(context: Context, file: File) {
+    val md5 = fileMd5(file)
+    val req = AddFavEmojiReq("", 0, file.path, file.length(), file.name, md5, false, true)
+    val msgService = WatchPicElementExtKt.r0().wrapperSession?.msgService
+    if (msgService == null) {
+        Utils.log("saveFavEmoji: msgService null")
+        return
+    }
+    Utils.log("saveFavEmoji: req path=${file.path} size=${file.length()} md5=$md5")
+    msgService.addFavEmoji(req, IAddFavEmojiCallback { code, s, type ->
+        Utils.log("saveFavEmoji result=$code msg=$s type=$type")
+        runOnUi {
+            android.widget.Toast.makeText(
+                context,
+                if (type == 1) "表情已存在" else if (code == 0) "收藏表情成功" else "收藏表情失败",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+    })
+}
+
+/** Forward the image to selected friends (分享), mirroring DefaultMenuHandler.doSharePic. */
+private fun View.sharePic(context: Context, pic: PicElement) {
+    val path = picLocalPath(context, pic) ?: run {
+        Utils.log("sharePic: no local path for ${pic.md5HexStr}")
+        return
+    }
+    val navFragment = WatchPicElementExtKt.W(this)?.let { WatchPicElementExtKt.Y(it) } ?: return
+    val app = MobileQQ.getMobileQQ().peekAppRuntime() ?: return
+    val contactService = app.getRuntimeService(IContactRuntimeService::class.java, "")
+    contactService.startFriendSelect(
+        navFragment,
+        emptyList(),
+        arrayListOf(app.currentUid),
+        "分享",
+        0x7e0805cd, // R.drawable.icon_share
+        1, 10, null, false, true
+    ) { _, friends ->
+        if (friends.isNotEmpty()) {
+            val element = QRoute.api(IMsgApi::class.java).createPicElement(path, 0)
+            friends.forEach { friend ->
+                // jar fields: b = uid, e = isGroup
+                val contact = Contact(if (friend.e) 2 else 1, friend.b, "")
+                MsgUtil.msgService.sendMsg(
+                    contact, 0L, arrayListOf(element),
+                    IOperateCallback { code, msg -> Utils.log("share send result=$code msg=$msg") }
+                )
+            }
+        }
+        kotlin.Unit
+    }
+}
+
+/** Re-send plain text to the currently open chat (the 复读文本 action). */
+private fun repeatText(text: CharSequence) {
+    runCatching {
+        val elements = ImeTextUtil.a.b(text.toString())
+        val contact = Contact(
+            CurrentContact.chatType,
+            CurrentContact.peerUid,
+            CurrentContact.guildId
+        )
+        MsgUtil.msgService.sendMsg(contact, 0L, elements, IOperateCallback { code, msg ->
+            Utils.log("history repeat send result=$code msg=$msg")
+        })
+    }.onFailure { Utils.log("history repeat failed: $it") }
 }
 
 class DetailFragment(private val contact: Contact, private val data: ForwardMsgData) :
@@ -135,11 +314,26 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                     val applyTexts = {
                                         if (textElements.isNotEmpty()) {
                                             group.background(0xFF_515151.toInt())
+                                            val summary = MsgUtil.summary(textElements)
                                             add<TextView>()
                                                 .textSize(14f * Settings.chatScale.value)
                                                 .textColor(0xFF_FFFFFF.toInt())
-                                                .text(MsgUtil.summary(textElements))
-                                                .linkify()
+                                                .text(summary)
+                                                .longClickable {
+                                                    showHistoryMenu(
+                                                        msg.msgId,
+                                                        listOf(MENU_COPY, MENU_REPEAT)
+                                                    ) { item ->
+                                                        when (item) {
+                                                            MENU_COPY ->
+                                                                copyText(group.context, summary)
+                                                            MENU_REPEAT ->
+                                                                repeatText(summary)
+                                                            else -> {}
+                                                        }
+                                                    }
+                                                }
+                                                .apply { linkify() }
                                             textElements.clear()
                                         }
                                     }
@@ -159,14 +353,45 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                                 )
                                             return@forEach
                                         }
-                                        ele.picElement?.let {
+                                        ele.picElement?.let { pic ->
                                             applyTexts()
-                                            add<MyImageView>()
-                                                .size(it.picWidth, it.picHeight)
-                                                .clickable {
-                                                    showDialog(BigImageFragment(it))
+                                            add<FrameLayout>().content {
+                                                val image = add<MyImageView>()
+                                                    .size(pic.picWidth, pic.picHeight)
+                                                    .clickable {
+                                                        showDialog(BigImageFragment(pic))
+                                                    }
+                                                    .longClickable {
+                                                        showHistoryMenu(
+                                                            msg.msgId,
+                                                            listOf(
+                                                                MENU_SAVE_FAV_EMOJI,
+                                                                MENU_SHARE,
+                                                                MENU_SAVE_PIC,
+                                                            )
+                                                        ) { item ->
+                                                            when (item) {
+                                                                MENU_SAVE_FAV_EMOJI ->
+                                                                    saveFavEmoji(group.context, pic)
+                                                                MENU_SHARE ->
+                                                                    sharePic(group.context, pic)
+                                                                MENU_SAVE_PIC ->
+                                                                    savePic(group.context, pic)
+                                                                else -> {}
+                                                            }
+                                                        }
+                                                    }
+                                                // Animated spinner shown until the image finishes loading.
+                                                val progress = add<ProgressBar>()
+                                                progress.layoutParams =
+                                                    FrameLayout.LayoutParams(28.dp, 28.dp, Gravity.CENTER)
+                                                image.loadPicElement(pic) { ok ->
+                                                    progress.visibility = View.GONE
+                                                    if (!ok) Utils.log(
+                                                        "history image load failed md5=${pic.md5HexStr}"
+                                                    )
                                                 }
-                                                .loadPicElement(it)
+                                            }
                                             return@forEach
                                         }
                                         textElements.add(ele)
