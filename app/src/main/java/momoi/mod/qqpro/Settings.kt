@@ -12,6 +12,7 @@ object Settings {
     val blockBack = BooleanPref("blockBack", false)
     val swapCenterKeyboard = BooleanPref("swapCenterKeyboard", false)
     val showGroupAvatar = BooleanPref("showGroupAvatar", false)
+    val inlineSendButton = BooleanPref("inlineSendButton", false)
 
     private val moye = Utils.application.getSharedPreferences("wearqq", 0)
     val text get() = moye.getString("voice_btn_text", "")?.let {

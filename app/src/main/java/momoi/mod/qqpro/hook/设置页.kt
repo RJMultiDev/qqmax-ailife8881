@@ -88,6 +88,11 @@ class 设置页 : SettingsActivity() {
                 "在群聊消息中显示用户头像和两行昵称",
                 Settings.showGroupAvatar
             )
+            switch(
+                "行内发送按钮",
+                "输入页将发送键移到输入框右侧，左侧加关闭键取消发送",
+                Settings.inlineSendButton
+            )
             add<View>()
                 .height(64.dp)
         }
