@@ -62,6 +62,10 @@ The annotation library is in `ApkMixin-annotation/`; the Gradle plugin that does
 - `app/src/main/java/com/tencent/` and `android/` — stub Java files for QQ/AOSP classes that exist in `app/libs/source.jar` (compile-only)
 - `app/mixin/source.apk` — the target QQ APK that gets patched (not committed as source)
 
+## Naming Conventions
+
+- **New class/file names must use English** — do not create new files or classes with Chinese names. Existing Chinese-named files (`版权信息.kt`, `设置页.kt`, etc.) are kept as-is but should not be used as a template for new code.
+
 ## Key Conventions
 
 - **Views are built in Kotlin DSL** (`lib/ViewDSL.kt`, `lib/LinearLayout.kt`, etc.) — no XML layouts exist in this project
