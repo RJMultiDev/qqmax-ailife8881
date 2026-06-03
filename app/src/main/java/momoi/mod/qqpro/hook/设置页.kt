@@ -1,173 +1,239 @@
 package momoi.mod.qqpro.hook
 
 import android.annotation.SuppressLint
+import android.graphics.drawable.ClipDrawable
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup.MarginLayoutParams
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.Switch
+import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
-import androidx.core.content.edit
-import androidx.core.view.forEach
 import androidx.core.widget.doAfterTextChanged
+import com.tencent.widget.Switch
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Pref
 import momoi.mod.qqpro.Settings
-import momoi.mod.qqpro.util.Utils
-import momoi.mod.qqpro.asGroup
-import momoi.mod.qqpro.forEachAll
 import momoi.mod.qqpro.lib.FILL
-import momoi.mod.qqpro.lib.GroupScope
-import momoi.mod.qqpro.lib.LinearScope
+import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.lib.background
-import momoi.mod.qqpro.lib.checked
 import momoi.mod.qqpro.lib.content
-import momoi.mod.qqpro.lib.doAfterSwitch
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.height
+import momoi.mod.qqpro.lib.margin
+import momoi.mod.qqpro.lib.onCheckedChange
+import momoi.mod.qqpro.lib.onProgressChanged
 import momoi.mod.qqpro.lib.padding
+import momoi.mod.qqpro.lib.progressMax
 import momoi.mod.qqpro.lib.text
 import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
 import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.width
 import moye.wearqq.SettingsActivity
+import kotlin.math.roundToInt
+
+private val ACCENT = 0xFF_4FC3F7.toInt()
+private val TRACK_INACTIVE = 0xFF_3A3A3A.toInt()
 
 @Mixin
 class 设置页 : SettingsActivity() {
-    @SuppressLint("ResourceType", "SetTextI18n")
+    @SuppressLint("ResourceType", "SetTextI18n", "UseSwitchCompatOrMaterialCode")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val linear = findViewById<View>(2114521834).parent.parent.asGroup()
-        linear.parent.asGroup().requestFocus()
-        linear.parent.asGroup().forEachAll { view ->
-            if (view is TextView) {
-                val t = view.text?.toString() ?: return@forEachAll
-                if (t.contains("QQPro")) view.text = t.replace("QQPro", "QQ Max")
-            }
+
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(0xFF_121212.toInt())
         }
-        (linear.getChildAt(linear.childCount - 1) as? TextView)?.let {
-            it.text =
-                "禁止删除\"爅峫\"署名或进行商用,否则将会追究\n下面是QQ Max的设置 by java30433\n不准你们骂才羽桃井😭😭"
-            (it.layoutParams as? MarginLayoutParams)?.setMargins(0, 0, 0, 0)
-        }
-        GroupScope(linear).apply {
-            floatInput(
-                "缩放倍数",
-                "重启后生效",
-                Settings.scale
-            )
-            floatInput(
-                "聊天文本缩放",
-                "",
-                Settings.chatScale
-            )
-            switch(
-                "平滑表冠滚动",
-                "表冠划起来没动画开这个",
-                Settings.enableSmoothScroll
-            )
-            switch(
-                "屏蔽返回键",
-                "用于米兔等会将右滑当作返回的手表",
-                Settings.blockBack
-            )
-            switch(
-                "输入键居中",
-                "在聊天页面将输入键居中放置",
-                Settings.swapCenterKeyboard
-            )
-            add<TextView>()
-                .text("══ AILIFE的模组 ══")
-                .textSize(11f)
-                .textColor(0xFF_888888)
-                .padding(4.dp)
-            switch(
-                "群聊显示头像",
-                "在群聊消息中显示用户头像和两行昵称",
-                Settings.showGroupAvatar
-            )
-            switch(
-                "合并连续消息头",
-                "同一人连发多条时，只在第一条显示头像和昵称",
-                Settings.hideRepeatedSender
-            )
-            switch(
-                "行内发送按钮",
-                "输入页将发送键移到输入框右侧，左侧加关闭键取消发送",
-                Settings.inlineSendButton
-            )
-            switch(
-                "聊天页直接输入",
-                "在聊天页用输入框替换键盘键，有文字时麦克风键变发送键",
-                Settings.inlineChatInput
-            )
-            switch(
-                "返回先回首页",
-                "不在首页时按返回先滑回第一页，已在首页才退出",
-                Settings.backToFirstPage
-            )
+        val root = LinearLayout(this)
+            .vertical()
+            .padding(10.dp)
+        scroll.addView(root, FILL, WRAP)
+        setContentView(scroll)
+
+        root.content {
+            section("NWear QQ 设置", "基础版 by 爅峫")
+            switch("单行输入", "输入框固定为单行显示", Settings.singleLineInput)
+            switch("图片随消息发送", "发送文字时一并发送已选图片", Settings.sendWithImage)
+            switch("回复带艾特", "回复消息时自动艾特对方", Settings.replyWithAt)
+            switch("双击朗读", "双击消息朗读文本", Settings.doubleSpeak)
+            switch("双击回复", "双击消息进入回复", Settings.doubleReply)
+            switch("允许通知", "允许显示消息通知", Settings.allowNotification)
+            switch("常驻通知", "保留常驻通知（更耗电）", Settings.residentNotification)
+            switch("震动提醒", "新消息时震动提醒", Settings.allowVibrate)
+            textInput("语音键文字", "聊天页语音键上显示的文字", Settings.voiceBtnText)
+
+            section("QQ Pro 设置", "增强版 by java30433")
+            slider("缩放倍数", "整体界面缩放，重启后生效", Settings.scale)
+            slider("聊天文本缩放", "聊天气泡内文字大小", Settings.chatScale)
+            switch("平滑表冠滚动", "表冠滚动没有动画时开启", Settings.enableSmoothScroll)
+            switch("屏蔽返回键", "用于把右滑当作返回的手表（如米兔）", Settings.blockBack)
+            switch("输入键居中", "在聊天页面将输入键居中放置", Settings.swapCenterKeyboard)
+
+            section("QQ Max 设置", "终极版 by AILIFE")
+            switch("群聊显示头像", "在群聊消息中显示用户头像和两行昵称", Settings.showGroupAvatar)
+            switch("合并连续消息头", "同一人连发多条时，只在第一条显示头像和昵称", Settings.hideRepeatedSender)
+            switch("行内发送按钮", "输入页将发送键移到输入框右侧，左侧加关闭键取消发送", Settings.inlineSendButton)
+            switch("聊天页直接输入", "在聊天页用输入框替换键盘键，有文字时麦克风键变发送键", Settings.inlineChatInput)
+            switch("返回先回首页", "不在首页时按返回先滑回第一页，已在首页才退出", Settings.backToFirstPage)
+
             add<View>()
                 .height(64.dp)
         }
     }
 
-    private fun GroupScope.switch(
-        title: String,
-        desc: String = "",
-        pref: Pref<Boolean>
-    ) {
-        baseEntry(title, desc) {
-            add<Switch>()
-                .checked(pref.value)
-                .weight(0.6f)
-                .doAfterSwitch {
-                    pref.value = it
-                }
-        }
+    private fun GroupScopeFix.section(title: String, subtitle: String) {
+        add<TextView>()
+            .text(title)
+            .textSize(15f)
+            .textColor(ACCENT)
+            .padding(left = 4.dp, top = 14.dp, right = 4.dp, bottom = 0.dp)
+        add<TextView>()
+            .text(subtitle)
+            .textSize(10f)
+            .textColor(0xFF_888888)
+            .padding(left = 4.dp, top = 0.dp, right = 4.dp, bottom = 6.dp)
     }
-    private fun GroupScope.floatInput(
+
+    private fun GroupScopeFix.switch(
         title: String,
-        desc: String = "",
-        pref: Pref<Float>
-    ) {
-        baseEntry(title, desc) {
-            add<EditText>()
-                .text(pref.value.toString())
-                .textSize(13f)
-                .textColor(0xFF_FFFFFF)
-                .weight(1f)
-                .doAfterTextChanged {
-                    pref.value = it.toString().toFloatOrNull() ?: pref.value
-                }
+        desc: String,
+        pref: Pref<Boolean>
+    ) = card { card ->
+        card.content {
+            titleColumn(title, desc).weight(1f)
+            // The base app's own switch — the nicer styled toggle used by the native NWear settings.
+            val sw = Switch(this@设置页, null)
+            sw.isChecked = pref.value
+            sw.onCheckedChange { pref.value = it }
+            add(sw)
         }
     }
 
-    private fun GroupScope.baseEntry(
+    private fun GroupScopeFix.textInput(
         title: String,
-        desc: String = "",
-        content: LinearScope.() -> Unit
-    ) {
-        add<LinearLayout>()
-            .width(FILL)
-            .background(0xFF_242424)
-            .padding(4.dp)
-            .content {
-                add<LinearLayout>()
-                    .vertical()
-                    .weight(1f)
-                    .content {
-                        add<TextView>()
-                            .text(title)
-                            .textSize(13f)
-                            .textColor(0xFF_FFFFFF)
-                        add<TextView>()
-                            .text(desc)
-                            .textSize(11f)
-                            .textColor(0xFF_a1a1a1)
-                    }
-                content.invoke(this)
+        desc: String,
+        pref: Pref<String>
+    ) = card { card ->
+        card.content {
+            titleColumn(title, desc).weight(1f)
+            add<EditText>()
+                .text(pref.value)
+                .textSize(13f)
+                .textColor(0xFF_FFFFFF)
+                .width(110.dp)
+                .doAfterTextChanged { pref.value = it?.toString() ?: "" }
+        }
+    }
+
+    /** Value slider rendered full-width below the title row, for watch use. */
+    private fun GroupScopeFix.slider(
+        title: String,
+        desc: String,
+        pref: Pref<Float>,
+        min: Float = 0.1f,
+        max: Float = 1.2f
+    ) = card { card ->
+        card.vertical()
+        lateinit var valueLabel: TextView
+        card.content {
+            add<LinearLayout>()
+                .width(FILL)
+                .content {
+                    titleColumn(title, desc).weight(1f)
+                    valueLabel = add<TextView>()
+                        .text(format(pref.value))
+                        .textSize(14f)
+                        .textColor(ACCENT)
+                        .gravity(Gravity.CENTER_VERTICAL)
+                }
+        }
+        val steps = ((max - min) * 100).roundToInt()
+        val seek = mdSeekBar()
+            .progressMax(steps)
+            .onProgressChanged { p, fromUser ->
+                val v = min + p / 100f
+                valueLabel.text = format(v)
+                if (fromUser) pref.value = v
             }
+        seek.progress = ((pref.value - min) * 100).roundToInt().coerceIn(0, steps)
+        card.addView(seek, LinearLayout.LayoutParams(FILL, 36.dp).apply {
+            topMargin = 4.dp
+        })
+    }
+
+    /** Stock SeekBar dressed up MD3-style: thin rounded two-tone track + vertical pill thumb. */
+    private fun mdSeekBar(): SeekBar {
+        val trackH = 2.dp
+        val inactive = GradientDrawable().apply {
+            setColor(TRACK_INACTIVE)
+            cornerRadius = trackH / 2f
+            setSize(0, trackH)
+        }
+        val activeShape = GradientDrawable().apply {
+            setColor(ACCENT)
+            cornerRadius = trackH / 2f
+            setSize(0, trackH)
+        }
+        val active = ClipDrawable(activeShape, Gravity.START, ClipDrawable.HORIZONTAL)
+        val progress = LayerDrawable(arrayOf(inactive, active)).apply {
+            setId(0, android.R.id.background)
+            setId(1, android.R.id.progress)
+        }
+        // MD3 vertical pill thumb: taller than wide, fully rounded.
+        val thumbW = 5.dp
+        val thumbH = 22.dp
+        val thumb = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(ACCENT)
+            cornerRadius = thumbW / 2f
+            setSize(thumbW, thumbH)
+        }
+        return SeekBar(this@设置页).apply {
+            progressDrawable = progress
+            setThumb(thumb)
+            thumbOffset = 0
+            val v = thumbH / 2
+            setPadding(10.dp, v, 10.dp, v)
+        }
+    }
+
+    private fun format(v: Float) = String.format("%.2f", v)
+
+    private fun GroupScopeFix.titleColumn(title: String, desc: String): LinearLayout {
+        val column = add<LinearLayout>().vertical()
+        column.content {
+            add<TextView>()
+                .text(title)
+                .textSize(13f)
+                .textColor(0xFF_FFFFFF)
+            if (desc.isNotEmpty()) {
+                add<TextView>()
+                    .text(desc)
+                    .textSize(10f)
+                    .textColor(0xFF_A1A1A1)
+            }
+        }
+        return column
+    }
+
+    /** A rounded dark card row with consistent margins. */
+    private inline fun GroupScopeFix.card(block: (LinearLayout) -> Unit) {
+        val card = add<LinearLayout>()
+            .width(FILL)
+            .padding(12.dp)
+        card.background(GradientDrawable().apply {
+            setColor(0xFF_242424.toInt())
+            cornerRadius = 14.dp.toFloat()
+        })
+        card.margin(top = 0.dp, bottom = 8.dp)
+        block(card)
     }
 }
+
+private typealias GroupScopeFix = momoi.mod.qqpro.lib.LinearScope

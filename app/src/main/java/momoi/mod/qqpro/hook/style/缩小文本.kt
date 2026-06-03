@@ -1,5 +1,6 @@
 package momoi.mod.qqpro.hook.style
 
+import android.util.TypedValue
 import android.view.View
 import android.widget.TextView
 import androidx.core.view.forEach
@@ -8,9 +9,11 @@ import androidx.lifecycle.LifecycleOwner
 import com.tencent.watch.aio_impl.data.WatchAIOMsgItem
 import com.tencent.watch.aio_impl.ui.cell.base.BaseWatchItemCell
 import com.tencent.watch.aio_impl.ui.widget.AIOCellGroupWidget
+import me.jessyan.autosize.AutoSizeConfig
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.asGroupOrNull
+import momoi.mod.qqpro.util.Utils
 
 @Mixin
 abstract class 缩小文本 : BaseWatchItemCell<WatchAIOMsgItem, View>() {
@@ -31,7 +34,23 @@ abstract class 缩小文本 : BaseWatchItemCell<WatchAIOMsgItem, View>() {
     }
     fun resize(view: View) {
         if (view is TextView && view.currentTextColor == 0xFF_FFFFFF.toInt()) {
-            view.textSize = 15f * Settings.chatScale.value
+            // Size in absolute px against AutoSize's stable target scaledDensity rather than the
+            // view's ambient scaledDensity. Visiting the Settings activity can leave the shared
+            // displayMetrics at a stale density; using SP would then make chat text shrink until a
+            // restart. Computing px from the config keeps the size correct regardless. (We must NOT
+            // re-adapt the activity at runtime — that desyncs the conversation list RecyclerView.)
+            view.setTextSize(TypedValue.COMPLEX_UNIT_PX, chatTextPx(15f * Settings.chatScale.value))
         }
+    }
+
+    private fun chatTextPx(sp: Float): Float {
+        val cfg = AutoSizeConfig.getInstance()
+        val designWidthDp = cfg.designWidthInDp.toFloat()
+        if (designWidthDp <= 0f || cfg.screenWidth <= 0 || cfg.initDensity <= 0f) {
+            return sp * Utils.application.resources.displayMetrics.scaledDensity
+        }
+        val targetDensity = cfg.screenWidth / designWidthDp
+        val targetScaledDensity = cfg.initScaledDensity / cfg.initDensity * targetDensity
+        return sp * targetScaledDensity
     }
 }
