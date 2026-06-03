@@ -8,6 +8,7 @@ import android.content.res.Resources
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import com.tencent.qphone.base.util.QLog
 import com.tencent.mobileqq.utils.TimeFormatterUtils
 import androidx.core.net.toUri
 
@@ -34,6 +35,11 @@ object Utils {
 
     fun log(msg: String) {
         Log.e("QQ Max", msg)
+        // This watch ROM strips app android.util.Log; QLog reliably reaches logcat
+        try {
+            QLog.e("QQ Max", 1, msg)
+        } catch (e: Throwable) {
+        }
     }
 
     val heightPixels = Resources.getSystem().displayMetrics.heightPixels

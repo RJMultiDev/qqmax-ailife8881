@@ -10,6 +10,7 @@ object Settings {
     val chatScale = FloatPref("chatScale", 0.93f)
     val enableSmoothScroll = BooleanPref("enableSmoothScroll", false)
     val blockBack = BooleanPref("blockBack", false)
+    val backToFirstPage = BooleanPref("backToFirstPage", false)
     val swapCenterKeyboard = BooleanPref("swapCenterKeyboard", false)
     val showGroupAvatar = BooleanPref("showGroupAvatar", false)
     val hideRepeatedSender = BooleanPref("hideRepeatedSender", false)

@@ -103,6 +103,11 @@ class 设置页 : SettingsActivity() {
                 "在聊天页用输入框替换键盘键，有文字时麦克风键变发送键",
                 Settings.inlineChatInput
             )
+            switch(
+                "返回先回首页",
+                "不在首页时按返回先滑回第一页，已在首页才退出",
+                Settings.backToFirstPage
+            )
             add<View>()
                 .height(64.dp)
         }
