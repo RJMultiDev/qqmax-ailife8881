@@ -72,6 +72,16 @@ class 设置页 : SettingsActivity() {
                 "在聊天页面将输入键居中放置",
                 Settings.swapCenterKeyboard
             )
+            add<TextView>()
+                .text("══ AILIFE的模组 ══")
+                .textSize(11f)
+                .textColor(0xFF_888888)
+                .padding(4.dp)
+            switch(
+                "群聊显示头像",
+                "在群聊消息中显示用户头像和两行昵称",
+                Settings.showGroupAvatar
+            )
             add<View>()
                 .height(64.dp)
         }
