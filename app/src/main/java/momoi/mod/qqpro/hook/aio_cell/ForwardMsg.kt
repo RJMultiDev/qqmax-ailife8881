@@ -194,11 +194,10 @@ private fun doAddFavEmoji(context: Context, file: File) {
     msgService.addFavEmoji(req, IAddFavEmojiCallback { code, s, type ->
         Utils.log("saveFavEmoji result=$code msg=$s type=$type")
         runOnUi {
-            android.widget.Toast.makeText(
+            Utils.toast(
                 context,
-                if (type == 1) "表情已存在" else if (code == 0) "收藏表情成功" else "收藏表情失败",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
+                if (type == 1) "表情已存在" else if (code == 0) "收藏表情成功" else "收藏表情失败"
+            )
         }
     })
 }

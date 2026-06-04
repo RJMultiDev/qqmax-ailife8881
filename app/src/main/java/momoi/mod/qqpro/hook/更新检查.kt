@@ -1,10 +1,10 @@
 package momoi.mod.qqpro.hook
 
 import android.os.Bundle
-import android.widget.Toast
 import com.tencent.qqnt.watch.mainframe.MainActivity
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.api.Http
+import momoi.mod.qqpro.util.Utils
 
 @Mixin
 class 更新检查 : MainActivity() {
@@ -14,7 +14,7 @@ class 更新检查 : MainActivity() {
             val split = it.split("@", limit = 2)
             if (split[0].toInt() > VERSION_CODE) {
                 runOnUiThread {
-                    Toast.makeText(this, split[1], Toast.LENGTH_LONG).show()
+                    Utils.toast(this, split[1], longDuration = true)
                 }
             }
         }

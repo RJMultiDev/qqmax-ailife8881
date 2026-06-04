@@ -111,6 +111,14 @@ private fun process(group: ViewGroup, msg: MsgRecord?, dismiss: () -> Unit) {
         ?.mapNotNull { it.textElement?.content }
         ?.joinToString("")
         ?.takeIf { it.isNotBlank() }
+    // 原生"复制文本"用 android.widget.Toast 提示"已复制"，在超大 DPI 下显示异常。
+    // 改为自己处理复制并用 QQ 原生 toast 提示。
+    if (fwdText != null) {
+        items["复制文本"]?.setOnClickListener {
+            Utils.copyToClipboard(it.context, fwdText)
+            dismiss()
+        }
+    }
     Utils.log("menu inject: hasShare=$hasShare fwdText=${fwdText?.take(20)} elems=${msg?.elements?.map { it.elementType }}")
     if (!hasShare && fwdText != null) {
         // Clone the native menu item layout (icon + desc + switch) so it matches the other items.

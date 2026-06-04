@@ -7,7 +7,12 @@ import android.content.pm.ApplicationInfo
 import android.content.res.Resources
 import android.net.Uri
 import android.os.Build
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.util.Log
+import android.widget.Toast
+import com.tencent.mobileqq.widget.QQToast
 import com.tencent.qphone.base.util.QLog
 import com.tencent.mobileqq.utils.TimeFormatterUtils
 import androidx.core.net.toUri
@@ -23,6 +28,22 @@ object Utils {
         } catch (e: Exception) {
             false
         }
+
+    /**
+     * Show QQ's native toast (QQToast) instead of Android's [Toast], whose layout
+     * breaks under this watch ROM's ultra-large DPI.
+     */
+    fun toast(context: Context, text: CharSequence, longDuration: Boolean = false) {
+        val duration = if (longDuration) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+        QQToast.i(context, text, duration).l()
+    }
+
+    /** Copy [text] to the system clipboard and show a native QQ toast (no Android toast). */
+    fun copyToClipboard(context: Context, text: CharSequence, toastText: CharSequence = "已复制") {
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText("label", text))
+        toast(context, toastText)
+    }
 
     fun formatTime(timestamp: Long): CharSequence =
         TimeFormatterUtils.a(application, 3, timestamp, true, true)!!
