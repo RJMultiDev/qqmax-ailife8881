@@ -21,6 +21,7 @@ import download
 import momoi.mod.qqpro.Colors
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.child
+import momoi.mod.qqpro.hook.action.CurrentGroupMembers
 import momoi.mod.qqpro.hook.action.SelfContact
 import momoi.mod.qqpro.lib.RadiusBackgroundSpan
 import momoi.mod.qqpro.lib.dp
@@ -67,7 +68,9 @@ fun MemberInfo.levelTagSpan(): CharSequence {
             RelativeSizeSpan(0.8f)
         ) {
             append("LV")
-            append(memberLevel.toString())
+            // memberLevel from the member-list APIs is never populated; prefer
+            // the real level fetched via getMemberExtInfo (keyed by uin).
+            append((CurrentGroupMembers.levels[uin] ?: memberLevel).toString())
             if (!memberSpecialTitle.isNullOrEmpty()) {
                 append(" $memberSpecialTitle")
             } else {

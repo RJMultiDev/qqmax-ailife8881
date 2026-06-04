@@ -54,11 +54,21 @@ object Utils {
         Log.e("QQQQQQQQQQ", "debugger!")
     }
 
+    private val debugLogFile by lazy {
+        java.io.File(application.externalCacheDir, "qqpro_debug.log")
+    }
+
     fun log(msg: String) {
         Log.e("QQ Max", msg)
         // This watch ROM strips app android.util.Log; QLog reliably reaches logcat
         try {
             QLog.e("QQ Max", 1, msg)
+        } catch (e: Throwable) {
+        }
+        // QLog output is gated by UIN_REPORTLOG_LEVEL and may be dropped, so also
+        // persist to a file we can `adb pull` regardless of logcat gating.
+        try {
+            debugLogFile.appendText("${System.currentTimeMillis()} $msg\n")
         } catch (e: Throwable) {
         }
     }
