@@ -86,6 +86,8 @@ class 设置页 : SettingsActivity() {
             switch("识别无前缀链接", "同时识别不带 http(s):// 的网址，如 example.com/x", Settings.wideUrlMatch)
             switch("链接预览", "消息含链接时尝试解析网站图标、标题与简介，显示在消息下方", Settings.enableLinkPreview)
             slider("气泡圆角半径", "聊天气泡、合并转发/聊天记录块与回复块的圆角半径(dp)", Settings.bubbleCornerRadius, min = 0f, max = 24f)
+            textInput("我的气泡颜色", "16进制如 #2B6CF6，留空为默认", Settings.bubbleColorSelf)
+            textInput("对方气泡颜色", "16进制如 #2B6CF6，留空为默认", Settings.bubbleColorOther)
 
             add<View>()
                 .height(64.dp)
@@ -125,13 +127,16 @@ class 设置页 : SettingsActivity() {
         desc: String,
         pref: Pref<String>
     ) = card { card ->
+        // Full-width input below the title/description — the right-aligned field is too
+        // narrow to use on the watch screen.
+        card.vertical()
         card.content {
-            titleColumn(title, desc).weight(1f)
+            titleColumn(title, desc).width(FILL)
             add<EditText>()
                 .text(pref.value)
                 .textSize(13f)
                 .textColor(0xFF_FFFFFF)
-                .width(110.dp)
+                .width(FILL)
                 .doAfterTextChanged { pref.value = it?.toString() ?: "" }
         }
     }

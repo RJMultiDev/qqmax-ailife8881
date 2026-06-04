@@ -35,6 +35,10 @@ object Settings {
     // Rounded-corner radius (in dp) for chat bubbles, the merged-forward/chat-history
     // blocks and the reply block. 0 = square.
     val bubbleCornerRadius = FloatPref("bubbleCornerRadius", 10f)
+    // Override chat-bubble fill color, as a hex string (#RRGGBB or #AARRGGBB / with or
+    // without the leading #). Blank keeps the original bubble color (sampled per side).
+    val bubbleColorSelf = StringPref("bubbleColorSelf", "")
+    val bubbleColorOther = StringPref("bubbleColorOther", "")
 
     // ===== NWear QQ 设置 (by 爅峫) — backed by the base app's "wearqq" prefs =====
     val singleLineInput = WearBooleanPref("single_line_input", false)
@@ -70,6 +74,13 @@ class FloatPref(private val key: String, def: Float) :
     Pref<Float>(Settings.sp.getFloat(key, def)) {
     override fun set(value: Float) = Settings.sp.edit {
         putFloat(key, value)
+    }
+}
+
+class StringPref(private val key: String, def: String) :
+    Pref<String>(Settings.sp.getString(key, def) ?: def) {
+    override fun set(value: String) = Settings.sp.edit {
+        putString(key, value)
     }
 }
 
