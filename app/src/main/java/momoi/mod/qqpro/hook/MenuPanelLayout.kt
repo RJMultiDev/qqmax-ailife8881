@@ -19,6 +19,7 @@ import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.drawable.videoIconDrawable
 import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.hook.style.cardMargin
+import momoi.mod.qqpro.hook.view.CallConfirmFragment
 import momoi.mod.qqpro.lib.clickable
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.dpf
@@ -86,8 +87,22 @@ class MenuPanelLayout(p0: (Int) -> Unit, p1: Boolean) : MenuFrame(p0, p1) {
             marginStart = 12.dp
         }
 
-        // Make the whole row tappable by forwarding to the icon's existing click handler.
-        ll.clickable { icon.performClick() }
+        // Voice / video calls go through a confirmation first to avoid accidental triggers;
+        // everything else forwards the tap straight to the icon's existing handler.
+        val label0 = label.text?.toString().orEmpty()
+        if (label0.contains("通话")) {
+            icon.isClickable = false
+            ll.clickable { confirmCall(icon, label0) }
+        } else {
+            ll.clickable { icon.performClick() }
+        }
+    }
+
+    private fun confirmCall(action: View, label: String) {
+        runCatching {
+            CallConfirmFragment("确定要发起$label 吗？", action)
+                .show(parentFragmentManager, "qqpro_call_confirm")
+        }.onFailure { Utils.log("call confirm show failed: $it") }
     }
 
     private fun iconFor(text: String) = when {
