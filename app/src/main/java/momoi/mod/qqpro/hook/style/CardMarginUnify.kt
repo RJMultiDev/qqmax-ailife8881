@@ -11,6 +11,7 @@ import com.tencent.qqnt.watch.troop.ui.member.ui.GroupMemberFragment
 import com.tencent.qqnt.watch.troop.ui.setting.TroopSettingFragment
 import com.tencent.qqnt.watch.selftab.ui.edit.EditAvatarFragment
 import com.tencent.qqnt.watch.selftab.ui.edit.SelfEditProfileFragment
+import com.tencent.qqnt.watch.ui.componet.select.SelectDialogFragment
 import com.tencent.watch.aio_impl.ui.frames.SettingFrame
 import com.tencent.watch.ime.input.ChooseInputFragment
 import momoi.anno.mixin.Mixin
@@ -167,6 +168,28 @@ class ChooseInputMargins : ChooseInputFragment() {
         val root = super.Y(p0, p1, p2)!!
         (root as? ViewGroup)?.normalizeListCards()
         Utils.log("CardMarginUnify: input picker normalized")
+        return root
+    }
+}
+
+/**
+ * Long-press选择弹窗 (conversation long-press: 删除 / 置顶 / 免打扰, and similar AbsItem lists).
+ * Hosts `item_setting_with_switch` cards (4dp XML margins) in `setting_container`; normalize them.
+ * Uses the real `onCreateView` (not obfuscated here) since this is an AndroidX DialogFragment.
+ */
+@Mixin
+// Constructor is never invoked at runtime (ApkMixin copies methods, not constructors); the args
+// here only need to satisfy the super constructor's signature so this compiles.
+class SelectDialogMargins :
+    SelectDialogFragment(emptyList<Any?>(), {}, "", 0) {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        val root = super.onCreateView(inflater, container, savedInstanceState)
+        (root as? ViewGroup)?.normalizeListCards()
+        Utils.log("CardMarginUnify: select dialog normalized")
         return root
     }
 }
