@@ -77,3 +77,9 @@ inline fun <T : View> T.longClickable(crossinline onLongClick: ()->Unit) = apply
 fun <T : View> T.onFocusChange(onChange: (Boolean)->Unit) = apply {
     setOnFocusChangeListener { _, hasFocus -> onChange(hasFocus) }
 }
+
+// Non-inline on purpose (see [onFocusChange]): the OnClickListener SAM impl must
+// live in this package so a @Mixin method body in another package can reach it.
+fun <T : View> T.onClick(onClick: ()->Unit) = apply {
+    setOnClickListener { onClick() }
+}

@@ -39,6 +39,10 @@ object Settings {
     // without the leading #). Blank keeps the original bubble color (sampled per side).
     val bubbleColorSelf = StringPref("bubbleColorSelf", "")
     val bubbleColorOther = StringPref("bubbleColorOther", "")
+    // How much to darken the chat background image for readability.
+    // 0 = original image, 0.9 = almost black. Applied as a black overlay on top
+    // of the picked image. Takes effect the next time a chat is opened.
+    val chatBgDarken = FloatPref("chatBgDarken", 0.35f)
 
     // ===== NWear QQ 设置 (by 爅峫) — backed by the base app's "wearqq" prefs =====
     val singleLineInput = WearBooleanPref("single_line_input", false)

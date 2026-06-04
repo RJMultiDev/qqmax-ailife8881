@@ -1,6 +1,8 @@
 package momoi.mod.qqpro.hook
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Intent
 import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
@@ -26,6 +28,7 @@ import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.height
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.onCheckedChange
+import momoi.mod.qqpro.lib.onClick
 import momoi.mod.qqpro.lib.onProgressChanged
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.progressMax
@@ -34,11 +37,18 @@ import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
 import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.width
+import momoi.mod.qqpro.util.ChatBackground
+import momoi.mod.qqpro.util.Utils
 import moye.wearqq.SettingsActivity
 import kotlin.math.roundToInt
 
 private val ACCENT = 0xFF_4FC3F7.toInt()
 private val TRACK_INACTIVE = 0xFF_3A3A3A.toInt()
+private const val REQ_PICK_CHAT_BG = 0x9B01
+
+// Kept at file scope (not a @Mixin field — those can't have initializers) so
+// onActivityResult can refresh the picker's status text after picking/clearing.
+private var bgStatusLabel: TextView? = null
 
 @Mixin
 class 设置页 : SettingsActivity() {
@@ -88,6 +98,8 @@ class 设置页 : SettingsActivity() {
             slider("气泡圆角半径", "聊天气泡、合并转发/聊天记录块与回复块的圆角半径(dp)", Settings.bubbleCornerRadius, min = 0f, max = 24f)
             textInput("我的气泡颜色", "16进制如 #2B6CF6，留空为默认", Settings.bubbleColorSelf)
             textInput("对方气泡颜色", "16进制如 #2B6CF6，留空为默认", Settings.bubbleColorOther)
+            chatBackgroundPicker()
+            slider("背景变暗程度", "调暗背景图以便看清文字，重进聊天页生效", Settings.chatBgDarken, min = 0f, max = 0.9f)
 
             add<View>()
                 .height(64.dp)
@@ -120,6 +132,79 @@ class 设置页 : SettingsActivity() {
             sw.onCheckedChange { pref.value = it }
             add(sw)
         }
+    }
+
+    private fun updateBgStatus() {
+        bgStatusLabel?.text = if (ChatBackground.isSet()) "已设置背景图片" else "未设置（使用默认背景）"
+    }
+
+    private fun GroupScopeFix.chatBackgroundPicker() = card { card ->
+        card.vertical()
+        card.content {
+            titleColumn("聊天背景图片", "选择一张图片作为聊天页背景").width(FILL)
+            bgStatusLabel = add<TextView>()
+                .textSize(11f)
+                .textColor(0xFF_A1A1A1)
+                .padding(top = 4.dp)
+            updateBgStatus()
+            add<LinearLayout>()
+                .width(FILL)
+                .padding(top = 8.dp)
+                .content {
+                    pillButton("选择图片", ACCENT) { pickChatBackground() }
+                        .weight(1f)
+                        .margin(right = 4.dp)
+                    pillButton("清除", 0xFF_E57373.toInt()) {
+                        ChatBackground.clear()
+                        updateBgStatus()
+                        Utils.toast(this@设置页, "已清除聊天背景")
+                    }.weight(1f).margin(left = 4.dp)
+                }
+        }
+    }
+
+    private fun GroupScopeFix.pillButton(
+        label: String,
+        color: Int,
+        onTap: () -> Unit
+    ): TextView {
+        val btn = add<TextView>()
+            .text(label)
+            .textSize(13f)
+            .textColor(0xFF_FFFFFF)
+            .gravity(Gravity.CENTER)
+            .padding(top = 8.dp, bottom = 8.dp)
+        btn.background(GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = 18.dp.toFloat()
+        })
+        btn.onClick(onTap)
+        return btn
+    }
+
+    private fun pickChatBackground() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "image/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        try {
+            startActivityForResult(Intent.createChooser(intent, "选择背景图片"), REQ_PICK_CHAT_BG)
+        } catch (e: Exception) {
+            Utils.log("pickChatBackground failed: ${e.javaClass.simpleName}: ${e.message}")
+            Utils.toast(this, "无法打开图片选择器")
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQ_PICK_CHAT_BG) return
+        val uri = data?.data
+        if (resultCode == Activity.RESULT_OK && uri != null && ChatBackground.save(this, uri)) {
+            Utils.toast(this, "已设置聊天背景")
+        } else {
+            Utils.toast(this, "设置失败")
+        }
+        updateBgStatus()
     }
 
     private fun GroupScopeFix.textInput(

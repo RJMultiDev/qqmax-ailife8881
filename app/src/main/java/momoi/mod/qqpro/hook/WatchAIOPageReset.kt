@@ -1,8 +1,11 @@
 package momoi.mod.qqpro.hook
 
+import android.os.Bundle
+import android.view.View
 import com.tencent.watch.aio_impl.ui.WatchAIOFragment
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.hook.action.GalleryMultiSelectState
+import momoi.mod.qqpro.util.ChatBackground
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -12,6 +15,17 @@ import momoi.mod.qqpro.util.Utils
  */
 @Mixin
 class WatchAIOPageReset : WatchAIOFragment() {
+    // The base WatchFragment builds a full-screen background ImageView (field `d`)
+    // behind the chat pages, normally showing R.drawable.bg_blue2white. If the user
+    // picked a custom chat background, swap that image in (darkened for readability).
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        if (ChatBackground.isSet()) {
+            Utils.log("WatchAIOFragment.onViewCreated applying custom chat background, bgView=${this.d}")
+            ChatBackground.applyTo(this.d)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         if (GalleryMultiSelectState.goToChatOnResume) {
