@@ -32,6 +32,9 @@ object Settings {
     // Try to resolve a client-side preview (icon/title/description) for links in
     // messages and show it below the text. Makes a network request per unique link.
     val enableLinkPreview = BooleanPref("enableLinkPreview", true)
+    // Rounded-corner radius (in dp) for chat bubbles, the merged-forward/chat-history
+    // blocks and the reply block. 0 = square.
+    val bubbleCornerRadius = FloatPref("bubbleCornerRadius", 10f)
 
     // ===== NWear QQ 设置 (by 爅峫) — backed by the base app's "wearqq" prefs =====
     val singleLineInput = WearBooleanPref("single_line_input", false)

@@ -175,6 +175,7 @@ object AIOCell {
                     it.height = ViewGroup.LayoutParams.WRAP_CONTENT
                 }
             }
+            BubbleCorner.apply(widget)
             LinkPreview.bind(widget)
         }
     }

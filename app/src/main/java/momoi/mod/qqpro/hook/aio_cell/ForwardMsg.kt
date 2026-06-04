@@ -36,6 +36,7 @@ import java.io.File
 import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.child
+import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.forwardText
 import momoi.mod.qqpro.hook.forwardToFriends
@@ -47,6 +48,7 @@ import momoi.mod.qqpro.lib.clickable
 import momoi.mod.qqpro.lib.content
 import momoi.mod.qqpro.lib.create
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.dpf
 import momoi.mod.qqpro.lib.find
 import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.id
@@ -278,6 +280,11 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                     add<LinearLayout>()
                                         .vertical()
                                         .padding(3.dp)
+                                        // Inset horizontally by ~half the corner radius so the
+                                        // text clears the rounded corners, like the chat bubble.
+                                        .paddingHorizontal(
+                                            maxOf(3.dp, (Settings.bubbleCornerRadius.value * 0.6f).dpf.toInt())
+                                        )
                                         .margin(bottom = 2.dp)
                                         .id(1)
                                 }
@@ -292,7 +299,7 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                     val textElements = mutableListOf<MsgElement>()
                                     val applyTexts = {
                                         if (textElements.isNotEmpty()) {
-                                            group.background(0xFF_515151.toInt())
+                                            group.background(roundCornerDrawable(0xFF_515151.toInt(), Settings.bubbleCornerRadius.value.dpf))
                                             val summary = MsgUtil.summary(textElements)
                                             add<TextView>()
                                                 .textSize(14f * Settings.chatScale.value)
@@ -315,18 +322,19 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                                     }
                                                 }
                                                 .apply { linkify() }
+                                            LinkPreview.bindHistory(group, summary)
                                             textElements.clear()
                                         }
                                     }
                                     msg.elements.forEach { ele ->
                                         ele.replyElement?.let {
-                                            group.background(0xFF_515151.toInt())
+                                            group.background(roundCornerDrawable(0xFF_515151.toInt(), Settings.bubbleCornerRadius.value.dpf))
                                             add<ReplyView>()
                                                 .loadData(contact, it)
                                             return@forEach
                                         }
                                         ele.multiForwardMsgElement?.let {
-                                            group.background(0xFF_515151.toInt())
+                                            group.background(roundCornerDrawable(0xFF_515151.toInt(), Settings.bubbleCornerRadius.value.dpf))
                                             add<ForwardMsgView>()
                                                 .loadData(
                                                     contact,

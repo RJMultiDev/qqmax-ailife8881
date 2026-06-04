@@ -51,13 +51,52 @@ object LinkPreview {
             cards[widget]?.root?.visibility = View.GONE
             return
         }
-        val card = cards.getOrPut(widget) { Card(content!!) }
+        val card = cards.getOrPut(widget) {
+            val c = Card(content!!.context)
+            // Wrap the message text in a vertical column and append the preview below it.
+            val warp = content.warp()
+            warp.addView(c.root, LinearLayout.LayoutParams(FILL, WRAP).apply {
+                topMargin = dp(content.context, 4)
+            })
+            c
+        }
+        // AIOCell.i() resets the content's layout params to WRAP/WRAP on every rebind so a
+        // plain message bubble hugs its text. Once a preview is attached the text lives in
+        // the wrapped column and must fill it, otherwise the bubble shrinks to the text
+        // width when the cell is rebound on scroll-back. Re-assert the column-fill params.
+        (content!!.layoutParams as? LinearLayout.LayoutParams)?.also {
+            it.width = FILL
+            it.height = 0
+            it.weight = 1f
+        } ?: run { content.layoutParams = LinearLayout.LayoutParams(FILL, 0, 1f) }
         card.root.visibility = View.VISIBLE
         card.show(url)
     }
 
-    /** One preview card attached below a cell's content; reused across rebinds. */
-    private class Card(content: TextView) {
+    /**
+     * Add a preview below a freshly-built text view in the merged-forward / chat-history
+     * detail view. Those rows are rebuilt from scratch on every bind (the container is
+     * cleared), so a new card is created each time; the URL [cache] still avoids refetching.
+     */
+    fun bindHistory(container: ViewGroup, text: CharSequence) {
+        if (!Settings.enableLinkPreview.value) return
+        val url = firstUrl(text) ?: return
+        val card = Card(container.context)
+        // The history bubble is WRAP_CONTENT, so MATCH_PARENT would collapse the card to the
+        // text width. Give it an explicit width so the preview stays a consistent, readable
+        // size regardless of how long the message text is.
+        val width = (container.resources.displayMetrics.widthPixels * 0.62f).toInt()
+        container.addView(card.root, LinearLayout.LayoutParams(width, WRAP).apply {
+            topMargin = dp(container.context, 4)
+        })
+        card.show(url)
+    }
+
+    private fun dp(ctx: android.content.Context, v: Int) =
+        (v * ctx.resources.displayMetrics.density).toInt()
+
+    /** One preview card; built standalone and attached by the caller. */
+    private class Card(ctx: android.content.Context) {
         val root: LinearLayout
         private val favicon: ImageView
         private val site: TextView
@@ -67,7 +106,6 @@ object LinkPreview {
         private var boundUrl: String? = null
 
         init {
-            val ctx = content.context
             root = LinearLayout(ctx).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(8), dp(6), dp(8), dp(6))
@@ -125,9 +163,6 @@ object LinkPreview {
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }
             root.addView(image, LinearLayout.LayoutParams(FILL, WRAP).apply { topMargin = dp(4) })
-
-            val warp = content.warp()
-            warp.addView(root, LinearLayout.LayoutParams(FILL, WRAP).apply { topMargin = dp(4) })
         }
 
         fun show(url: String) {

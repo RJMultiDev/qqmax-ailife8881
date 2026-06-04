@@ -85,6 +85,7 @@ class 设置页 : SettingsActivity() {
             switch("点击链接确认", "点击消息中的链接时，弹窗询问是否用浏览器打开", Settings.confirmOpenLink)
             switch("识别无前缀链接", "同时识别不带 http(s):// 的网址，如 example.com/x", Settings.wideUrlMatch)
             switch("链接预览", "消息含链接时尝试解析网站图标、标题与简介，显示在消息下方", Settings.enableLinkPreview)
+            slider("气泡圆角半径", "聊天气泡、合并转发/聊天记录块与回复块的圆角半径(dp)", Settings.bubbleCornerRadius, min = 0f, max = 24f)
 
             add<View>()
                 .height(64.dp)

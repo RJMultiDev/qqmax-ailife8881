@@ -10,11 +10,13 @@ import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Colors
 import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.join
 import momoi.mod.qqpro.lib.background
 import momoi.mod.qqpro.lib.content
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.dpf
 import momoi.mod.qqpro.lib.marginHorizontal
 import momoi.mod.qqpro.lib.paddingHorizontal
 import momoi.mod.qqpro.lib.textColor
@@ -35,8 +37,9 @@ class ReplyView(context: Context) : LinearLayout(context) {
     init {
         this.vertical()
             .marginHorizontal(2.dp)
-            .background(Colors.replyBackground)
-            .paddingHorizontal(2.dp)
+            .background(roundCornerDrawable(Colors.replyBackground, Settings.bubbleCornerRadius.value.dpf))
+            // Inset the text by ~half the corner radius so it clears the rounded corners.
+            .paddingHorizontal(maxOf(2.dp, (Settings.bubbleCornerRadius.value * 0.6f).dpf.toInt()))
             .content {
                 mTvName = add<TextView>()
                     .textSize(10f * Settings.chatScale.value)
