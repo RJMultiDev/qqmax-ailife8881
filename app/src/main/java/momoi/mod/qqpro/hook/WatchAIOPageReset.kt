@@ -3,6 +3,7 @@ package momoi.mod.qqpro.hook
 import android.os.Bundle
 import android.view.View
 import com.tencent.watch.aio_impl.ui.WatchAIOFragment
+import moye.wearqq.IMEOperation
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.hook.action.GalleryMultiSelectState
 import momoi.mod.qqpro.util.ChatBackground
@@ -34,6 +35,17 @@ class WatchAIOPageReset : WatchAIOFragment() {
             // The bundled (R8-minified) ViewPager2 only exposes setCurrentItem(int);
             // the two-arg smoothScroll overload was stripped, so calling it crashes with NoSuchMethodError.
             f?.setCurrentItem(0)
+        }
+        if (GalleryMultiSelectState.pendingOpenIme) {
+            GalleryMultiSelectState.pendingOpenIme = false
+            Utils.log("Gallery WatchAIOFragment.onResume opening IME preview for attached images")
+            // Post so the gallery pop and page state settle before pushing the IME fragment.
+            // Note: we deliberately do NOT switch to the chat page here — staying on the current
+            // (+ panel) page means cancelling the preview leaves the user where they can pick again.
+            view?.post {
+                runCatching { IMEOperation.INSTANCE.openIME() }
+                    .onFailure { Utils.log("Gallery openIME failed: $it") }
+            }
         }
     }
 }

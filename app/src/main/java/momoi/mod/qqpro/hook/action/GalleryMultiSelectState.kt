@@ -8,4 +8,12 @@ package momoi.mod.qqpro.hook.action
 object GalleryMultiSelectState {
     @Volatile
     var goToChatOnResume = false
+
+    /**
+     * Set true after gallery picks attach image(s) to [moye.wearqq.IMEOperation.extraMsg].
+     * When the chat's WatchAIOFragment resumes (after the gallery pops) it opens the input-bar
+     * preview so the user can review and send/cancel — without pre-switching to the chat page.
+     */
+    @Volatile
+    var pendingOpenIme = false
 }

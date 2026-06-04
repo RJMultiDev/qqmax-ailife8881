@@ -13,13 +13,12 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import com.tencent.qqnt.kernel.nativeinterface.Contact
+import com.tencent.qqnt.kernel.nativeinterface.MsgElement
 import com.tencent.qqnt.watch.gallery.GalleryFragment
 import com.tencent.watch.aio_impl.ext.MsgUtil as WatchMsgUtil
-import momoi.mod.qqpro.MsgUtil
+import moye.wearqq.IMEOperation
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.drawable.roundCornerDrawable
-import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.action.GalleryMultiSelectState
 import momoi.mod.qqpro.lib.dp
 
@@ -77,45 +76,45 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
             return
         }
 
-        val contact = Contact(CurrentContact.chatType, CurrentContact.peerUid, CurrentContact.guildId)
-        Utils.log("MultiSelect contact=${CurrentContact.chatType}/${CurrentContact.peerUid}")
         val allItems = fragment.i?.currentList ?: emptyList()
-        Utils.log("MultiSelect allItems=${allItems.size} selectedPaths=${selectedPaths.size}")
         val selectedItems = allItems.filter { selectedPaths.contains(it.c) }
-        Utils.log("MultiSelect selectedItems=${selectedItems.size}")
-        Log.e(HTAG, "GalleryMultiSelect: sending ${selectedItems.size} images")
+        Utils.log("MultiSelect selectedItems=${selectedItems.size}, building image elements")
 
+        val elements = ArrayList<MsgElement>()
         for (item in selectedItems) {
-            Utils.log("MultiSelect building element for ${item.c}")
             try {
-                val element = WatchMsgUtil.a.a(item.c, 0)
-                Utils.log("MultiSelect element built, calling sendMsg")
-                MsgUtil.msgService.sendMsg(contact, arrayListOf(element), null)
-                Log.e(HTAG, "GalleryMultiSelect: sent ${item.c}")
-                Utils.log("MultiSelect sendMsg called for ${item.c}")
+                elements.add(WatchMsgUtil.a.a(item.c, 0))
             } catch (t: Throwable) {
-                Log.e(HTAG, "GalleryMultiSelect: failed ${item.c}: ${t.message}")
-                Utils.log("MultiSelect FAILED ${t.javaClass.simpleName}: ${t.message}")
+                Log.e(HTAG, "GalleryMultiSelect: build failed ${item.c}: ${t.message}")
+                Utils.log("MultiSelect build FAILED ${t.javaClass.simpleName}: ${t.message}")
             }
         }
 
-        Utils.log("MultiSelect calling exitMultiSelectMode")
         exitMultiSelectMode(rv)
-        Utils.log("MultiSelect calling navigateToChatThenPop")
-        navigateToChatThenPop()
-        Utils.log("MultiSelect navigateToChatThenPop returned")
+        attachToImeAndOpen(elements)
     }
 
     // ---- private helpers -------------------------------------------------------
 
-    private fun navigateToChatThenPop() {
-        // Gallery is a separate activity from the chat, so we can't touch the chat ViewPager here.
-        // Signal WatchAIOFragment (chat activity) to switch to the chat page when it resumes.
-        GalleryMultiSelectState.goToChatOnResume = true
-        Utils.log("MultiSelect set goToChatOnResume=true, calling pop()")
-        Log.e(HTAG, "GalleryMultiSelect: calling pop()")
+    /**
+     * Attach the picked image element(s) to the chat input bar's pending list and ask the chat
+     * to open the input-bar preview once the gallery pops. The user then reviews and sends them
+     * as a single message (or cancels). Mirrors QQ's own default image flow, minus the forced
+     * page switch. Any stale pending attachment from a cancelled pick is dropped first so it
+     * cannot ride along with this send.
+     */
+    private fun attachToImeAndOpen(elements: List<MsgElement>) {
+        if (elements.isEmpty()) {
+            Utils.log("Gallery attachToImeAndOpen: no elements, just popping")
+            fragment.pop()
+            return
+        }
+        IMEOperation.extraMsg.clear()
+        IMEOperation.extraMsg.addAll(elements)
+        GalleryMultiSelectState.pendingOpenIme = true
+        Utils.log("Gallery attached ${elements.size} image(s) to IME, popping gallery")
+        Log.e(HTAG, "GalleryMultiSelect: attached ${elements.size} image(s), calling pop()")
         fragment.pop()
-        Utils.log("MultiSelect pop() returned")
     }
 
     private fun enterMultiSelectMode() {
@@ -150,6 +149,8 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
             if (pos < 0) return
             val item = fragment.i?.currentList?.getOrNull(pos) ?: return
             val path = item.c ?: return
+            // Multi-select supports images only (C == 1 means video); videos still send via tap.
+            if (item.C == 1) return
             if (!multiSelectMode) enterMultiSelectMode()
             // consume the ACTION_UP that follows a long-press so the item's click doesn't fire
             interceptNextUp = true
@@ -158,23 +159,35 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
             if (!multiSelectMode) {
-                // Native single-image tap sends straight away and pops the gallery. The native
-                // selector.invoke(0) doesn't reliably switch the chat ViewPager back, so flag the
-                // chat to return to page 0 on resume (same mechanism as multi-select send) when the
-                // tap lands on a real media item.
-                val child = rv.findChildViewUnder(e.x, e.y)
-                if (child != null) {
-                    val pos = rv.getChildAdapterPosition(child)
-                    val item = if (pos >= 0) fragment.i?.currentList?.getOrNull(pos) else null
-                    if (item?.c != null) GalleryMultiSelectState.goToChatOnResume = true
+                val child = rv.findChildViewUnder(e.x, e.y) ?: return false
+                val pos = rv.getChildAdapterPosition(child)
+                val item = if (pos >= 0) fragment.i?.currentList?.getOrNull(pos) else null
+                val path = item?.c ?: return false
+                if (item.C == 1) {
+                    // Video: let the native handler build the (complex) video element and send.
+                    // Drop any stale pending image first so it can't ride along with the video.
+                    IMEOperation.extraMsg.clear()
+                    return false
                 }
-                return false
+                // Image: take over the tap so the send routes through the input-bar preview without
+                // the native selector.invoke(0) that would force-switch to the chat page even on cancel.
+                val element = try {
+                    WatchMsgUtil.a.a(path, 0)
+                } catch (t: Throwable) {
+                    Utils.log("Gallery single image build FAILED: ${t.message}")
+                    return false
+                }
+                // consume this UP so the item's native click (which would send immediately) doesn't fire
+                interceptNextUp = true
+                attachToImeAndOpen(listOf(element))
+                return true
             }
             val child = rv.findChildViewUnder(e.x, e.y) ?: return false
             val pos = rv.getChildAdapterPosition(child)
             if (pos < 0) return false
             val item = fragment.i?.currentList?.getOrNull(pos) ?: return false
             val path = item.c ?: return false
+            if (item.C == 1) return false  // ignore videos in multi-select
             // consume this UP event so the item's default click (open viewer) doesn't fire
             interceptNextUp = true
             toggleSelection(path, rv)
