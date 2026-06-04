@@ -17,6 +17,7 @@ import com.tencent.watch.aio_impl.ui.menu.AIOLongClickMenuFragment
 import com.tencent.watch.aio_impl.ui.menu.MenuItemFactory
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.hook.forwardText
+import momoi.mod.qqpro.hook.forwardMsgRecord
 import momoi.mod.qqpro.asGroup
 import momoi.mod.qqpro.drawable.editIconDrawable
 import momoi.mod.qqpro.forEachAll
@@ -97,12 +98,27 @@ private fun process(group: ViewGroup, msg: MsgRecord?, dismiss: () -> Unit) {
             linear.addView(it, 1)
         }
     }
+    // 我们能用 sendMsg 重发的自包含消息：表情/小黄脸 / 大表情 / 视频 / 语音 / 图片 / giphy / 气泡表情。
+    // 文件 / 合并转发聊天记录 / 群邀请(ark) 无法用重发实现，不提供入口。
+    val forwardable = msg?.elements?.any {
+        it.faceElement != null || it.marketFaceElement != null || it.videoElement != null ||
+            it.pttElement != null || it.picElement != null || it.giphyElement != null ||
+            it.faceBubbleElement != null
+    } == true
     // 图片消息的"分享"就是转发到其它会话，改名为"转发"。
     var hasShare = false
     linear.forEachAll {
         if (it is AppCompatTextView && it.text?.toString() == "分享") {
             it.text = "转发"
             hasShare = true
+        }
+    }
+    // 原生"分享/转发"(图片等)在本表上对部分消息会失败(感叹号)：原图本地文件缺失、秒传不触发。
+    // 对我们能处理的类型，把原生分享行的点击改接到自己的 forwardMsgRecord(下载原图重建后重发)。
+    if (forwardable && hasShare) {
+        items["分享"]?.setOnClickListener {
+            linear.forwardMsgRecord(msg!!)
+            dismiss()
         }
     }
     // 文本消息没有分享按钮。注入一个真正的"转发"(打开好友选择器把文本发到其它会话)，
@@ -125,6 +141,16 @@ private fun process(group: ViewGroup, msg: MsgRecord?, dismiss: () -> Unit) {
         val shareIcon = ContextCompat.getDrawable(linear.context, 0x7e0805cd) // R.drawable.icon_share
         linear.addView(cloneMenuItem(linear, "转发", shareIcon) {
             linear.forwardText(fwdText)
+            dismiss()
+        }, 1)
+    }
+    // 没有原生分享行的可重发类型(视频/表情/语音等)：注入我们自己的"转发"。
+    // 原生 forwardMsg 在本表产品上被网关静默拦截不投递，所以一律走 sendMsg 重发。
+    Utils.log("menu inject: forwardable=$forwardable hasShare=$hasShare fwdTextNull=${fwdText == null}")
+    if (forwardable && !hasShare && fwdText == null) {
+        val shareIcon = ContextCompat.getDrawable(linear.context, 0x7e0805cd) // R.drawable.icon_share
+        linear.addView(cloneMenuItem(linear, "转发", shareIcon) {
+            linear.forwardMsgRecord(msg!!)
             dismiss()
         }, 1)
     }
