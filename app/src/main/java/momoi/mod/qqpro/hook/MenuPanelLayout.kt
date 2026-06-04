@@ -1,5 +1,6 @@
 package momoi.mod.qqpro.hook
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -12,9 +13,11 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.tencent.watch.aio_impl.ui.frames.MenuFrame
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.drawable.cameraIconDrawable
 import momoi.mod.qqpro.drawable.galleryIconDrawable
 import momoi.mod.qqpro.drawable.phoneIconDrawable
+import momoi.mod.qqpro.drawable.recordIconDrawable
 import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.drawable.videoIconDrawable
 import momoi.mod.qqpro.findAll
@@ -50,10 +53,36 @@ class MenuPanelLayout(p0: (Int) -> Unit, p1: Boolean) : MenuFrame(p0, p1) {
         return root
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        handleCaptureResult(requestCode, resultCode, data)
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val list = (view as? ViewGroup)?.findAll { it is RecyclerView } as? RecyclerView
         list?.onChildAttached { restyleCell(it) }
+        // Inject a "录像" item right after 拍照 in the native adapter's data list.
+        list?.let { injectRecordItem(it) }
+    }
+
+    private fun injectRecordItem(list: RecyclerView) {
+        runCatching {
+            val adapter = list.adapter ?: return
+            val field = adapter.javaClass.declaredFields.firstOrNull {
+                List::class.java.isAssignableFrom(it.type)
+            } ?: return
+            field.isAccessible = true
+            @Suppress("UNCHECKED_CAST")
+            val items = field.get(adapter) as? MutableList<com.tencent.watch.aio_impl.ui.frames.MenuItem>
+                ?: return
+            if (items.any { it is RecordMenuItem }) return
+            val camIndex = items.indexOfFirst { it.b().contains("拍") }
+            val at = if (camIndex >= 0) camIndex + 1 else items.size
+            items.add(at, RecordMenuItem(this))
+            adapter.notifyDataSetChanged()
+            Utils.log("MenuPanelLayout: injected 录像 at $at")
+        }.onFailure { Utils.log("MenuPanelLayout: inject 录像 failed: $it") }
     }
 
     private fun restyleCell(cell: View) {
@@ -90,11 +119,17 @@ class MenuPanelLayout(p0: (Int) -> Unit, p1: Boolean) : MenuFrame(p0, p1) {
         // Voice / video calls go through a confirmation first to avoid accidental triggers;
         // everything else forwards the tap straight to the icon's existing handler.
         val label0 = label.text?.toString().orEmpty()
-        if (label0.contains("通话")) {
-            icon.isClickable = false
-            ll.clickable { confirmCall(icon, label0) }
-        } else {
-            ll.clickable { icon.performClick() }
+        when {
+            label0.contains("通话") -> {
+                icon.isClickable = false
+                ll.clickable { confirmCall(icon, label0) }
+            }
+            // 拍照 with in-app camera off → launch the system camera app instead.
+            label0.contains("拍") && !Settings.useInAppCamera.value -> {
+                icon.isClickable = false
+                ll.clickable { launchSystemPhoto(this) }
+            }
+            else -> ll.clickable { icon.performClick() }
         }
     }
 
@@ -106,10 +141,36 @@ class MenuPanelLayout(p0: (Int) -> Unit, p1: Boolean) : MenuFrame(p0, p1) {
     }
 
     private fun iconFor(text: String) = when {
+        text.contains("录") -> recordIconDrawable()
         text.contains("相册") -> galleryIconDrawable()
         text.contains("拍") -> cameraIconDrawable()
         text.contains("视频") -> videoIconDrawable()
         text.contains("语音") || text.contains("通话") -> phoneIconDrawable()
         else -> galleryIconDrawable()
+    }
+}
+
+/**
+ * A panel item that records a video. Inserted after 拍照. When the in-app camera setting is on it
+ * uses the built-in [VideoRecordFragment]; otherwise it falls back to the system camera app.
+ */
+class RecordMenuItem(
+    private val fragment: androidx.fragment.app.Fragment
+) : com.tencent.watch.aio_impl.ui.frames.MenuItem() {
+    override fun a() = 0
+    override fun b() = "录像"
+    override fun d() = 2
+    override fun e() {
+        if (Settings.useInAppCamera.value) {
+            runCatching {
+                momoi.mod.qqpro.hook.view.VideoRecordFragment(fragment)
+                    .show(fragment.parentFragmentManager, "qqpro_video_record")
+            }.onFailure {
+                Utils.log("record: show in-app recorder failed: $it")
+                launchSystemVideo(fragment)
+            }
+        } else {
+            launchSystemVideo(fragment)
+        }
     }
 }

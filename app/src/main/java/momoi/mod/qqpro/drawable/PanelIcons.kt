@@ -134,6 +134,30 @@ fun phoneIconDrawable(): Drawable = svgPathIcon(
     stroke = 1.6f,
 )
 
+/** The video-call icon plus a red record dot — the record-video icon. */
+fun recordIconDrawable(): Drawable = object : Drawable() {
+    private val base = videoIconDrawable()
+    private val red = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF_FF4D4D.toInt()
+        style = Paint.Style.FILL
+    }
+
+    override fun draw(canvas: Canvas) {
+        base.bounds = bounds
+        base.draw(canvas)
+        val b = bounds
+        val s = minOf(b.width(), b.height()).toFloat()
+        // Record dot over the camera body (left-of-center).
+        canvas.drawCircle(b.exactCenterX() - s * 0.16f, b.exactCenterY(), s * 0.10f, red)
+    }
+
+    override fun setAlpha(alpha: Int) { base.alpha = alpha; red.alpha = alpha }
+    override fun setColorFilter(colorFilter: ColorFilter?) {
+        base.colorFilter = colorFilter; red.colorFilter = colorFilter
+    }
+    override fun getOpacity() = PixelFormat.TRANSLUCENT
+}
+
 /** A video camera (rounded body + lens) — the video-call icon (from the supplied SVG, filled). */
 fun videoIconDrawable(): Drawable = svgPathIcon(
     "M16 8C16 6.34315 14.6569 5 13 5H4C2.34315 5 1 6.34315 1 8V16C1 17.6569 2.34315 19 4 19H13C14.6569 19 16 17.6569 16 16V13.9432L21.4188 17.8137C21.7236 18.0315 22.1245 18.0606 22.4576 17.8892C22.7907 17.7178 23 17.3746 23 17V7C23 6.62541 22.7907 6.28224 22.4576 6.11083C22.1245 5.93943 21.7236 5.96854 21.4188 6.18627L16 10.0568V8ZM16.7205 12L21 8.94319V15.0568L16.7205 12ZM13 7C13.5523 7 14 7.44772 14 8V12V16C14 16.5523 13.5523 17 13 17H4C3.44772 17 3 16.5523 3 16V8C3 7.44772 3.44772 7 4 7H13Z",

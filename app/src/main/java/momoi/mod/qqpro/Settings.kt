@@ -25,6 +25,10 @@ object Settings {
     // round watch screen's corners.
     val screenCornerDiameter = FloatPref("screenCornerDiameter", 22f)
     val backToFirstPage = BooleanPref("backToFirstPage", true)
+    // Use the in-app camera for 拍照. When off, launch the system camera app (third-party)
+    // via an intent for photos. Video recording always uses the system app (the in-app
+    // camera can't record video).
+    val useInAppCamera = BooleanPref("useInAppCamera", true)
     // Ask before opening a tapped link in the browser.
     val confirmOpenLink = BooleanPref("confirmOpenLink", true)
     // Also detect links without an http(s):// prefix (e.g. "example.com/x").

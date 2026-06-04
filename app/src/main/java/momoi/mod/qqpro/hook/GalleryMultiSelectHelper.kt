@@ -157,7 +157,19 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
         }
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
-            if (!multiSelectMode) return false
+            if (!multiSelectMode) {
+                // Native single-image tap sends straight away and pops the gallery. The native
+                // selector.invoke(0) doesn't reliably switch the chat ViewPager back, so flag the
+                // chat to return to page 0 on resume (same mechanism as multi-select send) when the
+                // tap lands on a real media item.
+                val child = rv.findChildViewUnder(e.x, e.y)
+                if (child != null) {
+                    val pos = rv.getChildAdapterPosition(child)
+                    val item = if (pos >= 0) fragment.i?.currentList?.getOrNull(pos) else null
+                    if (item?.c != null) GalleryMultiSelectState.goToChatOnResume = true
+                }
+                return false
+            }
             val child = rv.findChildViewUnder(e.x, e.y) ?: return false
             val pos = rv.getChildAdapterPosition(child)
             if (pos < 0) return false
