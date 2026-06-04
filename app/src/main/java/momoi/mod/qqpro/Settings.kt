@@ -25,6 +25,13 @@ object Settings {
     // round watch screen's corners.
     val screenCornerDiameter = FloatPref("screenCornerDiameter", 22f)
     val backToFirstPage = BooleanPref("backToFirstPage", true)
+    // Ask before opening a tapped link in the browser.
+    val confirmOpenLink = BooleanPref("confirmOpenLink", true)
+    // Also detect links without an http(s):// prefix (e.g. "example.com/x").
+    val wideUrlMatch = BooleanPref("wideUrlMatch", true)
+    // Try to resolve a client-side preview (icon/title/description) for links in
+    // messages and show it below the text. Makes a network request per unique link.
+    val enableLinkPreview = BooleanPref("enableLinkPreview", true)
 
     // ===== NWear QQ 设置 (by 爅峫) — backed by the base app's "wearqq" prefs =====
     val singleLineInput = WearBooleanPref("single_line_input", false)

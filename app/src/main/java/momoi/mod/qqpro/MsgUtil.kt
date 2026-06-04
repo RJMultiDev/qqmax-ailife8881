@@ -109,3 +109,13 @@ fun View.showFragment(fragment: androidx.fragment.app.DialogFragment) {
         Random.nextInt().toString()
     )
 }
+
+/** Confirm before opening [url] in the browser, via a full-screen watch dialog. */
+fun View.confirmOpenUrl(url: String) {
+    runCatching {
+        showDialog(momoi.mod.qqpro.hook.view.LinkOpenFragment(url))
+    }.onFailure {
+        // No host fragment to attach to — open directly rather than swallow the tap.
+        momoi.mod.qqpro.util.Utils.openUrl(url)
+    }
+}

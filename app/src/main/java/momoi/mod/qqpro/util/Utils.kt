@@ -50,7 +50,8 @@ object Utils {
     }
 
     fun openUrl(url: String) {
-        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
+        val normalized = if (url.contains("://")) url else "https://$url"
+        val intent = Intent(Intent.ACTION_VIEW, normalized.toUri())
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (intent.resolveActivity(application.packageManager) != null) {
             application.startActivity(intent)

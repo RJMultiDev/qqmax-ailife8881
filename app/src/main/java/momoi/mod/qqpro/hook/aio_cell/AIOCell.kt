@@ -175,6 +175,7 @@ object AIOCell {
                     it.height = ViewGroup.LayoutParams.WRAP_CONTENT
                 }
             }
+            LinkPreview.bind(widget)
         }
     }
 
