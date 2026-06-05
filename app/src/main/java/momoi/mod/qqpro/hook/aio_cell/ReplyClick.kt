@@ -5,6 +5,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.tencent.qqnt.kernel.nativeinterface.ReplyElement
 import com.tencent.watch.aio_impl.ui.widget.AIOCellGroupWidget
 import momoi.mod.qqpro.hook.action.CurrentMsgList
+import momoi.mod.qqpro.hook.view.BubbleTextView
 import momoi.mod.qqpro.hook.view.smoothScrollToStart
 import momoi.mod.qqpro.util.Utils
 
@@ -20,6 +21,8 @@ class ReplyClick(
             return
         }
         finding = true
+        // Remember where we are now and show the back-down button so the user can return here.
+        BubbleTextView.beginJumpUp()
         CurrentMsgList.findMsg(
             seq = reply.replayMsgSeq,
             result = { item ->

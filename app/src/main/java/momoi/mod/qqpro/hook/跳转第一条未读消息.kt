@@ -21,6 +21,7 @@ import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.action.CurrentMsgList
 import momoi.mod.qqpro.hook.action.RecentContacts
+import momoi.mod.qqpro.hook.view.BubbleTextView
 import momoi.mod.qqpro.hook.view.smoothScrollToStart
 import momoi.mod.qqpro.lib.FrameScope
 import momoi.mod.qqpro.lib.background
@@ -70,6 +71,8 @@ class SkipAction(
         if (isClicked) return
         val list = CurrentMsgList.msgList.value
         Utils.log("SkipAction click: count=$count lastUnreadMsg=${lastUnreadMsg != null} listSize=${list.size}")
+        // Remember where we are now and show the back-down button so the user can return here.
+        BubbleTextView.beginJumpUp()
         when {
             lastUnreadMsg != null -> {
                 CurrentMsgList.upwardMsg(CurrentMsgList.getMsgIndex(lastUnreadMsg!!), count) {

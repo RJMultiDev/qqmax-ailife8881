@@ -5,7 +5,9 @@ import android.content.Context
 import android.view.Gravity
 import android.view.View
 import android.widget.TextView
+import androidx.recyclerview.widget.AIOLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.tencent.watch.aio_impl.data.WatchAIOMsgItem
 import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.hook.action.CurrentMsgList
 import momoi.mod.qqpro.lib.dp
@@ -22,6 +24,11 @@ import momoi.mod.qqpro.util.Utils
  *
  * Visibility for the grey back-to-bottom state follows scroll direction (shown while
  * scrolling down, hidden while scrolling up); the blue new-message count is always shown.
+ *
+ * Two-stage return: when the chat is scrolled UP programmatically (tapping a reply source, or
+ * "jump to first unread"), [beginJumpUp] remembers the position we left from and forces this
+ * button visible immediately. The first tap then returns to that remembered position; only the
+ * next tap (no anchor pending) does the native go-to-bottom.
  */
 @SuppressLint("ViewConstructor", "SetTextI18n")
 class BubbleTextView(context: Context) : TextView(context) {
@@ -32,7 +39,12 @@ class BubbleTextView(context: Context) : TextView(context) {
     private var nativeWantsShow = false
     private var isCountMode = false
     private var hiddenByScrollUp = false
+    private var forceShow = false
     private var scrollAttached = false
+
+    // Native installs its own go-to-bottom click; we capture it here and wrap it so the
+    // first tap after a programmatic jump-up returns to the remembered anchor instead.
+    private var delegateClick: OnClickListener? = null
 
     init {
         gravity = Gravity.CENTER
@@ -67,14 +79,69 @@ class BubbleTextView(context: Context) : TextView(context) {
         applyVisibility()
     }
 
+    // Wrap whatever click listener native installs so we can intercept it for the two-stage return.
+    override fun setOnClickListener(l: OnClickListener?) {
+        if (l == null) {
+            delegateClick = null
+            super.setOnClickListener(null)
+            return
+        }
+        delegateClick = l
+        super.setOnClickListener { v -> onBubbleClick(v) }
+    }
+
+    private fun onBubbleClick(v: View?) {
+        val anchor = returnAnchor
+        if (anchor != null) {
+            // First tap of a programmatic jump-up: go back to where we started.
+            returnAnchor = null
+            scrollBackToAnchor(anchor)
+        } else {
+            // No pending anchor: the real go-to-bottom (native behaviour).
+            forceShow = false
+            delegateClick?.onClick(v)
+        }
+    }
+
+    private fun scrollBackToAnchor(anchor: WatchAIOMsgItem) {
+        val rv = runCatching { CurrentMsgList.vb.H }.getOrNull()
+        val idx = CurrentMsgList.getMsgIndex(anchor)
+        if (rv == null || idx < 0) {
+            // Anchor no longer loaded — fall back to going straight to the bottom.
+            forceShow = false
+            delegateClick?.onClick(this)
+            return
+        }
+        rv.smoothScrollToStart(idx)
+        // Keep the button shown; a further tap (now without an anchor) goes to the real bottom.
+        forceShow = true
+        hiddenByScrollUp = false
+        applyVisibility()
+        Utils.log("BubbleTextView returned to anchor index=$idx")
+    }
+
     private fun applyVisibility() {
-        val show = nativeWantsShow && (isCountMode || !hiddenByScrollUp)
+        val show = forceShow || (nativeWantsShow && (isCountMode || !hiddenByScrollUp))
         super.setVisibility(if (show) View.VISIBLE else View.GONE)
+    }
+
+    private fun showForBackDown() {
+        forceShow = true
+        hiddenByScrollUp = false
+        applyVisibility()
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        current = this
         attachScrollListener(0)
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        if (current === this) current = null
+        returnAnchor = null
+        forceShow = false
     }
 
     private fun attachScrollListener(tries: Int) {
@@ -87,20 +154,46 @@ class BubbleTextView(context: Context) : TextView(context) {
         scrollAttached = true
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                // Reaching the real bottom ends the two-stage state and hands control back to native.
+                val lm = recyclerView.layoutManager as? AIOLayoutManager
+                if (lm != null && lm.findLastVisibleItemPosition() >= CurrentMsgList.msgList.value.size - 1) {
+                    if (forceShow) forceShow = false
+                    returnAnchor = null
+                }
                 when {
                     // Scrolling down (towards the latest message) -> allow showing.
                     dy > 4 -> if (hiddenByScrollUp) {
                         hiddenByScrollUp = false
-                        applyVisibility()
                     }
                     // Scrolling up (reading history) -> hide the grey back-to-bottom button.
                     dy < -4 -> if (!hiddenByScrollUp) {
                         hiddenByScrollUp = true
-                        applyVisibility()
                     }
                 }
+                applyVisibility()
             }
         })
         Utils.log("BubbleTextView scroll listener attached")
+    }
+
+    companion object {
+        private var current: BubbleTextView? = null
+
+        // The position we left from on the last programmatic upward jump; the first tap of the
+        // back-down button returns here before the next tap goes to the real bottom.
+        private var returnAnchor: WatchAIOMsgItem? = null
+
+        /**
+         * Call right before a programmatic upward jump (tapping a reply source, or "jump to first
+         * unread"). Remembers the current top-most visible message and forces the back-down button
+         * visible immediately so the user can return.
+         */
+        fun beginJumpUp() {
+            val rv = runCatching { CurrentMsgList.vb.H }.getOrNull() ?: return
+            val pos = (rv.layoutManager as? AIOLayoutManager)?.findFirstVisibleItemPosition() ?: -1
+            returnAnchor = CurrentMsgList.msgList.value.getOrNull(pos)
+            Utils.log("BubbleTextView beginJumpUp anchor pos=$pos set=${returnAnchor != null}")
+            current?.showForBackDown()
+        }
     }
 }
