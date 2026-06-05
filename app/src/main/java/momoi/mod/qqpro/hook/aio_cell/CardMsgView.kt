@@ -9,10 +9,11 @@ import android.widget.TextView
 import com.tencent.qqnt.kernel.nativeinterface.ArkElement
 import loadPicUrl
 import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.confirmOpenUrl
 import momoi.mod.qqpro.hook.openAddSearch
-import momoi.mod.qqpro.hook.style.MyImageView
+import momoi.mod.qqpro.hook.style.heightLimit
 import momoi.mod.qqpro.lib.FILL
-import momoi.mod.qqpro.lib.WRAP
+import momoi.mod.qqpro.lib.adjustViewBounds
 import momoi.mod.qqpro.lib.background
 import momoi.mod.qqpro.lib.clickable
 import momoi.mod.qqpro.lib.content
@@ -51,32 +52,38 @@ class CardMsgView(context: Context) : LinearLayout(context) {
         padding(2.dp)
         content {
             mGeneric = add<LinearLayout>().vertical().width(FILL).content {
-                mTvTitle = add<TextView>()
-                    .textSize(12f * Settings.chatScale.value)
-                    .textColor(0xFF_FFFFFF.toInt())
-                mTvDesc = add<TextView>()
-                    .textSize(10f * Settings.chatScale.value)
-                    .textColor(0xFF_CCCCCC.toInt())
-                mIvPreview = add<ImageView>()
+                // Top row: icon on the LEFT, title + description stacked on the right.
+                add<LinearLayout>()
                     .width(FILL)
-                    .scaleType(ImageView.ScaleType.FIT_XY)
+                    .gravity(Gravity.CENTER_VERTICAL)
+                    .content {
+                        val iconSize = (28f * Settings.chatScale.value).toInt().dp
+                        mIvIcon = add<ImageView>()
+                            .size(iconSize)
+                            .scaleType(ImageView.ScaleType.FIT_CENTER)
+                        add<LinearLayout>().vertical().weight(1f).margin(left = 4.dp).content {
+                            mTvTitle = add<TextView>()
+                                .textSize(12f * Settings.chatScale.value)
+                                .textColor(0xFF_FFFFFF.toInt())
+                            mTvDesc = add<TextView>()
+                                .textSize(10f * Settings.chatScale.value)
+                                .textColor(0xFF_CCCCCC.toInt())
+                        }
+                    }
                 add<View>()
                     .size(width = FILL, height = 1)
                     .background(0xFF_AAAAAA.toInt())
                     .marginVertical(1.dp)
-                add<LinearLayout>()
+                mIvPreview = add<ImageView>()
                     .width(FILL)
-                    .content {
-                        mIvIcon = add<MyImageView>()
-                            .size(WRAP, FILL)
-                            .scaleType(ImageView.ScaleType.CENTER_CROP)
-                        mTvTag = add<TextView>()
-                            .textSize(9f * Settings.chatScale.value)
-                            .textColor(0xFF_FFFFFF.toInt())
-                            .text(" ")
-                            .weight(1f)
-                            .margin(left = 2.dp)
-                    }
+                    .scaleType(ImageView.ScaleType.FIT_CENTER)
+                    .adjustViewBounds()
+                    .apply { maxHeight = heightLimit.toInt() }
+                mTvTag = add<TextView>()
+                    .width(FILL)
+                    .textSize(9f * Settings.chatScale.value)
+                    .textColor(0xFF_FFFFFF.toInt())
+                    .text(" ")
             }
             mContact = add<LinearLayout>().width(FILL).gravity(Gravity.CENTER_VERTICAL).content {
                 val avatarSize = (36f * Settings.chatScale.value).toInt().dp
@@ -121,15 +128,17 @@ class CardMsgView(context: Context) : LinearLayout(context) {
             mTvTitle.text = title
             mTvDesc.visibility = VISIBLE
             mTvDesc.text = desc
-            val icon = data.str("icon")
+            val icon = data.str("icon") ?: data.str("tagIcon")
             if (!icon.isNullOrEmpty()) {
+                mIvIcon.visibility = VISIBLE
                 mIvIcon.loadPicUrl(icon)
+            } else {
+                mIvIcon.visibility = GONE
             }
             val tag = data.str("tag")
             if (!tag.isNullOrEmpty()) {
                 mTvTag.visibility = VISIBLE
                 mTvTag.text = tag
-                mIvIcon.loadPicUrl(data.str("tagIcon"))
             } else {
                 mTvTag.visibility = GONE
             }
@@ -142,7 +151,7 @@ class CardMsgView(context: Context) : LinearLayout(context) {
             }
             clickable {
                 (data.str("jumpUrl") ?: data.str("qqdocurl"))?.let {
-                    Utils.openUrl(it)
+                    this@CardMsgView.confirmOpenUrl(it)
                 }
             }
         } catch (e: Exception) {
