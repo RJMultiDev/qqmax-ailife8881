@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.tencent.watch.aio_impl.ui.frames.MenuFrame
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.drawable.atIconDrawable
 import momoi.mod.qqpro.drawable.audioFileIconDrawable
 import momoi.mod.qqpro.drawable.cameraIconDrawable
 import momoi.mod.qqpro.drawable.galleryIconDrawable
@@ -22,8 +23,11 @@ import momoi.mod.qqpro.drawable.recordIconDrawable
 import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.drawable.videoIconDrawable
 import momoi.mod.qqpro.findAll
+import momoi.mod.qqpro.hook.action.CurrentContact
+import momoi.mod.qqpro.hook.action.isGroup
 import momoi.mod.qqpro.hook.style.cardMargin
 import momoi.mod.qqpro.hook.view.CallConfirmFragment
+import momoi.mod.qqpro.hook.view.MemberPickerFragment
 import momoi.mod.qqpro.lib.clickable
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.dpf
@@ -83,6 +87,8 @@ class MenuPanelLayout(p0: (Int) -> Unit, p1: Boolean) : MenuFrame(p0, p1) {
             items.add(at, RecordMenuItem(this))
             // 音频文件 goes right below 录像.
             items.add(at + 1, AudioMenuItem(this))
+            // @成员 only in group chats; placed at the top of the panel.
+            if (CurrentContact.isGroup) items.add(0, MentionMenuItem(this))
             adapter.notifyDataSetChanged()
             Utils.log("MenuPanelLayout: injected 录像/音频文件 at $at")
         }.onFailure { Utils.log("MenuPanelLayout: inject 录像 failed: $it") }
@@ -144,6 +150,7 @@ class MenuPanelLayout(p0: (Int) -> Unit, p1: Boolean) : MenuFrame(p0, p1) {
     }
 
     private fun iconFor(text: String) = when {
+        text.contains("艾特") -> atIconDrawable()
         text.contains("音频") -> audioFileIconDrawable()
         text.contains("录") -> recordIconDrawable()
         text.contains("相册") -> galleryIconDrawable()
@@ -192,5 +199,23 @@ class AudioMenuItem(
     override fun e() {
         runCatching { launchPickAudio(fragment) }
             .onFailure { Utils.log("audio: launch from menu failed: $it") }
+    }
+}
+
+/**
+ * A panel item (group chats only) that opens a member list to @-mention someone. Picking a
+ * member inserts the @mention into the input box and opens the input method. Shows no
+ * invite/add button — selection only.
+ */
+class MentionMenuItem(
+    private val fragment: androidx.fragment.app.Fragment
+) : com.tencent.watch.aio_impl.ui.frames.MenuItem() {
+    override fun a() = 0
+    override fun b() = "艾特成员"
+    override fun d() = 2
+    override fun e() {
+        runCatching {
+            MemberPickerFragment().show(fragment.parentFragmentManager, "qqpro_member_picker")
+        }.onFailure { Utils.log("mention: show member picker failed: $it") }
     }
 }

@@ -4,6 +4,7 @@ import android.view.View
 import android.view.ViewGroup
 import com.tencent.qqnt.msg.KernelServiceUtil
 import com.tencent.watch.ime.InputMethodFragment
+import moye.wearqq.AtElementArg
 import moye.wearqq.IMEOperation
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.hook.action.CurrentContact
@@ -36,6 +37,12 @@ class InputMethodFragmentHook : InputMethodFragment() {
         if (IMEOperation.extraMsg.isNotEmpty()) {
             switchToChatOnClose = true
             Utils.log("IME send with attachment(s): will switch chat to page 0 on close")
+        } else if (IMEOperation.INSTANCE.extra.any { it is AtElementArg }) {
+            // @成员 send (opened from the member picker): jump to the chat page on close, the same
+            // way image sends do. Only fires on an actual send — J isn't reached when the user backs
+            // out, and an @mention always carries a sendable extra so this won't trigger on a no-op.
+            switchToChatOnClose = true
+            Utils.log("IME send with @mention: will switch chat to page 0 on close")
         }
         super.J(str)
     }
