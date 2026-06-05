@@ -214,13 +214,34 @@ class MixinProcessor(
         if (mixinApkFile.length() != targetApkFile.length()) {
             targetApkFile.copyTo(mixinApkFile, overwrite = true)
         }
-        ZipUtil.addOrReplaceFilesInZip(
-            mixinApkFile,
-            outputDexDir.listFiles()?.associateBy { it.name } ?: emptyMap()
-        )
+        val filesToAdd = buildMap {
+            putAll(outputDexDir.listFiles()?.associateBy { it.name } ?: emptyMap())
+            putAll(collectInjectFiles())
+        }
+        ZipUtil.addOrReplaceFilesInZip(mixinApkFile, filesToAdd)
 
         stopWatchZipToApk.stop()
         lifecycle("Mixin apk written in ${stopWatchZipToApk.elapsed(TimeUnit.MILLISECONDS)}ms")
+    }
+
+    /**
+     * Collects arbitrary files to add/replace in the output APK from the inject directory
+     * (`mixin/<injectDir>`, default `mixin/inject`). The path of each file relative to that
+     * directory becomes its zip entry name, so the tree mirrors the APK root. This is generic:
+     * drop any `assets/...`, `res/...`, `lib/...`, etc. file there to bundle or override it.
+     */
+    private fun collectInjectFiles(): Map<String, File> {
+        val injectRoot = targetApkFile.parentFile.child(extension.injectDir)
+        if (!injectRoot.isDirectory) return emptyMap()
+        val result = injectRoot.walkTopDown()
+            .filter { it.isFile }
+            .associate { file ->
+                injectRoot.toPath().relativize(file.toPath()).toString().replace(File.separatorChar, '/') to file
+            }
+        if (result.isNotEmpty()) {
+            lifecycle("Injecting ${result.size} file(s) from ${injectRoot.absolutePath}: ${result.keys.sorted()}")
+        }
+        return result
     }
 
     private fun createDexRewriter(newClassesDex: DexFile, modifiedClasses: Map<String, ClassDef>): DexRewriter {

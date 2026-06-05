@@ -19,6 +19,15 @@ open class ApkMixinExtension {
     var signing = SigningExtension()
     var useProcessorCountAsThreadCount = false
 
+    /**
+     * Directory (relative to the `mixin/` project subfolder) whose file tree is injected into the
+     * output APK verbatim. Each file's path RELATIVE to this directory becomes the zip entry name,
+     * so the tree mirrors the APK root: e.g. `mixin/inject/assets/foo.zip` → apk `assets/foo.zip`,
+     * `mixin/inject/res/drawable/x.png` → apk `res/drawable/x.png`. Existing entries are replaced.
+     * Lets you bundle/override arbitrary assets or resources without touching the source APK on disk.
+     */
+    var injectDir: String = "inject"
+
     fun output(action: Action<OutputExtension>) {
         action.execute(output)
     }
