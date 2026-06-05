@@ -54,6 +54,12 @@ object AIOCell {
                 loadData(msg.elements.firstNotNullOf { it.arkElement })
             }
         )
+        addHook<StructMsgView>(
+            type = NTMsgType.STRUCT,
+            onBind = { msg, widget ->
+                loadData(msg.elements.firstNotNullOf { it.structMsgElement })
+            }
+        )
     }
 
     inline fun <reified T : View> addHook(
