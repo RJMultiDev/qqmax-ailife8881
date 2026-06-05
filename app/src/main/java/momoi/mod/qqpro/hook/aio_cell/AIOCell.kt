@@ -60,6 +60,13 @@ object AIOCell {
                 loadData(msg.elements.firstNotNullOf { it.structMsgElement })
             }
         )
+        // File transfers (local FILE and group ONLINEFILE) otherwise fall through
+        // to the orange "view on phone" placeholder; render a name + size card.
+        val fileBind: FileMsgView.(MsgRecordEx, AIOCellGroupWidget) -> Unit = { msg, widget ->
+            loadData(msg.elements.firstNotNullOf { it.fileElement })
+        }
+        addHook<FileMsgView>(type = NTMsgType.FILE, onBind = fileBind)
+        addHook<FileMsgView>(type = NTMsgType.ONLINEFILE, onBind = fileBind)
     }
 
     inline fun <reified T : View> addHook(
