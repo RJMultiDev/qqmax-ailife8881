@@ -7,7 +7,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.tencent.qqnt.kernel.nativeinterface.StructMsgElement
 import momoi.mod.qqpro.Settings
-import momoi.mod.qqpro.hook.EXTRA_SEARCH_PREFILL
+import momoi.mod.qqpro.hook.openAddSearch
 import java.lang.ref.WeakReference
 import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.lib.FILL
@@ -77,7 +77,7 @@ class StructMsgView(context: Context) : LinearLayout(context) {
             // group code prefilled (the search also returns groups).
             if (!groupCode.isNullOrEmpty()) {
                 isClickable = true
-                setOnClickListener { openGroupSearch(groupCode) }
+                setOnClickListener { openAddSearch(groupCode, type = 1) }
             } else {
                 setOnClickListener(null)
                 isClickable = false
@@ -85,56 +85,6 @@ class StructMsgView(context: Context) : LinearLayout(context) {
         } catch (e: Exception) {
             Utils.log("StructMsgView error: ${e.message}")
         }
-    }
-
-    private fun openGroupSearch(code: String) {
-        try {
-            // The app's androidx.navigation is obfuscated (Navigation.findNavController
-            // and NavController.navigate are renamed at runtime), so resolve the
-            // NavController from the view-tree tag and call navigate via reflection.
-            val nav = findNavController() ?: run {
-                Utils.log("openGroupSearch: NavController not found in view tree")
-                return
-            }
-            val actionId = resources.getIdentifier(
-                "select_fragment_to_add_friend", "id", context.packageName
-            )
-            if (actionId == 0) {
-                Utils.log("openGroupSearch: select_fragment_to_add_friend id not found")
-                return
-            }
-            val args = Bundle().apply {
-                putInt("type", 1)
-                putString(EXTRA_SEARCH_PREFILL, code)
-            }
-            // navigate(int destId, Bundle args, NavOptions options) — name obfuscated.
-            val navigate = nav.javaClass.methods.firstOrNull { m ->
-                val p = m.parameterTypes
-                p.size == 3 && p[0] == Int::class.javaPrimitiveType && p[1] == Bundle::class.java
-            } ?: run {
-                Utils.log("openGroupSearch: navigate(int,Bundle,..) not found on ${nav.javaClass.name}")
-                return
-            }
-            navigate.invoke(nav, actionId, args, null)
-        } catch (e: Exception) {
-            Utils.log("openGroupSearch error: ${e.message}")
-        }
-    }
-
-    /** Replicates androidx Navigation.findNavController(View) without the (obfuscated) static. */
-    private fun findNavController(): Any? {
-        val tagId = resources.getIdentifier("nav_controller_view_tag", "id", context.packageName)
-        if (tagId == 0) return null
-        var v: View? = this
-        while (v != null) {
-            when (val tag = v.getTag(tagId)) {
-                is WeakReference<*> -> tag.get()?.let { return it }
-                null -> {}
-                else -> return tag
-            }
-            v = v.parent as? View
-        }
-        return null
     }
 
     private fun attr(xml: String, name: String): String? =
