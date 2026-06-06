@@ -57,6 +57,8 @@ private val OTHER_TYPES = setOf(
     ElementType.CALENDAR,
 )
 
+private const val ENTRY_LABEL = "搜索聊天记录"
+
 private enum class SearchType(val label: String) {
     TEXT("文本"),
     MEDIA("图片 / 视频"),
@@ -77,6 +79,13 @@ fun addChatSearchEntry(fragment: SettingFrame) {
         val ctx = fragment.requireContext()
         val res = ctx.resources
         val pkg = ctx.packageName
+        val descId = res.getIdentifier("desc", "id", pkg)
+        // onViewCreated may fire again (e.g. returning to the page) on the same container —
+        // guard against appending a duplicate entry row each time.
+        for (i in 0 until container.childCount) {
+            val desc = container.getChildAt(i).findViewById<TextView>(descId)
+            if (desc?.text?.toString() == ENTRY_LABEL) return
+        }
         val layoutId = res.getIdentifier("setting_item", "layout", pkg)
         if (layoutId == 0) {
             Utils.log("ChatSearch: setting_item layout not found")
@@ -84,7 +93,7 @@ fun addChatSearchEntry(fragment: SettingFrame) {
         }
         val row = LayoutInflater.from(ctx).inflate(layoutId, container, false)
         row.findViewById<ImageView>(res.getIdentifier("icon", "id", pkg))?.setImageResource(ICON_SEARCH)
-        row.findViewById<TextView>(res.getIdentifier("desc", "id", pkg))?.text = "搜索聊天记录"
+        row.findViewById<TextView>(descId)?.text = ENTRY_LABEL
         row.setOnClickListener {
             runCatching {
                 ChatSearchFragment().show(fragment.childFragmentManager, "chat_search")
