@@ -55,6 +55,57 @@ object CurrentMsgList {
         }
     }
 
+    /**
+     * Page in older messages until the top of history is reached (the list stops growing),
+     * then call [onDone] on the UI thread. [onProgress] is called after each page with the
+     * current total size. Used by chat search, which needs the whole history in memory.
+     *
+     * [shouldContinue] is checked before each page and before every callback — pass a
+     * lifecycle predicate (e.g. `{ isAdded }`) so a dismissed/cancelled search stops the chain
+     * instead of loading the whole history in the background and firing stale callbacks.
+     *
+     * Loading is triggered after clearing [isLoadingMsg]: that guard can be left stuck `true`
+     * by a previous load that was interrupted (chat closed mid-load), which would otherwise make
+     * [loadMoreMsg] silently no-op and this never progress.
+     */
+    fun loadAll(
+        onProgress: (Int) -> Unit = {},
+        shouldContinue: () -> Boolean = { true },
+        onDone: () -> Unit
+    ) {
+        if (!shouldContinue()) {
+            Utils.log("loadAll: cancelled before start")
+            return
+        }
+        val before = msgList.value.size
+        var settled = false
+        msgList.observeOnce {
+            if (settled) return@observeOnce
+            settled = true
+            ThreadManager.runOnUiThread({
+                if (!shouldContinue()) {
+                    Utils.log("loadAll: cancelled, stopping")
+                    return@runOnUiThread
+                }
+                if (msgList.value.size <= before) {
+                    Utils.log("loadAll: reached top of history, total=${msgList.value.size}")
+                    onDone()
+                } else {
+                    onProgress(msgList.value.size)
+                    loadAll(onProgress, shouldContinue, onDone)
+                }
+            })
+        }
+        ThreadManager.runOnUiThread({
+            if (settled) return@runOnUiThread
+            settled = true
+            Utils.log("loadAll: timed out waiting for more msgs, total=${msgList.value.size}")
+            if (shouldContinue()) onDone()
+        }, 5000L)
+        isLoadingMsg = false // clear any stuck guard from a previously interrupted load
+        loadMoreMsg()
+    }
+
     fun findMsg(
         seq: Long,
         result: (WatchAIOMsgItem?) -> Unit,

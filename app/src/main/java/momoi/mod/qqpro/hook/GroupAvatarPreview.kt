@@ -7,6 +7,7 @@ import com.tencent.watch.aio_impl.ui.frames.SettingFrame
 import download
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.child
+import momoi.mod.qqpro.hook.view.addChatSearchEntry
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.util.runOnUi
 
@@ -19,6 +20,8 @@ import momoi.mod.qqpro.util.runOnUi
 class GroupAvatarPreview : SettingFrame() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // 在右侧设置页(群聊与单聊都有)加入"搜索聊天记录"入口。
+        addChatSearchEntry(this)
         val args = arguments ?: return
         val peerId = args.getString("key_bundle_peer_id")
         val chatType = args.getInt("key_bundle_chat_type")
