@@ -15,11 +15,16 @@ import com.tencent.commonsdk.util.notification.QQNotificationManager
 import com.tencent.mobileqq.qroute.QRoute
 import com.tencent.qqnt.global.settings.api.IGlobalSettingsApi
 import com.tencent.qqnt.kernel.nativeinterface.Contact
+import com.tencent.qqnt.kernel.nativeinterface.DeleteRecentContactInfo
+import com.tencent.qqnt.kernel.nativeinterface.IKernelRecentContactListener
 import com.tencent.qqnt.kernel.nativeinterface.IOperateCallback
 import com.tencent.qqnt.kernel.nativeinterface.MsgElement
 import com.tencent.qqnt.kernel.nativeinterface.NotificationCommonInfo
+import com.tencent.qqnt.kernel.nativeinterface.RecentContactExtra
 import com.tencent.qqnt.kernel.nativeinterface.RecentContactInfo
+import com.tencent.qqnt.kernel.nativeinterface.RecentContactListChangedInfo
 import com.tencent.qqnt.kernel.nativeinterface.TextElement
+import com.tencent.qqnt.msg.KernelServiceUtil
 import com.tencent.qqnt.watch.notification.NotificationFacade
 import com.tencent.qqnt.watch.notification.logic.INotifySessionService
 import download
@@ -96,6 +101,7 @@ class NotificationReply : NotificationFacade() {
 private fun postChatNotification(facade: NotificationFacade, app: AppRuntime, msg: RecentContactInfo) {
     val ctx = Utils.application
     ensureReceiverRegistered(ctx)
+    ensureReadListenerRegistered(app)
 
     val peerUid = msg.peerUid ?: ""
     val peerUin = msg.peerUin
@@ -282,6 +288,74 @@ private fun ensureReceiverRegistered(ctx: Context) {
         receiverRegistered.set(false)
         Utils.log("NotificationReply: receiver register failed: ${e.message}")
     }
+}
+
+private val readListenerRegistered = AtomicBoolean(false)
+
+/**
+ * Register a kernel recent-contact listener (once) so that when a chat's unread count drops to zero
+ * — including reads synced from another logged-in device — we dismiss this device's notification for
+ * that chat. The notify id we posted under is [INotifySessionService.uniqueNotifyIdByUin], the same
+ * id [INotifySessionService.cancelNotificationByUin] cancels, so the two line up.
+ */
+private fun ensureReadListenerRegistered(app: AppRuntime) {
+    if (!readListenerRegistered.compareAndSet(false, true)) return
+    try {
+        val service = KernelServiceUtil.g()?.recentContactService
+            ?: throw IllegalStateException("no recentContactService")
+        service.addKernelRecentContactListener(NotifReadListener(app))
+        Utils.log("NotificationReply: read listener registered")
+    } catch (e: Throwable) {
+        readListenerRegistered.set(false)
+        Utils.log("NotificationReply: read listener register failed: ${e.message}")
+    }
+}
+
+/**
+ * Cancels the notifications of any chats in [contacts] whose unread count has reached zero. Safe to
+ * call repeatedly; cancelling an already-absent notification is a no-op.
+ */
+private fun cancelReadChats(app: AppRuntime, contacts: Collection<RecentContactInfo>?) {
+    if (contacts.isNullOrEmpty()) return
+    val sess = runCatching {
+        app.getRuntimeService(INotifySessionService::class.java, "") as INotifySessionService
+    }.getOrNull() ?: return
+    for (c in contacts) {
+        if (c.unreadCnt <= 0L && c.peerUin != 0L) {
+            runCatching { sess.cancelNotificationByUin(c.peerUin) }
+                .onSuccess { Utils.log("NotificationReply: cleared notif (read elsewhere) uin=${c.peerUin}") }
+        }
+    }
+}
+
+/**
+ * Watches recent-contact changes and clears notifications for chats that have been fully read
+ * (unread → 0), which is what happens when the conversation is read on another device.
+ */
+private class NotifReadListener(private val app: AppRuntime) : IKernelRecentContactListener {
+    override fun onRecentContactListChangedVer2(list: ArrayList<RecentContactListChangedInfo>?, seq: Int) {
+        list?.forEach { cancelReadChats(app, it.changedList) }
+    }
+
+    override fun onRecentContactListChanged(
+        sorted: ArrayList<Long>?,
+        changed: ArrayList<RecentContactInfo>?,
+        extra: RecentContactExtra?,
+    ) {
+        cancelReadChats(app, changed)
+    }
+
+    override fun onRecentContactNotification(
+        list: ArrayList<RecentContactInfo>?,
+        common: NotificationCommonInfo?,
+        seq: Int,
+    ) {
+        cancelReadChats(app, list)
+    }
+
+    override fun onGuildDisplayRecentContactListChanged(list: ArrayList<RecentContactListChangedInfo>?) {}
+    override fun onDeletedContactsNotify(list: ArrayList<DeleteRecentContactInfo>?) {}
+    override fun onMsgUnreadCountUpdate(map: HashMap<String, Int>?) {}
 }
 
 /** Receives the inline reply text and sends it to the originating chat. */
