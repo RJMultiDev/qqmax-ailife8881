@@ -12,12 +12,15 @@ import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.forEach
 import com.tencent.qqnt.kernel.nativeinterface.MsgRecord
+import com.tencent.watch.aio_impl.data.WatchAIOMsgItem
 import com.tencent.watch.aio_impl.ui.cell.base.WatchAIOGroupWidgetItemCell
 import com.tencent.watch.aio_impl.ui.menu.AIOLongClickMenuFragment
 import com.tencent.watch.aio_impl.ui.menu.MenuItemFactory
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.hook.HistoryMsgRegistry
 import momoi.mod.qqpro.hook.forwardText
 import momoi.mod.qqpro.hook.forwardMsgRecord
+import momoi.mod.qqpro.hook.shareMessage
 import momoi.mod.qqpro.asGroup
 import momoi.mod.qqpro.drawable.editIconDrawable
 import momoi.mod.qqpro.forEachAll
@@ -67,7 +70,7 @@ private fun cloneMenuItem(
     return itemView
 }
 
-private fun process(group: ViewGroup, msg: MsgRecord?, dismiss: () -> Unit) {
+private fun process(group: ViewGroup, msg: MsgRecord?, msgItem: WatchAIOMsgItem?, dismiss: () -> Unit) {
     group.removeViewAt(0)
     val linear = group.getChildAt(0).asGroup()
         .getChildAt(0).asGroup()
@@ -154,6 +157,17 @@ private fun process(group: ViewGroup, msg: MsgRecord?, dismiss: () -> Unit) {
             dismiss()
         }, 1)
     }
+    // 系统分享：把选中消息的文本/链接/图片/视频/语音通过系统分享面板发送到其它应用。
+    val hasShareableMedia = msg?.elements?.any {
+        it.picElement != null || it.videoElement != null || it.pttElement != null
+    } == true
+    if (fwdText != null || hasShareableMedia) {
+        val sysShareIcon = ContextCompat.getDrawable(linear.context, 0x7e0805cd) // R.drawable.icon_share
+        linear.addView(cloneMenuItem(linear, "系统分享", sysShareIcon) {
+            linear.shareMessage(msg!!, msgItem)
+            dismiss()
+        }, 1)
+    }
     // 编辑：仅对自己发出的文本消息生效。打开输入法页面（同复读）预填原文，发送时先撤回原消息。
     val isSelf = msg != null && msg.senderUid == SelfContact.peerUid
     if (isSelf && fwdText != null) {
@@ -183,19 +197,22 @@ class 长按菜单调整(p0: (MenuItemFactory.ItemEnum) -> Unit, p1: String?) :
         // For menus we create ourselves (e.g. the forward-history view) the callback
         // is not the native cell callback, so resolving the cell may fail — degrade
         // gracefully and just skip the cell-dependent parts (the 撤回 button).
-        val msg = runCatching {
+        val item = runCatching {
             val field = this.b.javaClass.getDeclaredField("b")
             field.isAccessible = true
             val cell = field.get(this.b) as WatchAIOGroupWidgetItemCell<*, *>
-            cell.f()!!.d
+            cell.f()
         }.getOrNull() ?: runCatching {
             val msgId = arguments?.getLong("key_msg_id") ?: 0L
-            CurrentMsgList.msgList.value.find { it.d.msgId == msgId }?.d
+            CurrentMsgList.msgList.value.find { it.d.msgId == msgId }
         }.getOrNull()
+        // Inside a 合并转发聊天记录 viewer the inner records aren't in CurrentMsgList; fall back to
+        // the history registry (no WatchAIOMsgItem available there, so msgItem stays null).
+        val msg = item?.d ?: HistoryMsgRegistry.find(arguments?.getLong("key_msg_id") ?: 0L)
         Utils.log("menu: msg=${msg != null} msgId=${arguments?.getLong("key_msg_id")}")
         return super.onCreateView(inflater, container, savedInstanceState).apply {
             this.asGroup().getChildAt(0).asGroup().let { group ->
-                process(group, msg) { dismiss() }
+                process(group, msg, item) { dismiss() }
             }
         }
     }

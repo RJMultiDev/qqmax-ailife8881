@@ -249,6 +249,9 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
         data.getDetail {
             mMsgList.clear()
             mMsgList.addAll(it)
+            // Make these inner records resolvable by the long-press menu hook so 系统分享 / 转发
+            // work for items inside a chat history.
+            momoi.mod.qqpro.hook.HistoryMsgRegistry.register(it)
             runOnUi {
                 mRv.adapter?.notifyDataSetChanged()
             }

@@ -286,7 +286,7 @@ private fun sendAudio(uri: Uri) {
 }
 
 /** Replicates AudioTouchViewNTProcessor's PTT-element build sequence for a local audio file. */
-private fun buildPttElement(origPath: String): MsgElement {
+internal fun buildPttElement(origPath: String): MsgElement {
     val md5 = QQNTWrapperUtil.CppProxy.genFileMd5Hex(origPath)
     val svc = KernelServiceUtil.c()
     val sendPath = svc?.getRichMediaFilePathForMobileQQSend(
@@ -324,7 +324,7 @@ private fun buildPttElement(origPath: String): MsgElement {
 }
 
 /** Replicates MenuFrame's gallery video-element build sequence. */
-private fun buildVideoElement(origPath: String): MsgElement {
+internal fun buildVideoElement(origPath: String): MsgElement {
     val fileName = FileUtils().a(origPath)
     val md5 = QQNTWrapperUtil.CppProxy.genFileMd5Hex(origPath)
     val svc = KernelServiceUtil.c()

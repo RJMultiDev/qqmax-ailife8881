@@ -217,11 +217,35 @@ class MixinProcessor(
         val filesToAdd = buildMap {
             putAll(outputDexDir.listFiles()?.associateBy { it.name } ?: emptyMap())
             putAll(collectInjectFiles())
+            patchManifest(mixinApkFile)?.let { put("AndroidManifest.xml", it) }
         }
         ZipUtil.addOrReplaceFilesInZip(mixinApkFile, filesToAdd)
 
         stopWatchZipToApk.stop()
         lifecycle("Mixin apk written in ${stopWatchZipToApk.elapsed(TimeUnit.MILLISECONDS)}ms")
+    }
+
+    /**
+     * Merge the user-authored manifest patch (`mixin/<manifestMerge>`) into [apk]'s binary manifest.
+     * Returns the patched manifest file to inject into the APK, or null if there's no patch file or
+     * nothing to merge (the build then proceeds with the manifest unchanged).
+     */
+    private fun patchManifest(apk: File): File? {
+        val patchXml = targetApkFile.parentFile.child(extension.manifestMerge)
+        if (!patchXml.isFile) return null
+        val out = project.outputDir(extension).child("merged-AndroidManifest.xml")
+        return runCatching {
+            if (momoi.plugin.apkmixin.utils.ManifestMerger.merge(apk, patchXml, out)) {
+                lifecycle("Merged manifest from ${patchXml.absolutePath}")
+                out
+            } else {
+                lifecycle("Manifest merge skipped (nothing to merge)")
+                null
+            }
+        }.getOrElse {
+            lifecycle("Manifest merge failed: ${it.message}")
+            null
+        }
     }
 
     /**
