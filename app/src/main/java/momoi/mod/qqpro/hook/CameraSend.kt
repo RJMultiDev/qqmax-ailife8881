@@ -42,6 +42,21 @@ object CameraCapture {
     var pendingVideoPath: String? = null
 }
 
+/**
+ * Resolve the stable host fragment that should issue startActivityForResult / receive the result.
+ * The menu panel ([MenuFrame]) is torn down by the attachment overlay's onPause when a picker
+ * activity opens, so a result delivered to it is lost. Walk up to the [WatchAIOFragment] (the chat
+ * fragment), which stays attached across the picker activity and whose onActivityResult is hooked.
+ */
+private fun resultHost(fragment: Fragment): Fragment {
+    var f: Fragment? = fragment
+    while (f != null) {
+        if (f is com.tencent.watch.aio_impl.ui.WatchAIOFragment) return f
+        f = f.parentFragment
+    }
+    return fragment
+}
+
 private fun outputFileAndUri(fragment: Fragment, subDir: String, ext: String): Pair<String, Uri> {
     val ctx = fragment.requireContext()
     val dir = ctx.getExternalFilesDir(subDir) ?: ctx.filesDir
@@ -60,7 +75,7 @@ fun launchSystemPhoto(fragment: Fragment) {
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
             .putExtra(MediaStore.EXTRA_OUTPUT, uri)
             .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-        fragment.startActivityForResult(intent, REQ_SYS_PHOTO)
+        resultHost(fragment).startActivityForResult(intent, REQ_SYS_PHOTO)
         Utils.log("camera: launch system photo -> $path")
     }.onFailure {
         Utils.log("camera: launch system photo failed: $it")
@@ -75,7 +90,7 @@ fun launchSystemVideo(fragment: Fragment) {
         val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
             .putExtra(MediaStore.EXTRA_OUTPUT, uri)
             .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-        fragment.startActivityForResult(intent, REQ_SYS_VIDEO)
+        resultHost(fragment).startActivityForResult(intent, REQ_SYS_VIDEO)
         Utils.log("camera: launch system video -> $path")
     }.onFailure {
         Utils.log("camera: launch system video failed: $it")
@@ -89,7 +104,7 @@ fun launchPickAudio(fragment: Fragment) {
         val intent = Intent(Intent.ACTION_GET_CONTENT)
             .setType("audio/*")
             .addCategory(Intent.CATEGORY_OPENABLE)
-        fragment.startActivityForResult(intent, REQ_PICK_AUDIO)
+        resultHost(fragment).startActivityForResult(intent, REQ_PICK_AUDIO)
         Utils.log("audio: launch picker")
     }.onFailure {
         Utils.log("audio: launch picker failed: $it")
@@ -106,8 +121,8 @@ fun launchSystemImagePicker(fragment: Fragment) {
     runCatching {
         val pm = fragment.requireContext().packageManager
         // Photo picker (API 33+, or backported on some devices). Prefer it when resolvable.
+        // No type filter on the photo picker → it shows BOTH images and videos.
         val photoPicker = Intent(MediaStore.ACTION_PICK_IMAGES).apply {
-            type = "image/*"
             putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 9)
         }
         val intent = if (photoPicker.resolveActivity(pm) != null) {
@@ -116,11 +131,12 @@ fun launchSystemImagePicker(fragment: Fragment) {
         } else {
             Utils.log("imagepick: photo picker unavailable, using SAF")
             Intent(Intent.ACTION_GET_CONTENT)
-                .setType("image/*")
+                .setType("*/*")
+                .putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
                 .addCategory(Intent.CATEGORY_OPENABLE)
                 .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
         }
-        fragment.startActivityForResult(intent, REQ_PICK_IMAGES)
+        resultHost(fragment).startActivityForResult(intent, REQ_PICK_IMAGES)
     }.onFailure {
         Utils.log("imagepick: launch failed: $it")
         runCatching { Utils.toast(fragment.requireContext(), "未找到可选择图片的应用") }
@@ -232,10 +248,15 @@ private fun sendPickedImages(uris: List<Uri>) {
         val elements = ArrayList<MsgElement>()
         for ((idx, uri) in uris.withIndex()) {
             runCatching {
-                val ext = when (ctx.contentResolver.getType(uri)) {
-                    "image/png" -> "png"
-                    "image/gif" -> "gif"
-                    "image/webp" -> "webp"
+                val mime = ctx.contentResolver.getType(uri) ?: ""
+                val isVideo = mime.startsWith("video/")
+                val ext = when {
+                    mime == "image/png" -> "png"
+                    mime == "image/gif" -> "gif"
+                    mime == "image/webp" -> "webp"
+                    mime == "video/3gpp" -> "3gp"
+                    mime == "video/webm" -> "webm"
+                    isVideo -> "mp4"
                     else -> "jpg"
                 }
                 val file = File(dir, "qqpro_${System.currentTimeMillis()}_$idx.$ext")
@@ -243,7 +264,12 @@ private fun sendPickedImages(uris: List<Uri>) {
                     FileOutputStream(file).use { input.copyTo(it) }
                 }
                 if (file.exists() && file.length() > 0L) {
-                    elements.add(com.tencent.watch.aio_impl.ext.MsgUtil().a(file.path, 0))
+                    // Build a video element for videos, an image (pic) element otherwise, so a mixed
+                    // image+video selection all sends correctly in one message.
+                    elements.add(
+                        if (isVideo) buildVideoElement(file.path)
+                        else com.tencent.watch.aio_impl.ext.MsgUtil().a(file.path, 0)
+                    )
                 } else {
                     Utils.log("imagepick: empty $uri")
                 }

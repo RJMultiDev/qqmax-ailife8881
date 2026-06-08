@@ -1,5 +1,6 @@
 package momoi.mod.qqpro.hook
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -64,6 +65,15 @@ class WatchAIOPageReset : WatchAIOFragment() {
                 Utils.log("fixIndicatorIcons: remapped position 1 -> setting icon")
             }
         }.onFailure { Utils.log("fixIndicatorIcons failed: $it") }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        // System picker/camera results are delivered here (the stable chat fragment) rather than to
+        // the MenuFrame that launched them — the attachment overlay tears that MenuFrame down in
+        // onPause when the picker activity opens, so it would never receive the result.
+        Utils.log("WatchAIOFragment.onActivityResult req=$requestCode result=$resultCode")
+        handleCaptureResult(requestCode, resultCode, data)
     }
 
     override fun onPause() {
