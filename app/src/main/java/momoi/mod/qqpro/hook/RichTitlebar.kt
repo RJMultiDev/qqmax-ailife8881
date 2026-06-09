@@ -123,6 +123,12 @@ object RichTitlebar {
             bar.addView(badgeView, FrameLayout.LayoutParams(WRAP, WRAP,
                 Gravity.START or Gravity.CENTER_VERTICAL).apply { leftMargin = badgeInset })
 
+            // Tapping the badge exits the current chat.
+            badgeView.setOnClickListener {
+                runCatching { fragment.requireActivity().onBackPressed() }
+                    .onFailure { Utils.log("RichTitlebar badge back failed: $it") }
+            }
+
             // Track this bar for live unread updates; seed from the cached conversation list.
             badge = badgeView
             peer = peerId

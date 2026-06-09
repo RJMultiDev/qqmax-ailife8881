@@ -1,6 +1,7 @@
 package momoi.mod.qqpro.hook.style
 
 import android.annotation.SuppressLint
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.EditText
@@ -10,6 +11,7 @@ import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.forEach
+import androidx.core.widget.TextViewCompat
 import androidx.core.widget.doAfterTextChanged
 import com.tencent.mobileqq.app.ThreadManagerV2
 import com.tencent.qqnt.kernel.nativeinterface.Contact
@@ -110,6 +112,10 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                 .gravity(Gravity.CENTER_VERTICAL)
                                 .hint("说点什么...").apply {
                                     setHintTextColor(0x80_FFFFFF.toInt())
+                                    isSingleLine = true
+                                    TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                                        this, 8, 14, 1, TypedValue.COMPLEX_UNIT_SP
+                                    )
                                 }
                             add(voice.background(null))
                             add(send)
