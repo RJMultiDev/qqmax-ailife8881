@@ -37,6 +37,16 @@ open class ApkMixinExtension {
      */
     var manifestMerge: String = "AndroidManifest.xml"
 
+    /**
+     * Directory (relative to the `mixin/` project subfolder) holding a standard Android `res/` tree
+     * that is ENCODED into the output APK's `resources.arsc` via ARSCLib — unlike [injectDir] (which
+     * only swaps bytes of existing zip entries), this can ADD new resources and REPLACE existing ones
+     * by `type/name`, including turning a bitmap into an XML drawable. The directory must directly
+     * contain the resource type folders (`drawable...`, `mipmap...`, `values...`). If absent or empty,
+     * nothing happens. See [momoi.plugin.apkmixin.utils.ResourceInjector].
+     */
+    var injectResDir: String = "inject-res"
+
     fun output(action: Action<OutputExtension>) {
         action.execute(output)
     }
