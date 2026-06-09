@@ -64,6 +64,10 @@ object Settings {
     // without the leading #). Blank keeps the original bubble color (sampled per side).
     val bubbleColorSelf = StringPref("bubbleColorSelf", "")
     val bubbleColorOther = StringPref("bubbleColorOther", "")
+    // Contacts page (2nd main page): show "好友"/"群聊" section headers, split the single
+    // "我的通知" entry into separate friend/group notification entries (each with its own
+    // count and direct navigation), and drop the trailing group icon on every group row.
+    val contactSections = BooleanPref("contactSections", true)
     // How much to darken the chat background image for readability.
     // 0 = original image, 0.9 = almost black. Applied as a black overlay on top
     // of the picked image. Takes effect the next time a chat is opened.

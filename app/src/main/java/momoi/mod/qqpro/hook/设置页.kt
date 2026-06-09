@@ -109,6 +109,7 @@ class 设置页 : SettingsActivity() {
             switch("富标题栏", "聊天顶部显示返回键、其它会话未读数、群成员数与群名(重进聊天页生效)", Settings.enableTitlebar)
             slider("标题栏高度", "富标题栏高度(dp)，默认 16", Settings.titlebarHeight, min = 16f, max = 32f)
             switch("主页导航在底部", "主页(会话列表)翻页指示器移到底部，并随标题栏高度放大", Settings.bottomMainNav)
+            switch("联系人分组", "联系人页用「好友」「群聊」标题分组，通知拆成好友/群两项各带数量，去掉群行末尾图标", Settings.contactSections)
             switch("使用应用内相机", "开启后拍照/录像都用应用内相机，关闭后改用系统/第三方相机", Settings.useInAppCamera)
             switch("相册按拍摄时间排序", "图片选择器按拍摄时间排序，关闭则按文件修改时间(默认)", Settings.gallerySortByDateTaken)
             switch("使用系统图片选择器", "相册改用系统图片选择器/文件选择器，无需相册权限，可多选，修复部分设备问题", Settings.useSystemImagePicker)

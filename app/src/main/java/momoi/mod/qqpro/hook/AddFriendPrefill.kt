@@ -49,7 +49,7 @@ fun View.openAddSearch(code: String, type: Int = 1) {
 }
 
 /** Replicates androidx Navigation.findNavController(View) without the (obfuscated) static. */
-private fun View.findNavControllerFromTree(): Any? {
+internal fun View.findNavControllerFromTree(): Any? {
     val tagId = resources.getIdentifier("nav_controller_view_tag", "id", context.packageName)
     if (tagId == 0) return null
     var v: View? = this
