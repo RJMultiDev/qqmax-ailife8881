@@ -5,9 +5,16 @@ import androidx.fragment.app.Fragment
 import com.tencent.qqnt.watch.selftab.item.AboutItem
 import com.tencent.qqnt.watch.ui.componet.tips.TipsUtils
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.util.Utils
 
 const val VERSION_CODE = 11
-const val VERSION_NAME = "v1.5.1"
+
+/** The mod's own versionName, read from the patched APK's manifest (set via apkMixin.versionName). */
+val versionName: String
+    get() = runCatching {
+        Utils.application.packageManager
+            .getPackageInfo(Utils.application.packageName, 0).versionName
+    }.getOrNull() ?: ""
 
 /**
  * Hooks the dedicated "关于" (About) entry on the self tab. Tapping it shows a Tips dialog;
@@ -18,7 +25,7 @@ class AboutItemHook(fragment: Fragment) : AboutItem(fragment) {
     override fun onClick(v: View?) {
         val text = buildString {
             appendLine("QQ Max")
-            appendLine(VERSION_NAME)
+            appendLine(versionName)
             appendLine()
             appendLine("NWear QQ · 爅峫")
             appendLine("QQ Pro · java30433")
