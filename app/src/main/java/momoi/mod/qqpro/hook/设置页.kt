@@ -80,7 +80,7 @@ class 设置页 : SettingsActivity() {
             textInput("语音键文字", "聊天页语音键上显示的文字", Settings.voiceBtnText)
 
             section("QQ Pro 设置", "增强版 by java30433")
-            slider("缩放倍数", "整体界面缩放，重启后生效", Settings.scale)
+            slider("缩放倍数", "整体界面缩放，返回聊天页即时生效", Settings.scale)
             slider("聊天文本缩放", "聊天气泡内文字大小", Settings.chatScale)
             switch("平滑表冠滚动", "表冠滚动没有动画时开启", Settings.enableSmoothScroll)
             switch("屏蔽返回键", "用于把右滑当作返回的手表（如米兔）", Settings.blockBack)
