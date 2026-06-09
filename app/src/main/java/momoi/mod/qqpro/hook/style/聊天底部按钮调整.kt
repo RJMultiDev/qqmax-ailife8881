@@ -1,6 +1,7 @@
 package momoi.mod.qqpro.hook.style
 
 import android.annotation.SuppressLint
+import android.net.Uri
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -29,6 +30,7 @@ import momoi.mod.qqpro.drawable.sendIconDrawable
 import momoi.mod.qqpro.hook.AttachmentOverlay
 import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.lib.FILL
+import momoi.mod.qqpro.lib.ImeEditText
 import momoi.mod.qqpro.lib.GroupScope
 import momoi.mod.qqpro.lib.adjustViewBounds
 import momoi.mod.qqpro.lib.background
@@ -53,6 +55,8 @@ import momoi.mod.qqpro.lib.text
 import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
 import momoi.mod.qqpro.util.Utils
+import java.io.File
+import java.io.FileOutputStream
 
 @Mixin
 class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
@@ -93,7 +97,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                 visibility = View.GONE
                             }
                         lateinit var emojiBtn: ImageView
-                        lateinit var editText: EditText
+                        lateinit var editText: ImeEditText
                         pill.content {
                             emojiBtn = add<ImageView>().height(FILL).adjustViewBounds()
                                 .scaleType(ImageView.ScaleType.FIT_CENTER).padding(8.dp)
@@ -105,7 +109,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                 emojiBtn.bitmapDecodeAssets("pro/ic_emoji.png")
                                 emojiBtn.clickable { emoji.callOnClick() }
                             }
-                            editText = add<EditText>().height(FILL).weight(1f)
+                            editText = add<ImeEditText>().height(FILL).weight(1f)
                                 .background(null)
                                 .paddingHorizontal(4.dp)
                                 .textColor(0xFF_FFFFFF).textSize(14f)
@@ -117,6 +121,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                         this, 8, 14, 1, TypedValue.COMPLEX_UNIT_SP
                                     )
                                 }
+                            editText.onImageUri = { uri -> sendImeImage(uri) }
                             add(voice.background(null))
                             add(send)
                         }
@@ -180,4 +185,39 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
             editText.setText("")
         }.onFailure { Utils.log("inline chat send failed: $it") }
     }
+}
+
+/**
+ * Copy an image/GIF URI from the IME keyboard into a temp file and send it as a chat message.
+ * Must be a top-level function (not inside a @Mixin body) so the Thread lambda has a public
+ * constructor when the mixin is copied into the target package.
+ */
+fun sendImeImage(uri: Uri) {
+    Thread {
+        runCatching {
+            val ctx = Utils.application
+            val mime = runCatching { ctx.contentResolver.getType(uri) }.getOrNull() ?: ""
+            val ext = when {
+                mime == "image/gif" -> "gif"
+                mime == "image/png" -> "png"
+                mime == "image/webp" -> "webp"
+                else -> "jpg"
+            }
+            val dir = ctx.getExternalFilesDir("photos") ?: ctx.filesDir
+            if (!dir.exists()) dir.mkdirs()
+            val file = File(dir, "qqpro_ime_${System.currentTimeMillis()}.$ext")
+            ctx.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(file).use { input.copyTo(it) }
+            }
+            if (!file.exists() || file.length() == 0L) {
+                Utils.log("IME image: empty file for $uri"); return@runCatching
+            }
+            val element = com.tencent.watch.aio_impl.ext.MsgUtil().a(file.path, 0)
+            MsgUtil.msgService.sendMsg(
+                CurrentContact, 0L, arrayListOf(element),
+                IOperateCallback { code, msg -> Utils.log("IME image send result=$code msg=$msg") }
+            )
+            Utils.log("IME image sent: $uri -> ${file.path}")
+        }.onFailure { Utils.log("IME image send failed: $it") }
+    }.start()
 }
