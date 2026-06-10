@@ -73,6 +73,22 @@ class ContactListFragmentHook : ContactListFragment() {
         }.onFailure { Utils.log("ContactListFragmentHook onCreate: $it") }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (!Settings.contactSections.value) return
+        // The main pager is ViewPager2 + FragmentStateAdapter: it recycles/re-resumes this page
+        // each time it becomes primary, which re-anchors the list mid-way (hiding the top
+        // 加好友/通知 entries). Re-arm and force the top here. The delayed retry beats the async
+        // re-population diff; we then disarm so later background updates don't yank the scroll.
+        val rv = recycler ?: return
+        initialTopPending = true
+        rv.post { rv.scrollToPosition(0) }
+        rv.postDelayed({
+            if (initialTopPending) rv.scrollToPosition(0)
+            initialTopPending = false
+        }, 350)
+    }
+
     override fun Y(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val v = super.Y(inflater, container, savedInstanceState)
         if (Settings.contactSections.value && v is RecyclerView) {
