@@ -11,12 +11,15 @@ import android.widget.TextView
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.forEach
+import com.tencent.qqnt.kernel.nativeinterface.Contact
+import com.tencent.qqnt.kernel.nativeinterface.IOperateCallback
 import com.tencent.qqnt.kernel.nativeinterface.MsgRecord
 import com.tencent.watch.aio_impl.data.WatchAIOMsgItem
 import com.tencent.watch.aio_impl.ui.cell.base.WatchAIOGroupWidgetItemCell
 import com.tencent.watch.aio_impl.ui.menu.AIOLongClickMenuFragment
 import com.tencent.watch.aio_impl.ui.menu.MenuItemFactory
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.hook.HistoryMsgRegistry
 import momoi.mod.qqpro.hook.forwardText
 import momoi.mod.qqpro.hook.forwardMsgRecord
@@ -35,6 +38,7 @@ import momoi.mod.qqpro.lib.paddingHorizontal
 import momoi.mod.qqpro.lib.vh
 import momoi.mod.qqpro.lib.width
 import momoi.mod.qqpro.util.Utils
+import momoi.mod.qqpro.util.runOnUi
 
 val menuSort = arrayOf(
     "回复",
@@ -135,6 +139,28 @@ private fun process(group: ViewGroup, msg: MsgRecord?, msgItem: WatchAIOMsgItem?
     if (fwdText != null) {
         items["复制文本"]?.setOnClickListener {
             Utils.copyToClipboard(it.context, fwdText)
+            dismiss()
+        }
+    }
+    // 删除(本地删除，非撤回)：原生删除只更新数据库，当前会话列表不会实时刷新(需重进会话)。
+    // 自行调用 deleteMsg(与原生一致：本地删除、无确认框)，并在成功回调里把该消息实时移除。
+    val deleteId = msg?.msgId
+    if (deleteId != null && deleteId != 0L) {
+        items["删除"]?.setOnClickListener { v ->
+            val contact = Contact(msg.chatType, msg.peerUid, "")
+            runCatching {
+                MsgUtil.msgService.deleteMsg(contact, arrayListOf(deleteId), IOperateCallback { code, reason ->
+                    Utils.log("menu delete: id=$deleteId code=$code reason=$reason")
+                    runOnUi {
+                        if (code == 0) {
+                            CurrentMsgList.removeLive(setOf(deleteId))
+                            Utils.toast(v.context, "删除成功")
+                        } else {
+                            Utils.toast(v.context, "删除失败")
+                        }
+                    }
+                })
+            }.onFailure { Utils.log("menu delete failed: $it"); Utils.toast(v.context, "删除失败") }
             dismiss()
         }
     }

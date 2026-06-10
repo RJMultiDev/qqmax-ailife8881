@@ -4,9 +4,11 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.tencent.aio.api.factory.IAIOFactory
+import com.tencent.aio.api.list.IDataSubmitApi
 import com.tencent.aio.api.list.IListUIOperationApi
 import com.tencent.aio.base.chat.ChatPie
 import com.tencent.aio.base.mvi.part.MsgListUiState
+import com.tencent.aio.data.msglist.IMsgItem
 import com.tencent.aio.main.fragment.ChatFragment
 import com.tencent.aio.part.root.panel.content.firstLevel.msglist.mvx.intent.MsgListDataIntent
 import com.tencent.watch.aio_impl.coreImpl.vb.WatchAIOListVB
@@ -20,11 +22,39 @@ import java.util.LinkedList
 object CurrentMsgList {
     lateinit var vb: WatchAIOListVB
         private set
+    // The list UI operation API from the latest render — used to submit a new list live
+    // (e.g. after a local delete, which the kernel doesn't push to the open chat list).
+    var uiOp: IListUIOperationApi? = null
+        private set
     var msgList = Observable(mutableListOf<WatchAIOMsgItem>())
         private set
 
     fun getMsgIndex(msg: WatchAIOMsgItem): Int {
         return msgList.value.indexOf(msg)
+    }
+
+    /**
+     * Remove messages from the currently open chat list in place, by msgId. Native local delete
+     * ("删除", not 撤回) updates the DB but doesn't refresh the open AIO list — it only shows on
+     * re-entry. We submit a filtered list to the data-submit API so the row disappears live.
+     */
+    fun removeLive(ids: Set<Long>) {
+        if (ids.isEmpty()) return
+        ThreadManager.runOnUiThread({
+            runCatching {
+                val op = uiOp ?: run { Utils.log("removeLive: uiOp null"); return@runCatching }
+                val cur = op.m() ?: return@runCatching
+                val newList = cur.filterNot { (it as? WatchAIOMsgItem)?.d?.msgId in ids }
+                if (newList.size == cur.size) { Utils.log("removeLive: no match in live list"); return@runCatching }
+                // SubmitAction's fields are final at runtime — must set them via the constructor.
+                // Last arg is Kotlin's defaults mask: 0 = use all provided args (list, null scope,
+                // immediate=true, null callback).
+                op.A(IDataSubmitApi.SubmitAction<IMsgItem>(newList, null, true, null, 0))
+                // Keep our mirror in sync so the merge in Hook.n doesn't re-add the removed item.
+                msgList.update(msgList.value.filterNot { it.d.msgId in ids }.toMutableList())
+                Utils.log("removeLive: removed ${cur.size - newList.size} msg(s)")
+            }.onFailure { Utils.log("removeLive failed: $it") }
+        })
     }
 
     private var isLoadingMsg = false
@@ -151,6 +181,7 @@ object CurrentMsgList {
         @Suppress("UNCHECKED_CAST")
         override fun n(state: MsgListUiState, uiHelper: IListUIOperationApi) {
             vb = this
+            uiOp = uiHelper
             val msg = msgList.value
             val list = state as LinkedList<WatchAIOMsgItem>
             var insertIndex = -1
