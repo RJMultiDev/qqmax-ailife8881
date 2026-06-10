@@ -59,6 +59,8 @@ object Utils {
     }
 
     fun log(msg: String) {
+        // Logging is enabled only in debug builds; release builds (android:debuggable=0) skip it.
+        if (!isDebug) return
         Log.e("QQ Max", msg)
         // This watch ROM strips app android.util.Log; QLog reliably reaches logcat
         try {
