@@ -109,6 +109,7 @@ class 设置页 : SettingsActivity() {
             switch("附件浮层", "用输入框左侧 + 键打开附件浮层，移除附件翻页；表情移入附件列表(重进聊天页生效)", Settings.attachmentOverlay)
             switch("富标题栏", "聊天顶部显示返回键、其它会话未读数、群成员数与群名(重进聊天页生效)", Settings.enableTitlebar)
             switch("标题栏显示未读数", "在富标题栏显示其它会话的未读数红标(重进聊天页生效)", Settings.titlebarShowUnread)
+            switch("未读数浮在聊天左上角", "其它会话未读数红标浮在聊天页左上角而非标题栏内，无标题栏也可用(重进聊天页生效)", Settings.floatUnreadInChat)
             slider("标题栏高度", "富标题栏高度(dp)，默认 16", Settings.titlebarHeight, min = 16f, max = 32f)
             switch("主页导航在底部", "主页(会话列表)翻页指示器移到底部，并随标题栏高度放大", Settings.bottomMainNav)
             switch("联系人分组", "联系人页用「好友」「群聊」标题分组，通知拆成好友/群两项各带数量，去掉群行末尾图标", Settings.contactSections)

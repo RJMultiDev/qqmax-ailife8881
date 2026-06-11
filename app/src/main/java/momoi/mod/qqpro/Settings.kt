@@ -41,6 +41,9 @@ object Settings {
     // Show the other-chats unread count badge in the chat titlebar. When off, the
     // titlebar shows only the name + member count (no red badge).
     val titlebarShowUnread = BooleanPref("titlebarShowUnread", true)
+    // Show the other-chats unread badge floating over the chat's top-left corner instead of in
+    // the titlebar header. Works even when the titlebar is off; when on, the header badge is hidden.
+    val floatUnreadInChat = BooleanPref("floatUnreadInChat", false)
     val titlebarHeight = FloatPref("titlebarHeight", 16f)
     // Move the home/main page's page-indicator dots to the bottom and scale their size by
     // titlebarHeight (relative to the default 16dp).
