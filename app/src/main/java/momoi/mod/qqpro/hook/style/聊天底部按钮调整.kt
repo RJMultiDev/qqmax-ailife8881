@@ -127,7 +127,9 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                         }
                         send.clickable { sendInline(editText) }
                         editText.doAfterTextChanged {
-                            val hasText = !it.isNullOrBlank()
+                            // Use isNullOrEmpty (not isNullOrBlank): a space is real content the
+                            // user typed (the hint already disappeared), so it must flip to send.
+                            val hasText = !it.isNullOrEmpty()
                             // Hide the emoji / "+" button when there is text, to make room for
                             // the send button.
                             emojiBtn.visibility = if (hasText) View.GONE else View.VISIBLE
@@ -171,7 +173,8 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
 
     private fun sendInline(editText: EditText) {
         val text = editText.text?.toString().orEmpty()
-        if (text.isBlank()) return
+        // Don't drop whitespace — a space is valid content the user chose to send.
+        if (text.isEmpty()) return
         runCatching {
             val elements = ImeTextUtil.a.b(text)
             val contact = Contact(
