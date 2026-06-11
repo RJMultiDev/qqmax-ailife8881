@@ -1,12 +1,16 @@
 package momoi.mod.qqpro.hook.view
 
 import android.graphics.Outline
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -20,6 +24,8 @@ import momoi.mod.qqpro.lib.content
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.linearLayout
+import momoi.mod.qqpro.lib.margin
+import momoi.mod.qqpro.lib.marginHorizontal
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.text
 import momoi.mod.qqpro.lib.textColor
@@ -44,6 +50,10 @@ class MemberPickerFragment : MyDialogFragment() {
      */
     private data class Entry(val uid: String, val uin: Long, val name: String, val atNick: String = name)
 
+    /** All entries (unfiltered). The "@全体成员" entry is always first. */
+    private var allEntries: List<Entry> = emptyList()
+    private lateinit var list: RecyclerView
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -53,8 +63,8 @@ class MemberPickerFragment : MyDialogFragment() {
         val root = LinearLayout(ctx).vertical()
         root.setBackgroundColor(0xF0_121212.toInt())
 
-        val entries = buildEntries()
-        Utils.log("MemberPicker: ${entries.size} entries")
+        allEntries = buildEntries()
+        Utils.log("MemberPicker: ${allEntries.size} entries")
 
         root.content {
             add<TextView>()
@@ -65,31 +75,68 @@ class MemberPickerFragment : MyDialogFragment() {
                 .width(FILL)
                 .padding(top = 14.dp, bottom = 10.dp)
 
-            val list = add<RecyclerView>().linearLayout()
+            add<EditText>()
+                .textSize(14f)
+                .textColor(0xFF_FFFFFF)
+                .width(FILL)
+                .padding(left = 12.dp, top = 8.dp, right = 12.dp, bottom = 8.dp)
+                .marginHorizontal(16.dp)
+                .margin(bottom = 8.dp)
+                .apply {
+                    hint = "搜索成员（昵称或 QQ 号）"
+                    setHintTextColor(0xFF_777777.toInt())
+                    setSingleLine()
+                    background = GradientDrawable().apply {
+                        setColor(0xFF_222222.toInt())
+                        cornerRadius = 12.dp.toFloat()
+                    }
+                    addTextChangedListener(object : TextWatcher {
+                        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                        override fun afterTextChanged(s: Editable?) {
+                            render(s?.toString().orEmpty())
+                        }
+                    })
+                }
+
+            list = add<RecyclerView>().linearLayout()
             (list.layoutParams as LinearLayout.LayoutParams).apply {
                 width = FILL
                 height = 0
                 weight = 1f
             }
-            list.content(
-                data = entries,
-                factory = { rowView() },
-                update = { entry ->
-                    val avatar = getChildAt(0) as ImageView
-                    val name = getChildAt(1) as TextView
-                    name.text = entry.name
-                    if (entry.uid == "all") {
-                        avatar.setImageDrawable(null)
-                        avatar.setBackgroundColor(0xFF_4FC3F7.toInt())
-                    } else {
-                        avatar.setBackgroundColor(0xFF_333333.toInt())
-                        avatar.loadPicUrl("https://q.qlogo.cn/headimg_dl?dst_uin=${entry.uin}&spec=100")
-                    }
-                    clickable { pick(entry) }
-                }
-            )
         }
+        render("")
         return root
+    }
+
+    /** (Re)build the list, keeping only entries that match [query] (matches name or QQ number). */
+    private fun render(query: String) {
+        val q = query.trim()
+        val shown = if (q.isEmpty()) {
+            allEntries
+        } else {
+            allEntries.filter {
+                it.name.contains(q, ignoreCase = true) || it.uin.toString().contains(q)
+            }
+        }
+        list.content(
+            data = shown,
+            factory = { rowView() },
+            update = { entry ->
+                val avatar = getChildAt(0) as ImageView
+                val name = getChildAt(1) as TextView
+                name.text = entry.name
+                if (entry.uid == "all") {
+                    avatar.setImageDrawable(null)
+                    avatar.setBackgroundColor(0xFF_4FC3F7.toInt())
+                } else {
+                    avatar.setBackgroundColor(0xFF_333333.toInt())
+                    avatar.loadPicUrl("https://q.qlogo.cn/headimg_dl?dst_uin=${entry.uin}&spec=100")
+                }
+                clickable { pick(entry) }
+            }
+        )
     }
 
     private fun buildEntries(): List<Entry> {
