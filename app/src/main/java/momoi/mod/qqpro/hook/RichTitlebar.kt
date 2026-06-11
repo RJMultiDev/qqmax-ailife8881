@@ -54,6 +54,8 @@ object RichTitlebar {
     private var screenWPx: Int = 0
     private var peer: String = ""
     private val unread = HashMap<String, Int>()
+    // Peers set to 免打扰 (DND); their unread is excluded from the badge total.
+    private val dnd = HashSet<String>()
     private val listenerRegistered = AtomicBoolean(false)
 
     fun build(fragment: WatchAIOFragment, root: ViewGroup, baseInset: Int = 0) {
@@ -172,7 +174,10 @@ object RichTitlebar {
             // Seed only keys we don't already have, preserving the live values.
             badge = badgeView
             peer = peerId
-            RecentContacts.map.forEach { (k, v) -> if (!unread.containsKey(k)) unread[k] = v.unreadCntCached }
+            RecentContacts.map.forEach { (k, v) ->
+                if (!unread.containsKey(k)) unread[k] = v.unreadCntCached
+                if (v.raw.isMsgDisturb) dnd.add(k) else dnd.remove(k)
+            }
             badgeView.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
                 override fun onViewAttachedToWindow(v: View) {}
                 override fun onViewDetachedFromWindow(v: View) { if (badge === badgeView) badge = null }
@@ -226,7 +231,10 @@ object RichTitlebar {
 
             floatBadge = view
             peer = peerId
-            RecentContacts.map.forEach { (k, v) -> if (!unread.containsKey(k)) unread[k] = v.unreadCntCached }
+            RecentContacts.map.forEach { (k, v) ->
+                if (!unread.containsKey(k)) unread[k] = v.unreadCntCached
+                if (v.raw.isMsgDisturb) dnd.add(k) else dnd.remove(k)
+            }
             view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
                 override fun onViewAttachedToWindow(v: View) {}
                 override fun onViewDetachedFromWindow(v: View) { if (floatBadge === view) floatBadge = null }
@@ -238,7 +246,7 @@ object RichTitlebar {
     }
 
     private fun applyUnread() {
-        val other = unread.entries.filter { it.key != peer }.sumOf { it.value }
+        val other = unread.entries.filter { it.key != peer && it.key !in dnd }.sumOf { it.value }
         val text = if (other > 99) "99+" else other.toString()
         // Float option takes over the unread display: when on, hide the header badge and show the
         // floating one; otherwise the header badge follows titlebarShowUnread.
@@ -323,7 +331,10 @@ object RichTitlebar {
 
     private fun put(c: RecentContactInfo?) {
         c ?: return
-        if (!c.peerUid.isNullOrEmpty()) unread[c.peerUid] = c.unreadCnt.toInt()
+        val uid = c.peerUid ?: return
+        if (uid.isEmpty()) return
+        unread[uid] = c.unreadCnt.toInt()
+        if (c.isMsgDisturb) dnd.add(uid) else dnd.remove(uid)
     }
 
     /** Live unread updates pushed by the kernel; we recompute and refresh the badge in place. */
