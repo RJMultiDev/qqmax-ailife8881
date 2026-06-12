@@ -86,7 +86,6 @@ object InlineEmojiPanel {
                     if (boundEdit !== editText) return@runCatching
                     dismiss()
                     val ctx = editText.context
-                    val panelH = (content.height * 0.62f).toInt().coerceAtLeast(220.dp)
                     val container = FrameLayout(ctx).apply {
                         tag = TAG
                         isClickable = true // swallow taps so they don't fall through to the chat
@@ -100,6 +99,10 @@ object InlineEmojiPanel {
                         val cloc = IntArray(2); content.getLocationInWindow(cloc)
                         ((cloc[1] + content.height) - loc[1]).coerceAtLeast(0)
                     } else 96.dp
+                    // Cap the height to what's actually available above the input bar so the panel
+                    // can never overflow off the top of the screen (leave a small top inset).
+                    val available = (content.height - bottomMargin - 8.dp).coerceAtLeast(120.dp)
+                    val panelH = (content.height * 0.62f).toInt().coerceAtLeast(220.dp).coerceAtMost(available)
                     content.addView(container, FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, panelH, Gravity.BOTTOM
                     ).apply { this.bottomMargin = bottomMargin })
