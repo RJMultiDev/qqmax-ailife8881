@@ -24,6 +24,8 @@ class CrashHandler(private val context: Context) : Thread.UncaughtExceptionHandl
             append("应用崩溃\n")
             append("时间: ${timestamp()}\n")
             append("线程: ${t.name}\n\n")
+            append(DeviceInfo.collect(context))
+            append("\n")
             append(stack)
         }
         Watchdog.report(context, Watchdog.KIND_CRASH, report)

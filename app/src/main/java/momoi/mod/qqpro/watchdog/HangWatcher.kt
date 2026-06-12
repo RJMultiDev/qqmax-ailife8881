@@ -68,6 +68,8 @@ class HangWatcher(private val context: Context) {
         val report = buildString {
             append("应用卡死 $durationMs ms\n")
             append("时间: ${timestamp()}\n\n")
+            append(DeviceInfo.collect(context))
+            append("\n")
             append("主线程堆栈:\n")
             append(mainThreadStack())
             append("\n\n全部线程堆栈:\n")
