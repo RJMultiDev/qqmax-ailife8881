@@ -216,12 +216,16 @@ private fun process(group: ViewGroup, msg: MsgRecord?, msgItem: WatchAIOMsgItem?
         CurrentGroupMembers.get(SelfContact.peerUid) { self ->
             if (self.role == MemberRole.OWNER || self.role == MemberRole.ADMIN) {
                 runOnUi {
-                    linear.addView(cloneMenuItem(linear, "撤回", recallIconDrawable()) {
+                    val recallView = cloneMenuItem(linear, "撤回", recallIconDrawable()) {
                         runCatching {
                             KernelServiceUtil.c()?.recallMsg(CurrentContact, recallId, null)
                         }.onFailure { Utils.log("menu recall failed: $it") }
                         dismiss()
-                    }, 1)
+                    }
+                    linear.addView(recallView, 1)
+                    // This button is added asynchronously, after normalizeListCards() already ran,
+                    // so apply the unified card margin here or it keeps the default (wrong) spacing.
+                    recallView.cardMargin()
                 }
             }
         }
