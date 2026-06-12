@@ -28,6 +28,7 @@ import momoi.mod.qqpro.hook.forwardMsgRecord
 import momoi.mod.qqpro.hook.shareMessage
 import momoi.mod.qqpro.asGroup
 import momoi.mod.qqpro.drawable.editIconDrawable
+import momoi.mod.qqpro.drawable.recallIconDrawable
 import momoi.mod.qqpro.forEachAll
 import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.action.CurrentGroupMembers
@@ -215,8 +216,7 @@ private fun process(group: ViewGroup, msg: MsgRecord?, msgItem: WatchAIOMsgItem?
         CurrentGroupMembers.get(SelfContact.peerUid) { self ->
             if (self.role == MemberRole.OWNER || self.role == MemberRole.ADMIN) {
                 runOnUi {
-                    val recallIcon = ContextCompat.getDrawable(linear.context, 0x7e080b3d) // R.drawable.qui_recall
-                    linear.addView(cloneMenuItem(linear, "撤回", recallIcon) {
+                    linear.addView(cloneMenuItem(linear, "撤回", recallIconDrawable()) {
                         runCatching {
                             KernelServiceUtil.c()?.recallMsg(CurrentContact, recallId, null)
                         }.onFailure { Utils.log("menu recall failed: $it") }
@@ -225,6 +225,13 @@ private fun process(group: ViewGroup, msg: MsgRecord?, msgItem: WatchAIOMsgItem?
                 }
             }
         }
+    }
+    // 原生"撤回"(自己消息)的图标在本表上显示异常，统一替换为自绘图标，与管理员撤回一致。
+    items["撤回"]?.let { item ->
+        val res = item.context.resources
+        val pkg = item.context.packageName
+        item.findViewById<ImageView>(res.getIdentifier("icon", "id", pkg))
+            ?.setImageDrawable(recallIconDrawable())
     }
     if (Utils.isRoundScreen) {
         LinearScope(linear).add<View>()

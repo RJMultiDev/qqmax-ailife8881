@@ -5,6 +5,7 @@ import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
+import android.graphics.RectF
 import android.graphics.drawable.Drawable
 
 /** A filled "paper plane" send arrow, drawn so it always scales to its bounds. */
@@ -96,6 +97,65 @@ fun editIconDrawable(
 
     override fun setAlpha(alpha: Int) { paint.alpha = alpha }
     override fun setColorFilter(colorFilter: ColorFilter?) { paint.colorFilter = colorFilter }
+    override fun getOpacity() = PixelFormat.TRANSLUCENT
+}
+
+/**
+ * A counter-clockwise "undo / recall" arrow on a colored circle, matching the other
+ * menu items (which carry their own circular tinted background). Scales to its bounds.
+ */
+fun recallIconDrawable(
+    color: Int = 0xFF_FFFFFF.toInt(),
+    background: Int = 0xFF_F44336.toInt(), // red
+): Drawable = object : Drawable() {
+    private val arc = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = color
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val head = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = color
+        style = Paint.Style.FILL
+    }
+    private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = background
+        style = Paint.Style.FILL
+    }
+
+    override fun draw(canvas: Canvas) {
+        val b = bounds
+        val fw = b.width().toFloat()
+        val fh = b.height().toFloat()
+        // Circular background filling the bounds.
+        canvas.drawCircle(
+            b.exactCenterX(), b.exactCenterY(),
+            minOf(fw, fh) / 2f, bgPaint
+        )
+        val cx = b.exactCenterX()
+        val cy = b.exactCenterY()
+        val r = minOf(fw, fh) * 0.24f
+        arc.strokeWidth = minOf(fw, fh) * 0.085f
+        // Open arc (gap at the top-left) running clockwise from ~120° around to ~30°.
+        val oval = RectF(cx - r, cy - r, cx + r, cy + r)
+        canvas.drawArc(oval, 120f, 280f, false, arc)
+        // Arrowhead at the start of the arc (120°), pointing up/left to imply "undo".
+        val a = Math.toRadians(120.0)
+        val hx = (cx + r * Math.cos(a)).toFloat()
+        val hy = (cy + r * Math.sin(a)).toFloat()
+        val s = minOf(fw, fh) * 0.16f
+        Path().apply {
+            moveTo(hx, hy - s)         // tip points up
+            lineTo(hx - s, hy)         // left
+            lineTo(hx + s * 0.2f, hy + s * 0.2f) // back toward the arc
+            close()
+            canvas.drawPath(this, head)
+        }
+    }
+
+    override fun setAlpha(alpha: Int) { arc.alpha = alpha; head.alpha = alpha }
+    override fun setColorFilter(colorFilter: ColorFilter?) {
+        arc.colorFilter = colorFilter; head.colorFilter = colorFilter
+    }
     override fun getOpacity() = PixelFormat.TRANSLUCENT
 }
 
