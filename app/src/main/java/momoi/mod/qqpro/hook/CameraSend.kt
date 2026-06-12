@@ -301,6 +301,16 @@ private fun sendVideo(origPath: String, fallback: Uri?) {
     }.onFailure { Utils.log("camera: sendVideo failed: $it") }
 }
 
+/**
+ * Send an audio [uri] picked by the in-app audio browser ([AudioPickerFragment]) to the current
+ * chat as a voice (PTT). Runs the copy/build/send on a background thread. The in-app browser is a
+ * dialog over the chat (it doesn't pause the AIO fragment), so no page switch is needed.
+ */
+fun sendPickedAudio(uri: Uri) {
+    Thread { sendAudio(uri) }.start()
+    Utils.log("audio: send in-app picked -> $uri")
+}
+
 /** Copy a picked audio [uri] into our files dir and send it to the current chat as a voice (PTT). */
 private fun sendAudio(uri: Uri) {
     runCatching {

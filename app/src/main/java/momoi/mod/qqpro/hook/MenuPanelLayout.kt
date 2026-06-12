@@ -217,8 +217,22 @@ class AudioMenuItem(
     override fun b() = "音频文件"
     override fun d() = 2
     override fun e() {
-        runCatching { launchPickAudio(fragment) }
-            .onFailure { Utils.log("audio: launch from menu failed: $it") }
+        if (Settings.useSystemAudioPicker.value) {
+            runCatching { launchPickAudio(fragment) }
+                .onFailure { Utils.log("audio: launch system picker from menu failed: $it") }
+        } else {
+            // In-app audio browser. It's a dialog over the chat — dismiss the attachment overlay
+            // now (same as RecordMenuItem), since the AIO fragment isn't paused so the overlay's
+            // onPause auto-close never fires.
+            runCatching {
+                momoi.mod.qqpro.hook.view.AudioPickerFragment()
+                    .show(fragment.parentFragmentManager, "qqpro_audio_picker")
+            }.onFailure {
+                Utils.log("audio: show in-app picker failed, falling back to system picker: $it")
+                launchPickAudio(fragment)
+            }
+            AttachmentOverlay.dismiss()
+        }
     }
 }
 

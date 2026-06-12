@@ -66,6 +66,10 @@ object Settings {
     // storage permission and works around in-app picker problems on some devices.
     // Supports selecting multiple images at once.
     val useSystemImagePicker = BooleanPref("useSystemImagePicker", false)
+    // Use the system file picker (ACTION_GET_CONTENT, audio/*) for the 音频文件 panel
+    // item instead of QQPro's in-app audio browser. Off (default) shows the in-app
+    // browser that lists local audio files via MediaStore; on uses the system picker.
+    val useSystemAudioPicker = BooleanPref("useSystemAudioPicker", false)
     // Ask before opening a tapped link in the browser.
     val confirmOpenLink = BooleanPref("confirmOpenLink", true)
     // Also detect links without an http(s):// prefix (e.g. "example.com/x").
