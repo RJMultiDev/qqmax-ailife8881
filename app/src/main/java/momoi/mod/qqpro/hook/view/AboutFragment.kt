@@ -87,6 +87,13 @@ class AboutFragment : MyDialogFragment() {
                 }
 
             add<TextView>()
+                .text("构建于 ${momoi.mod.qqpro.BuildConfig.BUILD_TIME}")
+                .textSize(11f)
+                .textColor(0xFF_888888)
+                .gravity(Gravity.CENTER)
+                .padding(bottom = 12.dp)
+
+            add<TextView>()
                 .text("NWear QQ · 爅峫\nQQ Pro · java30433\nQQ Max · AILIFE")
                 .textSize(13f)
                 .textColor(0xFF_DDDDDD)

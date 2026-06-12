@@ -24,6 +24,7 @@ object DeviceInfo {
             append("应用包名: ${app.packageName}\n")
             append("应用版本: ${pi.versionName} (${versionCodeOf(pi)})\n")
         }.onFailure { append("应用版本: 获取失败 ($it)\n") }
+        append("构建时间: ${momoi.mod.qqpro.BuildConfig.BUILD_TIME}\n")
 
         // Device / ROM
         append("设备: ${Build.MANUFACTURER} ${Build.BRAND} ${Build.MODEL}\n")
