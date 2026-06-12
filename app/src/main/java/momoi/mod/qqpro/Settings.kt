@@ -20,6 +20,8 @@ object Settings {
 
     // ===== QQ Max 设置 (by AILIFE) =====
     val showGroupAvatar = BooleanPref("showGroupAvatar", true)
+    // Also show avatar + two-line nick header for your own messages, like others.
+    val showSelfAvatar = BooleanPref("showSelfAvatar", false)
     // Group chat avatar size, as a multiple of the nickname text size. Default 3x.
     val avatarSizeScale = FloatPref("avatarSizeScale", 2.5f)
     val hideRepeatedSender = BooleanPref("hideRepeatedSender", true)

@@ -10,6 +10,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.os.Handler
 import android.os.Looper
 import android.text.style.RelativeSizeSpan
+import android.view.Gravity
 import android.widget.TextView
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
@@ -118,21 +119,23 @@ object GroupAvatarHook {
     fun update(widget: AIOCellGroupWidget, record: MsgRecord, member: MemberInfo) {
         val nickView = widget.getNickWidget<TextView>() ?: return
         val isSelf = record.senderUid == SelfContact.peerUid
-        if (Settings.showGroupAvatar.value && !isSelf) {
+        if (Settings.showGroupAvatar.value && (!isSelf || Settings.showSelfAvatar.value)) {
             val uin = record.senderUin
             widgetCurrentUin[widget] = uin
             nickView.maxLines = 2
+            // Self messages are right-aligned, so anchor avatar + nick to the end.
+            nickView.gravity = if (isSelf) Gravity.END else Gravity.START
             nickView.text = member.toDisplayTwoLine()
             val bitmap = avatarBitmaps[uin]
             if (bitmap != null) {
-                applyAvatar(nickView, bitmap)
+                applyAvatar(nickView, bitmap, isSelf)
             } else {
                 nickView.setCompoundDrawables(null, null, null, null)
                 val needsDownload = !pendingCallbacks.containsKey(uin)
                 pendingCallbacks.getOrPut(uin) { ArrayDeque() }.addLast {
                     if (widgetCurrentUin[widget] == uin) {
                         widget.getNickWidget<TextView>()?.let { nv ->
-                            applyAvatar(nv, avatarBitmaps[uin]!!)
+                            applyAvatar(nv, avatarBitmaps[uin]!!, isSelf)
                         }
                     }
                 }
@@ -146,21 +149,27 @@ object GroupAvatarHook {
         } else {
             widgetCurrentUin.remove(widget)
             nickView.maxLines = 1
+            nickView.gravity = Gravity.START
             nickView.setCompoundDrawables(null, null, null, null)
             nickView.setPaddingRelative(nickView.paddingStart, 0, nickView.paddingEnd, nickView.paddingBottom)
             nickView.text = member.toDisplay()
         }
     }
 
-    // compound drawable sits to the left of all text rows, vertically centred:
-    //   [avatar] [LV badge]
-    //            display name
-    private fun applyAvatar(nickView: TextView, bitmap: Bitmap) {
+    // compound drawable sits beside all text rows, vertically centred. For others
+    // it's on the left, for self (right-aligned bubble) it's on the right:
+    //   [avatar] [LV badge]        or        [LV badge] [avatar]
+    //            display name                 display name
+    private fun applyAvatar(nickView: TextView, bitmap: Bitmap, isSelf: Boolean) {
         val avatarSize = (nickView.textSize * Settings.avatarSizeScale.value).toInt()
         val drawable = BitmapDrawable(Utils.application.resources, bitmap).apply {
             setBounds(0, 0, avatarSize, avatarSize)
         }
-        nickView.setCompoundDrawables(drawable, null, null, null)
+        if (isSelf) {
+            nickView.setCompoundDrawables(null, null, drawable, null)
+        } else {
+            nickView.setCompoundDrawables(drawable, null, null, null)
+        }
         nickView.compoundDrawablePadding = 4.dp
         nickView.setPaddingRelative(nickView.paddingStart, 4.dp, nickView.paddingEnd, nickView.paddingBottom)
     }
