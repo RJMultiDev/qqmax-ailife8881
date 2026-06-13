@@ -16,4 +16,24 @@ object GalleryMultiSelectState {
      */
     @Volatile
     var pendingOpenIme = false
+
+    /**
+     * Set true immediately before the chat "+" panel opens QQ's native gallery (相册). QQ's
+     * [com.tencent.qqnt.watch.gallery.GalleryFragment] is shared by several flows (chat send,
+     * avatar/profile-picture change, etc.); each non-chat flow registers its own
+     * `setFragmentResult` listener and works natively. Our multi-select tap-interception must run
+     * ONLY for the chat flow — whose listener lives on the [MenuFrame] that the attachment overlay
+     * tears down, so the native result never arrives. Consumed (read-and-cleared) by
+     * [GalleryMultiSelect] at gallery creation: when false, the gallery keeps its native behavior
+     * so avatar/status pickers still return their selection. See [consumeChatLaunch].
+     */
+    @Volatile
+    var chatLaunch = false
+
+    /** Read-and-clear [chatLaunch]. Returns whether the gallery being created was opened from chat. */
+    fun consumeChatLaunch(): Boolean {
+        val v = chatLaunch
+        chatLaunch = false
+        return v
+    }
 }

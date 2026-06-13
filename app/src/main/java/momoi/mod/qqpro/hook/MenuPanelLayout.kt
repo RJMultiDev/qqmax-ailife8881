@@ -25,6 +25,7 @@ import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.drawable.videoIconDrawable
 import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.hook.action.CurrentContact
+import momoi.mod.qqpro.hook.action.GalleryMultiSelectState
 import momoi.mod.qqpro.hook.action.isGroup
 import momoi.mod.qqpro.hook.style.cardMargin
 import momoi.mod.qqpro.hook.view.CallConfirmFragment
@@ -151,6 +152,13 @@ class MenuPanelLayout(p0: (Int) -> Unit, p1: Boolean) : MenuFrame(p0, p1) {
             label0.contains("相册") && Settings.useSystemImagePicker.value -> {
                 icon.isClickable = false
                 ll.clickable { launchSystemImagePicker(this) }
+            }
+            // 相册 with system picker off → QQ's native gallery. Flag it as a chat launch so
+            // GalleryMultiSelect installs our send interception; other gallery callers (avatar /
+            // status pickers) never set this flag and keep QQ's native fragment-result behavior.
+            label0.contains("相册") -> ll.clickable {
+                GalleryMultiSelectState.chatLaunch = true
+                icon.performClick()
             }
             else -> ll.clickable { icon.performClick() }
         }

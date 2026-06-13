@@ -10,6 +10,7 @@ import android.widget.FrameLayout
 import androidx.recyclerview.widget.RecyclerView
 import com.tencent.qqnt.watch.gallery.GalleryFragment
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.hook.action.GalleryMultiSelectState
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.lib.dp
 
@@ -22,6 +23,22 @@ class GalleryMultiSelect : GalleryFragment() {
         savedInstanceState: Bundle?
     ): View {
         val baseView = super.Y(inflater, container, savedInstanceState)
+
+        // GalleryFragment is shared by several QQ flows (chat send, avatar/profile-picture change,
+        // status pickers, …). Each non-chat flow registers its own setFragmentResult listener and
+        // works natively — our tap-interception would hijack their selection and wrongly route it
+        // to the current chat (e.g. breaking "change avatar"). Only the chat flow needs us, because
+        // its result listener lives on the MenuFrame the attachment overlay tears down. The chat
+        // panel sets GalleryMultiSelectState.chatLaunch right before opening the gallery; consume it
+        // here. When this is NOT a chat launch (or the args say it's the avatar picker), leave the
+        // native gallery untouched so its fragment-result delivery still works.
+        val requestKey = runCatching { arguments?.getString("request_key") }.getOrNull()
+        val chatLaunch = GalleryMultiSelectState.consumeChatLaunch()
+        if (!chatLaunch || requestKey == "EditAvatarFragment") {
+            Utils.log("GalleryMultiSelect: native launch (chatLaunch=$chatLaunch requestKey=$requestKey), skipping interception")
+            return baseView
+        }
+        Utils.log("GalleryMultiSelect: chat launch, installing multi-select interception")
 
         val helper = GalleryMultiSelectHelper(this)
 
