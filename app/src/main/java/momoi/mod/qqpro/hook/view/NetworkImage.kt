@@ -33,7 +33,13 @@ fun ImageView.loadPicUrl(
         return@apply
     }
     require(maxHeight != 0)
-    val cacheFile = context.externalCacheDir!!.child("$cacheFileName.jpg")
+    val cacheDir = context.safeCacheDir
+    if (cacheDir == null) {
+        Utils.log("loadPicUrl: no cache dir available, skip $url")
+        onDone?.let { cb -> post { cb(false) } }
+        return@apply
+    }
+    val cacheFile = cacheDir.child("$cacheFileName.jpg")
     cacheFile.parentFile?.mkdirs()
     val finish = { ok: Boolean -> onDone?.let { cb -> post { cb(ok) } } }
     if (cacheFile.exists()) {
@@ -61,9 +67,16 @@ fun ImageView.loadPicElement(pic: PicElement, onDone: ((Boolean) -> Unit)? = nul
     loadPicUrl(pic.getImageUrl(), pic.md5HexStr, onDone)
 }
 
+/**
+ * Best-effort cache directory. On some ROMs (e.g. XTC watches) externalCacheDir can be
+ * null when external storage isn't mounted, so fall back to internal cache then filesDir.
+ */
+val android.content.Context.safeCacheDir: File?
+    get() = externalCacheDir ?: cacheDir ?: filesDir
+
 /** Show the fallback "broken image" placeholder. */
 fun ImageView.loadErrorImage() {
-    val error = context.externalCacheDir!!.child("error.jpg")
+    val error = (context.safeCacheDir ?: return).child("error.jpg")
     if (error.exists()) {
         bitmapDecodeFile(error)
     } else {
