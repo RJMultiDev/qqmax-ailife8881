@@ -136,6 +136,12 @@ object InlineInput {
 
     fun setReply(msgId: Long, senderUid: String, nick: String) {
         reply = ReplyState(msgId, senderUid, nick)
+        // When 回复带@ is on for a group reply, inject the @sender as a real inline token at the
+        // caret so it's visible and the caret can be moved around it — instead of silently
+        // prepending it at send time. buildElements emits it from the span (and no longer auto-adds).
+        if (Settings.replyWithAt.value && CurrentContact.isGroup) {
+            insertAt(senderUid, nick)
+        }
         updateBanner()
     }
 
@@ -257,16 +263,12 @@ object InlineInput {
         val out = ArrayList<MsgElement>()
         val api = MsgUtilApiImpl.instance
 
-        // Reply prepended (mirrors ReplyWithAt): reply element + optional @sender for group replies.
+        // Reply element only. The @sender (回复带@) is now an inline AtTag token in the box (injected
+        // by setReply), so the span walk below emits it — don't also prepend it here (would double it).
         reply?.let { r ->
             val replyEl = api.createReplyElement(r.msgId)
             replyEl.replyElement?.let { it.senderUid = r.senderUid.toLongOrNull() ?: 0L }
             out.add(replyEl)
-            if (Settings.replyWithAt.value && CurrentContact.isGroup) {
-                // Space must be a separate TextElement (baking it into the @ name doesn't render).
-                out.add(api.createAtTextElement("@${r.nick}", r.senderUid, 2))
-                out.add(api.createTextElement(" "))
-            }
         }
 
         // Walk the text in order, splitting at InlineTag spans.
