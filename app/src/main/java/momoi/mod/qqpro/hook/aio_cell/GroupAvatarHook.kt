@@ -111,6 +111,10 @@ fun MemberInfo.toDisplayTwoLine(): CharSequence = buildSpannedString {
 }
 
 object GroupAvatarHook {
+    // Re-download a cached avatar once it's older than this, so avatar changes
+    // eventually show up instead of being pinned to the first-ever download.
+    private const val AVATAR_CACHE_TTL_MS = 6L * 60 * 60 * 1000 // 6 hours
+
     private val mainHandler = Handler(Looper.getMainLooper())
     private val avatarBitmaps = HashMap<Long, Bitmap>()
     private val pendingCallbacks = HashMap<Long, ArrayDeque<() -> Unit>>()
@@ -174,6 +178,28 @@ object GroupAvatarHook {
         nickView.setPaddingRelative(nickView.paddingStart, 4.dp, nickView.paddingEnd, nickView.paddingBottom)
     }
 
+    /**
+     * Drop every cached avatar — the in-memory bitmaps and the on-disk `avatar_*.jpg`
+     * files — so the next time each chat is opened the avatars are re-downloaded fresh.
+     * Returns how many cache files were deleted.
+     */
+    fun clearAvatarCache(): Int {
+        avatarBitmaps.clear()
+        pendingCallbacks.clear()
+        val cacheDir = Utils.application.externalCacheDir
+            ?: Utils.application.cacheDir
+            ?: Utils.application.filesDir
+            ?: return 0
+        var count = 0
+        cacheDir.listFiles()?.forEach { f ->
+            if (f.name.startsWith("avatar_") && f.name.endsWith(".jpg") && f.delete()) {
+                count++
+            }
+        }
+        Utils.log("GroupAvatarHook: cleared $count cached avatar files")
+        return count
+    }
+
     private fun loadAvatarBitmap(uin: Long, callback: (Bitmap) -> Unit) {
         val cacheDir = Utils.application.externalCacheDir
             ?: Utils.application.cacheDir
@@ -185,15 +211,20 @@ object GroupAvatarHook {
         val cacheFile = cacheDir.child("avatar_$uin.jpg")
         val url = "https://q.qlogo.cn/headimg_dl?dst_uin=$uin&spec=100"
         Utils.log("GroupAvatarHook: loading avatar uin=$uin")
-        if (cacheFile.exists()) {
+        val fresh = cacheFile.exists() &&
+            (System.currentTimeMillis() - cacheFile.lastModified()) < AVATAR_CACHE_TTL_MS
+        if (fresh) {
             thread {
                 decodeCircleBitmap(cacheFile.absolutePath)?.let { bmp ->
                     mainHandler.post { callback(bmp) }
                 }
             }
         } else {
+            // Cache missing or stale: re-download. download() only overwrites the
+            // file on HTTP 200, so on failure we still have the old copy to show.
             download(url, cacheFile) { success ->
-                if (success) {
+                if (success || cacheFile.exists()) {
+                    if (!success) Utils.log("GroupAvatarHook: refresh failed, using cached avatar uin=$uin")
                     decodeCircleBitmap(cacheFile.absolutePath)?.let { bmp ->
                         mainHandler.post { callback(bmp) }
                     }

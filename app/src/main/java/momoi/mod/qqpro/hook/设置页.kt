@@ -24,6 +24,7 @@ import com.tencent.widget.Switch
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Pref
 import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.hook.aio_cell.GroupAvatarHook
 import momoi.mod.qqpro.hook.style.CARD_MARGIN_DP
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.WRAP
@@ -124,6 +125,10 @@ class 设置页 : SettingsActivity() {
             switch("自己也显示头像", "自己的消息也显示头像和两行昵称，与他人一致", Settings.showSelfAvatar)
             slider("头像大小", "群聊头像大小(相对昵称文字的倍数)，默认 3", Settings.avatarSizeScale, min = 1.5f, max = 6f)
             switch("合并连续消息头", "同一人连发多条时，只在第一条显示头像和昵称", Settings.hideRepeatedSender)
+            actionCard("清除头像缓存", "删除已缓存的头像，重进聊天页将重新下载最新头像") {
+                val n = GroupAvatarHook.clearAvatarCache()
+                Utils.toast(this@设置页, "已清除 $n 个头像缓存")
+            }
 
             // ── 标题栏与未读 ── 聊天顶部标题栏
             section("标题栏与未读", "聊天顶部标题栏")
