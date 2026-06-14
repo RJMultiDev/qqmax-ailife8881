@@ -299,8 +299,27 @@ object InlineInput {
     private fun appendText(out: ArrayList<MsgElement>, seq: CharSequence) {
         val str = seq.toString()
         if (str.isEmpty()) return
-        runCatching { out.addAll(ImeTextUtil.a.b(str)) }
-            .onFailure { Utils.log("InlineInput.appendText parse failed: $it") }
+        val api = MsgUtilApiImpl.instance
+        // ImeTextUtil.b builds a QQText for emoji parsing, which chokes on embedded newlines and
+        // silently yields no elements — that blocks the whole send. Parse each line on its own and
+        // rejoin with explicit "\n" TextElements so multi-line messages send intact.
+        val lines = str.split("\n")
+        for ((idx, line) in lines.withIndex()) {
+            if (idx > 0) out.add(api.createTextElement("\n"))
+            if (line.isEmpty()) continue
+            runCatching { out.addAll(ImeTextUtil.a.b(line)) }
+                .onFailure {
+                    Utils.log("InlineInput.appendText parse failed: $it")
+                    out.add(api.createTextElement(line))
+                }
+        }
+    }
+
+    /** Newline-safe plain-text → MsgElements, for callers without span handling (e.g. sendInline). */
+    fun parseTextElements(str: String): ArrayList<MsgElement> {
+        val out = ArrayList<MsgElement>()
+        appendText(out, str)
+        return out
     }
 
     private fun focusAndShow() {

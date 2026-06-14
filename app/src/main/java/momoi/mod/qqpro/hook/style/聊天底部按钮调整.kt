@@ -20,7 +20,6 @@ import com.tencent.qqnt.kernel.nativeinterface.Contact
 import com.tencent.qqnt.kernel.nativeinterface.IOperateCallback
 import com.tencent.watch.aio_impl.coreImpl.vb.`InputBarController$inputContent$2`
 import com.tencent.watch.aio_impl.coreImpl.vb.InputBarControllerKt
-import com.tencent.watch.ime.util.ImeTextUtil
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.Settings
@@ -273,7 +272,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
         // Don't drop whitespace — a space is valid content the user chose to send.
         if (text.isEmpty()) return
         runCatching {
-            val elements = ImeTextUtil.a.b(text)
+            val elements = InlineInput.parseTextElements(text)
             val contact = Contact(
                 CurrentContact.chatType,
                 CurrentContact.peerUid,

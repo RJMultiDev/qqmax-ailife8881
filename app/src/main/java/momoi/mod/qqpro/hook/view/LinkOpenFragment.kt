@@ -39,11 +39,17 @@ class LinkOpenFragment(private val url: String) : MyDialogFragment() {
         savedInstanceState: Bundle?
     ): View {
         val ctx = inflater.context
+        // Whole page scrolls: a long URL plus the action buttons can exceed the round watch
+        // screen, so wrap everything in a ScrollView (fillViewport keeps it centred when short).
+        val scroll = ScrollView(ctx).apply {
+            isFillViewport = true
+            setBackgroundColor(0xF0_121212.toInt())
+        }
         val root = LinearLayout(ctx)
             .vertical()
             .padding(20.dp)
         root.gravity = Gravity.CENTER
-        root.setBackgroundColor(0xF0_121212.toInt())
+        scroll.addView(root, ViewGroup.LayoutParams(FILL, WRAP))
 
         root.content {
             add<TextView>()
@@ -53,33 +59,27 @@ class LinkOpenFragment(private val url: String) : MyDialogFragment() {
                 .gravity(Gravity.CENTER)
                 .padding(bottom = 10.dp)
 
-            // URL in a scroll view so a long link doesn't push the buttons off-screen.
-            val sv = ScrollView(ctx)
-            val urlText = TextView(ctx).apply {
-                text = url
-                textSize = 12f
-                setTextColor(0xFF_BBBBBB.toInt())
-                gravity = Gravity.CENTER
-            }
-            sv.addView(urlText, LinearLayout.LayoutParams(FILL, WRAP))
-            add(sv)
-            (sv.layoutParams as LinearLayout.LayoutParams).apply {
-                width = FILL
-                height = 0
-                weight = 1f
-                topMargin = 4.dp
-                bottomMargin = 10.dp
-            }
+            add<TextView>()
+                .text(url)
+                .textSize(12f)
+                .textColor(0xFF_BBBBBB)
+                .gravity(Gravity.CENTER)
+                .width(FILL)
+                .padding(top = 4.dp, bottom = 10.dp)
 
             button("浏览器打开", ACCENT, 0xFF_000000.toInt()) {
                 Utils.openUrl(url)
+                dismiss()
+            }
+            button("复制链接", 0xFF_3A3A3A.toInt(), 0xFF_FFFFFF.toInt()) {
+                Utils.copyToClipboard(ctx, url, "已复制链接")
                 dismiss()
             }
             button("取消", 0xFF_2A2A2A.toInt(), 0xFF_FFFFFF.toInt()) {
                 dismiss()
             }
         }
-        return root
+        return scroll
     }
 
     private fun momoi.mod.qqpro.lib.LinearScope.button(
