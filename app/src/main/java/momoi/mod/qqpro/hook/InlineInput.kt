@@ -72,9 +72,11 @@ object InlineInput {
         controllerRef = WeakReference(controller)
         reply = null
         hideBanner()
-        // Drop the floating banner if this EditText leaves the window (chat closed / page swapped).
+        // The input bar auto-hides on scroll, detaching this EditText; drop the floating banner then.
+        // When it reattaches (bar reshown) the reply/edit state is still live, so rebuild the banner —
+        // otherwise the reply/edit indicator vanishes after a scroll-hide/reshow.
         editText.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) {}
+            override fun onViewAttachedToWindow(v: View) { updateBanner() }
             override fun onViewDetachedFromWindow(v: View) { hideBanner() }
         })
     }

@@ -2,17 +2,18 @@ package momoi.mod.qqpro.hook.style
 
 import android.annotation.SuppressLint
 import android.net.Uri
-import android.util.TypedValue
+import android.text.InputType
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.forEach
-import androidx.core.widget.TextViewCompat
 import androidx.core.widget.doAfterTextChanged
 import com.tencent.mobileqq.app.ThreadManagerV2
 import com.tencent.qqnt.kernel.nativeinterface.Contact
@@ -44,11 +45,11 @@ import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.dpf
 import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.height
-import momoi.mod.qqpro.lib.hint
 import momoi.mod.qqpro.lib.imageResource
 import momoi.mod.qqpro.lib.longClickable
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.marginHorizontal
+import momoi.mod.qqpro.lib.onEachLayout
 import momoi.mod.qqpro.lib.onFocusChange
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.paddingHorizontal
@@ -57,6 +58,7 @@ import momoi.mod.qqpro.lib.size
 import momoi.mod.qqpro.lib.text
 import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
+import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.util.Utils
 import java.io.File
 import java.io.FileOutputStream
@@ -68,18 +70,28 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
         forEach {
             it.visibility = View.INVISIBLE
         }
+        // Inline mode (with the "单行输入" setting off): let the bar grow with a multiline EditText
+        // instead of the fixed 36dp height. When 单行输入 is on, keep the original single-line bar.
+        // The container ConstraintLayout doesn't wrap-content reliably around our unconstrained
+        // child, so its height is driven explicitly from the EditText line count (see onEachLayout).
+        val inlineGrow = Settings.inlineChatInput.value && !Settings.singleLineInput.value
+        val rootContainer = this
         val emoji = getChildAt(0)
         val keyboard = getChildAt(2)
         GroupScope(this).apply {
             val roundBg = roundCornerDrawable(0xFF_1B9AF7.toInt(), 9999f)
             val sideSpaceDp = Settings.screenCornerDiameter.value.toInt()
+            // Baseline single-line height of the bar; buttons stay this tall while the EditText grows.
+            val lineH = 36.dp
             add<LinearLayout>().size(FILL, FILL).apply {
                     if (Utils.isRoundScreen) {
                         paddingHorizontal((14.dp / Settings.scale.value).toInt())
                     }
                 }.content {
                     val voice =
-                        create<ImageView>().height(FILL).adjustViewBounds()
+                        create<ImageView>()
+                            .height(if (Settings.inlineChatInput.value) lineH else FILL)
+                            .adjustViewBounds()
                             .bitmapDecodeAssets("pro/ic_voice.png").padding(6.dp)
                             .scaleType(ImageView.ScaleType.FIT_CENTER)
                     ThreadManagerV2.getUIHandlerV2().post {
@@ -94,7 +106,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                         val pill = create<LinearLayout>().height(FILL).weight(1f)
                             .background(roundCornerDrawable(0x22_FFFFFF, 9999f))
                             .gravity(Gravity.CENTER_VERTICAL)
-                        val send = create<ImageView>().height(FILL).adjustViewBounds()
+                        val send = create<ImageView>().height(lineH).adjustViewBounds()
                             .padding(8.dp).scaleType(ImageView.ScaleType.FIT_CENTER).apply {
                                 setImageDrawable(sendIconDrawable())
                                 visibility = View.GONE
@@ -102,8 +114,9 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                         lateinit var emojiBtn: ImageView
                         lateinit var emojiToggle: ImageView
                         lateinit var editText: ImeEditText
+                        lateinit var hintView: TextView
                         pill.content {
-                            emojiBtn = add<ImageView>().height(FILL).adjustViewBounds()
+                            emojiBtn = add<ImageView>().height(lineH).adjustViewBounds()
                                 .scaleType(ImageView.ScaleType.FIT_CENTER).padding(8.dp)
                             if (Settings.attachmentOverlay.value) {
                                 // Emoji button becomes a "+" that opens the attachment overlay.
@@ -116,7 +129,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                             // Emoji-picker toggle, shown only while typing (inlineEmojiButton). It sits
                             // in the same left slot as emojiBtn (which hides once there is text), so it
                             // appears as an emoji key regardless of the attachment-overlay "+" setting.
-                            emojiToggle = add<ImageView>().height(FILL).adjustViewBounds()
+                            emojiToggle = add<ImageView>().height(lineH).adjustViewBounds()
                                 .scaleType(ImageView.ScaleType.FIT_CENTER).padding(8.dp)
                                 .bitmapDecodeAssets("pro/ic_emoji.png")
                             emojiToggle.visibility = View.GONE
@@ -128,19 +141,68 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                 hideIme(emojiToggle)
                                 AttachmentOverlay.show(emojiToggle, emoji)
                             }
-                            editText = add<ImeEditText>().height(FILL).weight(1f)
+                            // The built-in single-line hint and autosize both fight a growing
+                            // multiline field, so drop them and overlay a custom hint TextView inside
+                            // a FrameLayout that we toggle with the text. When 单行输入 is on (inlineGrow
+                            // false) the field stays single-line; otherwise it grows up to 4 lines.
+                            val inputWrap = add<FrameLayout>().height(FILL).weight(1f)
+                            editText = create<ImeEditText>()
                                 .background(null)
                                 .paddingHorizontal(4.dp)
                                 .textColor(0xFF_FFFFFF).textSize(14f)
                                 .gravity(Gravity.CENTER_VERTICAL)
-                                .hint("说点什么...").apply {
-                                    setHintTextColor(0x80_FFFFFF.toInt())
-                                    isSingleLine = true
-                                    TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
-                                        this, 8, 14, 1, TypedValue.COMPLEX_UNIT_SP
-                                    )
+                                .apply {
+                                    if (inlineGrow) {
+                                        inputType = InputType.TYPE_CLASS_TEXT or
+                                            InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                                            InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+                                        // Grow up to 4 lines, then the field scrolls internally.
+                                        maxLines = 4
+                                    } else {
+                                        inputType = InputType.TYPE_CLASS_TEXT or
+                                            InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+                                        isSingleLine = true
+                                        maxLines = 1
+                                    }
                                 }
                             editText.onImageUri = { uri -> sendImeImage(uri) }
+                            hintView = create<TextView>()
+                                .text("说点什么...")
+                                .textColor(0x80_FFFFFF)
+                                .textSize(14f)
+                                .gravity(Gravity.CENTER_VERTICAL)
+                                .paddingHorizontal(4.dp)
+                            inputWrap.addView(editText, FrameLayout.LayoutParams(
+                                FILL, FILL, Gravity.CENTER_VERTICAL))
+                            inputWrap.addView(hintView, FrameLayout.LayoutParams(
+                                WRAP, WRAP, Gravity.CENTER_VERTICAL or Gravity.START))
+                            // Drive the bottom-bar container height from the EditText's line count so
+                            // the bar (whose ConstraintLayout won't wrap-content reliably) grows with
+                            // the text, up to 4 lines, then the field scrolls inside the fixed height.
+                            // Bottom-anchor the bar and disable clipping on its parents so it grows
+                            // UPWARD off the fixed-height float/sliver containers instead of off-screen.
+                            if (inlineGrow) {
+                                (rootContainer.layoutParams as? FrameLayout.LayoutParams)?.gravity = Gravity.BOTTOM
+                                editText.onEachLayout {
+                                    var p = rootContainer.parent as? ViewGroup
+                                    var depth = 0
+                                    while (p != null && depth < 3) {
+                                        p.clipChildren = false
+                                        p.clipToPadding = false
+                                        p = p.parent as? ViewGroup
+                                        depth++
+                                    }
+                                    val lp = rootContainer.layoutParams ?: return@onEachLayout
+                                    (lp as? FrameLayout.LayoutParams)?.gravity = Gravity.BOTTOM
+                                    val lines = editText.lineCount.coerceIn(1, 4)
+                                    val target = lineH + (lines - 1) * editText.lineHeight
+                                    if (lp.height != target) {
+                                        Utils.log("inlineGrow lines=$lines lh=${editText.lineHeight} target=$target cur=${lp.height} parent=${rootContainer.parent?.javaClass?.simpleName}")
+                                        lp.height = target
+                                        rootContainer.layoutParams = lp
+                                    }
+                                }
+                            }
                             add(voice.background(null))
                             add(send)
                         }
@@ -152,6 +214,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                             // Use isNullOrEmpty (not isNullOrBlank): a space is real content the
                             // user typed (the hint already disappeared), so it must flip to send.
                             val hasText = !it.isNullOrEmpty()
+                            hintView.visibility = if (hasText) View.GONE else View.VISIBLE
                             val emojiMode = hasText && Settings.inlineEmojiButton.value
                             // Hide the emoji / "+" button when there is text, to make room for
                             // the send button; show the emoji-picker toggle in its place if enabled.
