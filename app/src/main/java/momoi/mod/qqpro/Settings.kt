@@ -38,6 +38,9 @@ object Settings {
     // width to the inline chat EditText so the side buttons aren't clipped by a
     // round watch screen's corners.
     val screenCornerDiameter = FloatPref("screenCornerDiameter", 15f)
+    // Hide the voice (microphone) button in the chat input bar entirely, in all input
+    // modes (inline and non-inline) and regardless of whether text has been typed.
+    val hideVoiceButton = BooleanPref("hideVoiceButton", false)
     val backToFirstPage = BooleanPref("backToFirstPage", true)
     // Replace the input bar's emoji button with a "+" button that opens the attachment
     // list as an overlay over the chat (like the long-press menu). Removes the attachment

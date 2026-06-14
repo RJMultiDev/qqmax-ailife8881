@@ -204,7 +204,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                     }
                                 }
                             }
-                            add(voice.background(null))
+                            if (!Settings.hideVoiceButton.value) add(voice.background(null))
                             add(send)
                         }
                         send.clickable {
@@ -221,7 +221,8 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                             // the send button; show the emoji-picker toggle in its place if enabled.
                             emojiBtn.visibility = if (hasText) View.GONE else View.VISIBLE
                             emojiToggle.visibility = if (emojiMode) View.VISIBLE else View.GONE
-                            voice.visibility = if (hasText) View.GONE else View.VISIBLE
+                            voice.visibility =
+                                if (hasText || Settings.hideVoiceButton.value) View.GONE else View.VISIBLE
                             send.visibility = if (hasText) View.VISIBLE else View.GONE
                             if (!emojiMode) InlineEmojiPanel.dismiss()
                         }
@@ -253,7 +254,9 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                 keyboard.callOnClick()
                             }
 
-                        if (Settings.swapCenterKeyboard.value) {
+                        if (Settings.hideVoiceButton.value) {
+                            add(input)
+                        } else if (Settings.swapCenterKeyboard.value) {
                             add(input.marginHorizontal(2.dp))
                             add(voice)
                         } else {
