@@ -172,6 +172,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                 .textSize(14f)
                                 .gravity(Gravity.CENTER_VERTICAL)
                                 .paddingHorizontal(4.dp)
+                                .apply { isSingleLine = true; maxLines = 1 }
                             inputWrap.addView(editText, FrameLayout.LayoutParams(
                                 FILL, FILL, Gravity.CENTER_VERTICAL))
                             inputWrap.addView(hintView, FrameLayout.LayoutParams(
