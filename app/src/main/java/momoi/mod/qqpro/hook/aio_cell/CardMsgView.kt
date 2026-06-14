@@ -12,6 +12,7 @@ import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.confirmOpenUrl
 import momoi.mod.qqpro.hook.openAddSearch
 import momoi.mod.qqpro.hook.style.heightLimit
+import momoi.mod.qqpro.hook.view.loadOsmStaticMap
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.adjustViewBounds
 import momoi.mod.qqpro.lib.background
@@ -120,6 +121,16 @@ class CardMsgView(context: Context) : LinearLayout(context) {
                 loadContactCard(json, meta)
                 return
             }
+            // Location share (app=com.tencent.map, view=LocationShare): meta holds a
+            // "Location.Search" object with name/address/lat/lng instead of the
+            // generic title/desc/icon schema (which would NPE on the missing
+            // "title"), so render name + address explicitly and make it tappable.
+            if (json.str("app") == "com.tencent.map") {
+                mContact.visibility = GONE
+                mGeneric.visibility = VISIBLE
+                loadLocationCard(json, meta)
+                return
+            }
             mContact.visibility = GONE
             mGeneric.visibility = VISIBLE
             val data = meta.json(meta.keys.first())!!
@@ -200,6 +211,61 @@ class CardMsgView(context: Context) : LinearLayout(context) {
             }
         } catch (e: Exception) {
             Utils.log("CardMsgView contact card error: ${e.message}")
+        }
+    }
+
+    /**
+     * Renders a shared location card (app=com.tencent.map, view=LocationShare)
+     * that the watch otherwise dumps to the "view on phone" placeholder. The
+     * "Location.Search" meta object carries name/address/lat/lng. Tapping opens
+     * the point in a map via the Tencent map marker URI.
+     */
+    private fun loadLocationCard(json: Json, meta: Json) {
+        try {
+            val loc = meta.json("Location.Search")
+                ?: meta.keys.firstOrNull()?.let { meta.json(it) }
+                ?: return
+            val name = loc.str("name")
+                ?: json.str("prompt")?.removePrefix("[位置]")
+                ?: "[位置]"
+            val address = loc.str("address")
+            val lat = loc.str("lat")
+            val lng = loc.str("lng")
+
+            mTvTitle.text = name
+            mIvIcon.visibility = GONE
+            if (!address.isNullOrEmpty()) {
+                mTvDesc.visibility = VISIBLE
+                mTvDesc.text = address
+            } else {
+                mTvDesc.visibility = GONE
+            }
+            mTvTag.visibility = VISIBLE
+            mTvTag.text = "📍 位置"
+
+            // Static map thumbnail stitched from keyless OSM tiles. Cached by
+            // lat/lng so the same location isn't re-rendered on every rebind.
+            val latD = lat?.toDoubleOrNull()
+            val lngD = lng?.toDoubleOrNull()
+            if (latD != null && lngD != null) {
+                mIvPreview.visibility = VISIBLE
+                mIvPreview.loadOsmStaticMap(latD, lngD, cacheKey = "osmmap_${lat}_$lng")
+            } else {
+                mIvPreview.visibility = GONE
+            }
+
+            if (!lat.isNullOrEmpty() && !lng.isNullOrEmpty()) {
+                clickable {
+                    val url = "https://apis.map.qq.com/uri/v1/marker?" +
+                        "marker=coord:$lat,$lng;title:$name;addr:${address ?: name}&referer=QQ"
+                    this@CardMsgView.confirmOpenUrl(url)
+                }
+            } else {
+                setOnClickListener(null)
+                isClickable = false
+            }
+        } catch (e: Exception) {
+            Utils.log("CardMsgView location card error: ${e.message}")
         }
     }
 }
