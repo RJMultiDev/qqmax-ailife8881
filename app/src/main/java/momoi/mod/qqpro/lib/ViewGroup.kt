@@ -27,3 +27,27 @@ fun View.replaceTextRecursive(from: String, to: String) {
 fun View.onEachLayout(action: () -> Unit) {
     viewTreeObserver.addOnGlobalLayoutListener { action() }
 }
+
+/**
+ * Run [action] each time this view detaches from the window. Non-inline so the
+ * OnAttachStateChangeListener SAM impl lives in this package, not inside a @Mixin
+ * method body in another package (which would crash with IllegalAccessError).
+ */
+fun View.onDetach(action: () -> Unit) {
+    addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+        override fun onViewAttachedToWindow(v: View) {}
+        override fun onViewDetachedFromWindow(v: View) = action()
+    })
+}
+
+/**
+ * Run [action] each time this view attaches to the window. Non-inline so the
+ * OnAttachStateChangeListener SAM impl lives in this package, not inside a @Mixin
+ * method body in another package (which would crash with IllegalAccessError).
+ */
+fun View.onAttach(action: () -> Unit) {
+    addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+        override fun onViewAttachedToWindow(v: View) = action()
+        override fun onViewDetachedFromWindow(v: View) {}
+    })
+}

@@ -48,6 +48,8 @@ import momoi.mod.qqpro.lib.imageResource
 import momoi.mod.qqpro.lib.longClickable
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.marginHorizontal
+import momoi.mod.qqpro.lib.onAttach
+import momoi.mod.qqpro.lib.onDetach
 import momoi.mod.qqpro.lib.onEachLayout
 import momoi.mod.qqpro.lib.onFocusChange
 import momoi.mod.qqpro.lib.padding
@@ -114,6 +116,54 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                         lateinit var emojiToggle: ImageView
                         lateinit var editText: ImeEditText
                         lateinit var hintView: TextView
+                        // Bar auto-grow state + routine. The input bar has two homes (see
+                        // WatchAIOListVB / InputBarController):
+                        //  • at the chat bottom it lives INSIDE a list footer (the 44dp "sliver"
+                        //    container b.d()), so growing that footer naturally pushes messages up;
+                        //  • scrolled up it floats in an overlay (b.a(), WRAP_CONTENT) that covers the
+                        //    list — we just let it overlay (like the native float bar). We must NOT
+                        //    change the RecyclerView padding here: that fires onScrolled, and the native
+                        //    scroll listener then collapses the floating bar to the up-arrow (state 0),
+                        //    making the EditText vanish on the next newline.
+                        // Driven from text changes and re-attach as well as layout passes, because in
+                        // the floating overlay global-layout passes are sparse (the list is static), so
+                        // onEachLayout alone makes the bar grow only after a collapse/reopen.
+                        var sliverBaseH = -1
+                        val applyInlineGrow = fun() {
+                            val parent = rootContainer.parent as? ViewGroup ?: return
+                            var p: ViewGroup? = parent
+                            var depth = 0
+                            while (p != null && depth < 4) {
+                                p.clipChildren = false
+                                p.clipToPadding = false
+                                p = p.parent as? ViewGroup
+                                depth++
+                            }
+                            val lines = editText.lineCount.coerceIn(1, 4)
+                            val target = lineH + (lines - 1) * editText.lineHeight
+                            val lp = rootContainer.layoutParams ?: return
+                            (lp as? FrameLayout.LayoutParams)?.gravity = Gravity.BOTTOM
+                            if (lp.height != target) {
+                                lp.height = target
+                                rootContainer.layoutParams = lp
+                            }
+                            val sliver = runCatching { b.d() }.getOrNull()
+                            if (sliver != null && sliverBaseH < 0) {
+                                sliverBaseH = sliver.layoutParams?.height?.takeIf { it > 0 } ?: (44.dp)
+                            }
+                            val inFooter = sliver != null && parent === sliver
+                            // Footer mode (at bottom): grow the footer item so it pushes messages up and
+                            // the taller bar is fully laid out & touchable. Float mode: keep the now empty
+                            // footer at its base height so it leaves no blank gap at the list end.
+                            sliver?.layoutParams?.let { slp ->
+                                val want = if (inFooter) target + sliver.paddingTop + sliver.paddingBottom else sliverBaseH
+                                if (slp.height != want) {
+                                    slp.height = want
+                                    sliver.layoutParams = slp
+                                }
+                            }
+                            Utils.log("inlineGrow state=${runCatching { b.g }.getOrNull()} parent=${parent.javaClass.simpleName} inFooter=$inFooter lines=$lines target=$target sliverH=${sliver?.layoutParams?.height} rootTop=${rootContainer.top} rootH=${rootContainer.height}")
+                        }
                         pill.content {
                             emojiBtn = add<ImageView>().height(lineH).adjustViewBounds()
                                 .scaleType(ImageView.ScaleType.FIT_CENTER).padding(8.dp)
@@ -183,23 +233,24 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                             // UPWARD off the fixed-height float/sliver containers instead of off-screen.
                             if (inlineGrow) {
                                 (rootContainer.layoutParams as? FrameLayout.LayoutParams)?.gravity = Gravity.BOTTOM
-                                editText.onEachLayout {
-                                    var p = rootContainer.parent as? ViewGroup
-                                    var depth = 0
-                                    while (p != null && depth < 3) {
-                                        p.clipChildren = false
-                                        p.clipToPadding = false
-                                        p = p.parent as? ViewGroup
-                                        depth++
-                                    }
-                                    val lp = rootContainer.layoutParams ?: return@onEachLayout
-                                    (lp as? FrameLayout.LayoutParams)?.gravity = Gravity.BOTTOM
-                                    val lines = editText.lineCount.coerceIn(1, 4)
-                                    val target = lineH + (lines - 1) * editText.lineHeight
-                                    if (lp.height != target) {
-                                        Utils.log("inlineGrow lines=$lines lh=${editText.lineHeight} target=$target cur=${lp.height} parent=${rootContainer.parent?.javaClass?.simpleName}")
-                                        lp.height = target
-                                        rootContainer.layoutParams = lp
+                                editText.onEachLayout { applyInlineGrow() }
+                                // Re-show after a scroll-hide doesn't change the text, so onEachLayout
+                                // alone (sparse in the float overlay) may leave the bar collapsed though
+                                // it still holds multiline text — re-apply on attach.
+                                editText.onAttach { editText.post { applyInlineGrow() } }
+                                // When the bar collapses (state 0 / scroll-hide) the EditText detaches
+                                // and onEachLayout stops firing, so a grown footer height would otherwise
+                                // linger as a blank gap with no bar present. Reset it to base on detach;
+                                // it re-applies when the bar shows again.
+                                editText.onDetach {
+                                    runCatching {
+                                        val sliver = b.d()
+                                        sliver.layoutParams?.let {
+                                            if (sliverBaseH > 0 && it.height != sliverBaseH) {
+                                                it.height = sliverBaseH
+                                                sliver.layoutParams = it
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -224,6 +275,10 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                 if (hasText || Settings.hideVoiceButton.value) View.GONE else View.VISIBLE
                             send.visibility = if (hasText) View.VISIBLE else View.GONE
                             if (!emojiMode) InlineEmojiPanel.dismiss()
+                            // Grow/shrink the bar on every edit. Posted so editText.lineCount reflects
+                            // the new text (it updates after the next measure). In the floating overlay
+                            // layout passes are too sparse to catch this on their own.
+                            if (inlineGrow) editText.post { applyInlineGrow() }
                         }
                         if (Settings.fullInlineInput.value) {
                             // The reply/edit banner is a floating overlay above the bar (InlineInput
