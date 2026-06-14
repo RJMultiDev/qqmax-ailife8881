@@ -2,7 +2,10 @@ package momoi.mod.qqpro.lib
 
 import android.content.Context
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewGroup
+import android.widget.AbsSeekBar
 import android.widget.FrameLayout
 import kotlin.math.abs
 
@@ -24,6 +27,10 @@ class SwipeBackLayout(context: Context) : FrameLayout(context) {
     private var downX = 0f
     private var downY = 0f
     private var tracking = false
+    // Set on DOWN when the touch lands on a horizontal-drag widget (e.g. a settings SeekBar).
+    // Those live inside a ScrollView, so they don't claim the gesture on DOWN — without this
+    // guard our MOVE interception steals the drag before the slider can move.
+    private var blockSwipe = false
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
@@ -33,8 +40,10 @@ class SwipeBackLayout(context: Context) : FrameLayout(context) {
                 downX = ev.rawX
                 downY = ev.rawY
                 tracking = false
+                blockSwipe = isOnHorizontalDragWidget(this, ev.rawX, ev.rawY)
             }
             MotionEvent.ACTION_MOVE -> {
+                if (blockSwipe) return false
                 val dx = ev.rawX - downX
                 val dy = ev.rawY - downY
                 // Horizontal-dominant rightward drag → grab it for swipe-back.
@@ -67,5 +76,27 @@ class SwipeBackLayout(context: Context) : FrameLayout(context) {
             }
         }
         return tracking
+    }
+
+    /** True if [x],[y] (screen coords) fall on a visible [AbsSeekBar] descendant of [v]. */
+    private fun isOnHorizontalDragWidget(v: View, x: Float, y: Float): Boolean {
+        if (v.visibility != View.VISIBLE) return false
+        if (v is AbsSeekBar) {
+            val loc = IntArray(2)
+            v.getLocationOnScreen(loc)
+            // Pad the hit area so a drag started just beside the thumb still counts.
+            val pad = touchSlop
+            if (x >= loc[0] - pad && x <= loc[0] + v.width + pad &&
+                y >= loc[1] - pad && y <= loc[1] + v.height + pad
+            ) {
+                return true
+            }
+        }
+        if (v is ViewGroup) {
+            for (i in 0 until v.childCount) {
+                if (isOnHorizontalDragWidget(v.getChildAt(i), x, y)) return true
+            }
+        }
+        return false
     }
 }

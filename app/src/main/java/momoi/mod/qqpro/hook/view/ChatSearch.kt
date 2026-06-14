@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -21,6 +22,7 @@ import momoi.mod.qqpro.msg.getImageUrl
 import momoi.mod.qqpro.hook.action.CurrentMsgList
 import momoi.mod.qqpro.hook.style.cardMargin
 import momoi.mod.qqpro.lib.FILL
+import momoi.mod.qqpro.lib.SwipeBackLayout
 import momoi.mod.qqpro.lib.clickable
 import momoi.mod.qqpro.lib.content
 import momoi.mod.qqpro.lib.dp
@@ -136,11 +138,19 @@ class ChatSearchFragment : MyDialogFragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
+        // Watches without a hardware back button leave a screen via a left-to-right swipe.
+        // Wrap the search content so that gesture dismisses this dialog, matching the rest of
+        // the app (the settings page uses the same SwipeBackLayout).
+        val swipe = SwipeBackLayout(inflater.context)
+        swipe.layoutParams = ViewGroup.LayoutParams(FILL, FILL)
+        // Opaque so the strip revealed while the content slides right doesn't flash through.
+        swipe.setBackgroundColor(BG)
+        swipe.onSwipeBack = { dismiss() }
         root = LinearLayout(inflater.context).vertical()
-        root.layoutParams = ViewGroup.LayoutParams(FILL, FILL)
         root.setBackgroundColor(BG)
+        swipe.addView(root, FrameLayout.LayoutParams(FILL, FILL))
         showMenu()
-        return root
+        return swipe
     }
 
     // ---- screens -------------------------------------------------------------
