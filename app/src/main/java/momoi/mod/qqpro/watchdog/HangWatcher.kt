@@ -3,6 +3,7 @@ package momoi.mod.qqpro.watchdog
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import momoi.mod.qqpro.util.Utils
 import java.text.SimpleDateFormat
@@ -28,13 +29,13 @@ class HangWatcher(private val context: Context) {
 
     private val ticker = object : Runnable {
         override fun run() {
-            lastTick = System.currentTimeMillis()
+            lastTick = SystemClock.uptimeMillis()
             mainHandler.postDelayed(this, CHECK_INTERVAL_MS)
         }
     }
 
     fun start() {
-        lastTick = System.currentTimeMillis()
+        lastTick = SystemClock.uptimeMillis()
         mainHandler.post(ticker)
         Thread({ monitor() }, "QQPro-HangWatcher").apply {
             isDaemon = true
@@ -49,7 +50,7 @@ class HangWatcher(private val context: Context) {
                 Thread.sleep(CHECK_INTERVAL_MS)
             } catch (_: InterruptedException) {
             }
-            val stalled = System.currentTimeMillis() - lastTick
+            val stalled = SystemClock.uptimeMillis() - lastTick
             if (stalled > THRESHOLD_MS) {
                 if (!reported) {
                     reported = true
