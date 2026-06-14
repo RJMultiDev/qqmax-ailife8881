@@ -38,5 +38,22 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:taskAffinity="momoi.mod.qqpro.crash" />
+
+        <!-- In-app debug menu opened from the settings 调试 section. Runs in the main process. -->
+        <activity
+            android:name="momoi.mod.qqpro.watchdog.DebugActivity"
+            android:exported="false"
+            android:excludeFromRecents="true" />
+
+        <!-- Watchdog crash/hang test panel, opened from the settings 调试 section. Main process. -->
+        <activity
+            android:name="momoi.mod.qqpro.watchdog.WatchdogTestActivity"
+            android:exported="false"
+            android:excludeFromRecents="true" />
     </application>
+
+    <!-- Save log to Downloads on pre-Android-10 (the watch is API 28). Q+ uses MediaStore, no perm. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 </manifest>

@@ -47,6 +47,8 @@ import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.width
 import momoi.mod.qqpro.util.ChatBackground
 import momoi.mod.qqpro.util.Utils
+import momoi.mod.qqpro.watchdog.DebugActivity
+import momoi.mod.qqpro.watchdog.WatchdogTestActivity
 import moye.wearqq.SettingsActivity
 import kotlin.math.roundToInt
 
@@ -167,6 +169,16 @@ class 设置页 : SettingsActivity() {
             section("关于与更新", "版本更新")
             switch("自动检查更新", "启动时检查 QQ Max 新版本，可在关于页手动检查", Settings.autoUpdateCheck)
 
+            // ── 调试 ──
+            section("调试", "诊断与日志")
+            switch("卡死监控", "监测主线程卡死并弹出报告，崩溃捕获始终开启。手表休眠可能误报，可关闭(重启应用生效)", Settings.watchdogEnabled)
+            actionCard("调试菜单", "查看设备信息与调试日志，可复制/分享/保存") {
+                startActivity(Intent(this@设置页, DebugActivity::class.java))
+            }
+            actionCard("崩溃 / 卡死测试", "主动触发崩溃或卡死，验证报告功能") {
+                startActivity(Intent(this@设置页, WatchdogTestActivity::class.java))
+            }
+
             add<View>()
                 .height(64.dp)
         }
@@ -198,6 +210,23 @@ class 设置页 : SettingsActivity() {
             sw.onCheckedChange { pref.value = it }
             add(sw)
         }
+    }
+
+    /** A tappable card row with a ›-style affordance; runs [onTap] when pressed. */
+    private fun GroupScopeFix.actionCard(
+        title: String,
+        desc: String,
+        onTap: () -> Unit
+    ) = card { card ->
+        card.content {
+            titleColumn(title, desc).weight(1f)
+            add<TextView>()
+                .text("›")
+                .textSize(18f)
+                .textColor(ACCENT)
+                .gravity(Gravity.CENTER_VERTICAL)
+        }
+        card.onClick { onTap() }
     }
 
     /**

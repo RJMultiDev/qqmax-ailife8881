@@ -55,7 +55,8 @@ object Utils {
         Log.e("QQQQQQQQQQ", "debugger!")
     }
 
-    private val debugLogFile by lazy {
+    /** The on-device debug log file ([log] appends here). Exposed so the debug menu can read it. */
+    val debugLogFile by lazy {
         // externalCacheDir can be null on some ROMs (external storage unmounted); fall back
         // so the log still lands somewhere writable instead of a relative (unwritable) path.
         java.io.File(application.safeCacheDir, "qqpro_debug.log")

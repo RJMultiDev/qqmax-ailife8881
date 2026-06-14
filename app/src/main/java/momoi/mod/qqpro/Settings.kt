@@ -106,6 +106,12 @@ object Settings {
     // OTAManager2's own prefs so the toggle and the dialog's "不再提醒" share one state.
     val autoUpdateCheck = OtaBooleanPref("update_check_enabled", true)
 
+    // ===== 调试 =====
+    // Enable the main-thread hang watchdog (HangWatcher). When on, a stalled main thread for
+    // 8s+ shows a "应用卡死" report. Crash capture is always on; this gates only hang detection,
+    // which can false-positive on a watch that suspends/dozes. Read once at install time.
+    val watchdogEnabled = BooleanPref("watchdogEnabled", true)
+
     // ===== NWear QQ 设置 (by 爅峫) — backed by the base app's "wearqq" prefs =====
     val singleLineInput = WearBooleanPref("single_line_input", false)
     val sendWithImage = WearBooleanPref("send_with_image", true)

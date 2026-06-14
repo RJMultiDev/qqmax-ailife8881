@@ -2,6 +2,7 @@ package momoi.mod.qqpro.watchdog
 
 import android.content.Context
 import android.content.Intent
+import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.util.Utils
 import java.io.File
 
@@ -33,9 +34,14 @@ object Watchdog {
         if (installed) return
         installed = true
         val app = ctx.applicationContext
-        Utils.log("Watchdog: installing crash + hang capture")
+        Utils.log("Watchdog: installing crash capture")
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler(app))
-        HangWatcher(app).start()
+        // Hang detection is opt-out: it can false-positive when the watch suspends/dozes.
+        if (Settings.watchdogEnabled.value) {
+            HangWatcher(app).start()
+        } else {
+            Utils.log("Watchdog: hang watcher disabled by setting")
+        }
     }
 
     /** Persist [report] and launch the report viewer in the `:crash` process. */
