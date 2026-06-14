@@ -15,9 +15,12 @@ import java.util.regex.Pattern
 // CJK punctuation (and brackets) that should terminate a URL match.
 private const val STOP = "\\s\\u4e00-\\u9fa5\\u3002\\uff1f\\uff01\\uff0c\\u3001\\uff1b\\uff1a\\u201c\\u201d\\u2018\\u2019\\uff08\\uff09\\u300a\\u300b\\u3008\\u3009\\u3010\\u3011\\u300e\\u300f\\u300c\\u300d\\uff43\\uff44\\u3014\\u3015\\u2026\\u2014\\uff5e\\uff4f\\uffe5"
 
-// Strict: only matches URLs that carry an explicit http(s):// scheme.
+// Strict: only matches URLs that carry an explicit http(s):// scheme. After the
+// scheme, take the run of characters that aren't a STOP char — STOP already covers
+// whitespace and the CJK range, so the match terminates at Chinese text or a space
+// without needing a trailing dot (so single-dot hosts and end-of-line URLs match).
 private val strictPattern: Pattern =
-    Pattern.compile("(http(s)?://)\\w+\\S+(\\.[^$STOP]+)+")
+    Pattern.compile("(?i)https?://[^$STOP]+")
 
 // Wide: also matches bare hosts like "example.com/path" with no scheme. Requires
 // at least one dot and a 2+ letter TLD so plain numbers/words don't match.
