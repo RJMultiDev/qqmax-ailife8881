@@ -1,6 +1,5 @@
 package momoi.mod.qqpro.hook
 
-import android.app.Activity
 import android.graphics.Rect
 import android.text.SpannableString
 import android.text.Spanned
@@ -171,19 +170,22 @@ object InlineInput {
         val et = editText() ?: return
         et.post {
             runCatching {
-                val activity = et.context as? Activity ?: return@post
-                val content = activity.findViewById<ViewGroup>(android.R.id.content) ?: return@post
+                // Host the banner in the AIO fragment's container (the same FrameLayout the
+                // attachment overlay's scrim is added to) rather than android.R.id.content. That
+                // way the overlay — added to this container later — draws ABOVE the banner, so the
+                // banner sits at the input-bar layer and is covered by the overlay instead of
+                // floating on top of it. (No elevation, so plain child order decides z.)
+                val content = AttachmentOverlay.aioContainer(et) ?: return@post
                 var banner = bannerRef?.get()
                 if (banner == null || banner.parent !== content) {
                     (content.findViewWithTag<View>(BANNER_TAG))?.let { (it.parent as? ViewGroup)?.removeView(it) }
-                    banner = TextView(activity).apply {
+                    banner = TextView(et.context).apply {
                         tag = BANNER_TAG
                         setTextColor(tokenColor)
                         textSize = 11f
                         gravity = Gravity.CENTER_VERTICAL
                         setPadding(12.dp, 4.dp, 12.dp, 4.dp)
                         setBackgroundColor(0xF2_1C1C1C.toInt())
-                        elevation = 24.dp.toFloat()
                         isClickable = true
                         setOnClickListener { onBannerClick() }
                     }

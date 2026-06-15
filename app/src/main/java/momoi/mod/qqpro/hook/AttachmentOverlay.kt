@@ -135,6 +135,14 @@ object AttachmentOverlay {
         override fun onRequestDisallowInterceptTouchEvent(disallow: Boolean) {}
     }
 
+    /**
+     * The [WatchAIOFragment]'s root container (a FrameLayout). The reply/edit banner is hosted here
+     * — the same parent this overlay's scrim is added to — so the overlay (added later) draws above
+     * the banner instead of the banner floating on top. Returns null if [view] isn't in an AIO tree.
+     */
+    fun aioContainer(view: View): ViewGroup? =
+        runCatching { findAioFragment(view)?.view as? ViewGroup }.getOrNull()
+
     private fun findAioFragment(anchor: View): WatchAIOFragment? {
         var f: Fragment? = runCatching { FragmentManager.findFragment<Fragment>(anchor) }.getOrNull()
         while (f != null) {
