@@ -52,8 +52,12 @@
             android:excludeFromRecents="true" />
     </application>
 
-    <!-- Save log to Downloads on pre-Android-10 (the watch is API 28). Q+ uses MediaStore, no perm. -->
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
+    <!--
+      NOTE: do NOT re-declare WRITE_EXTERNAL_STORAGE here. The target APK already declares it
+      UNCAPPED, and QQ's own 保存到相册 checks it at runtime. Adding a duplicate with
+      android:maxSdkVersion merges onto the existing node (merger: new attributes override old),
+      which un-grants storage above that SDK and breaks save-to-album on API > cap
+      (checkSelfPermission → denied → "permanently denied"). Log-saving on the API-28 watch is
+      already covered by the target's uncapped declaration.
+    -->
 </manifest>
