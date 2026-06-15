@@ -90,7 +90,12 @@ class 滚轮适配 : MainActivity() {
     }
 
     override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
-        if (targetView?.isInCenter() != true) {
+        // While the attachment overlay is up, scope scrolling to its own list and consume the
+        // event below — otherwise the encoder scrolls/turns the chat & pages behind the overlay.
+        val overlayRoot = AttachmentOverlay.overlayView
+        if (overlayRoot != null) {
+            targetView = findTarget(overlayRoot)
+        } else if (targetView?.isInCenter() != true) {
             targetView = findTarget(window.decorView)
         }
         val delta =
@@ -114,7 +119,8 @@ class 滚轮适配 : MainActivity() {
         (targetView as? RFWMatrixImageView)?.let {
             it.scale = (it.scale * (1 + 0.001f * delta)).coerceIn(it.minimumScale, it.maximumScale)
         }
-        return super.dispatchGenericMotionEvent(ev)
+        // Consume when the overlay is open so the views beneath never see the scroll.
+        return if (overlayRoot != null) true else super.dispatchGenericMotionEvent(ev)
     }
 }
 

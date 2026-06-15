@@ -35,6 +35,13 @@ object AttachmentOverlay {
 
     private var scrim: FrameLayout? = null
     private var hostFm: FragmentManager? = null
+
+    /**
+     * The open overlay's scrim view, or null when closed. Used by the rotary-encoder handler
+     * (滚轮适配) to scope scrolling to the overlay's list and consume the event, so the chat/pages
+     * beneath don't scroll/turn while the overlay is up.
+     */
+    val overlayView: View? get() = if (active) scrim else null
     private var hosted: Fragment? = null
     private var backCallback: OnBackPressedCallback? = null
 
