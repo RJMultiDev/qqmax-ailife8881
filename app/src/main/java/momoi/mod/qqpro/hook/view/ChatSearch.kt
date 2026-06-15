@@ -29,6 +29,7 @@ import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.linearLayout
 import momoi.mod.qqpro.lib.margin
+import momoi.mod.qqpro.lib.marginHorizontal
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.text
 import momoi.mod.qqpro.lib.textColor
@@ -128,6 +129,9 @@ class ChatSearchFragment : MyDialogFragment() {
     /** Cleared when the dialog goes away, so an in-flight loadAll stops instead of leaking. */
     private var active = true
 
+    /** Set by the "立即显示" button to stop paging history early and show partial results. */
+    private var loadCancelled = false
+
     override fun onDestroyView() {
         active = false
         super.onDestroyView()
@@ -212,9 +216,7 @@ class ChatSearchFragment : MyDialogFragment() {
     }
 
     private fun startDateFlow() {
-        showLoading()
-        CurrentMsgList.loadAll(onProgress = ::updateLoading, shouldContinue = { isAdded && active }) {
-            if (!isAdded || !active) return@loadAll // dialog dismissed while loading
+        loadThen {
             val days = CurrentMsgList.msgList.value
                 .asSequence()
                 .filter { it.d.elements.isNotEmpty() }
@@ -224,6 +226,31 @@ class ChatSearchFragment : MyDialogFragment() {
                 .toList()
             showDateList(days)
         }
+    }
+
+    /**
+     * Page the whole history into memory, then run [render] over [CurrentMsgList]. Long histories
+     * take a while, so the loading screen shows a "立即显示" button: tapping it cancels further
+     * paging and runs [render] immediately over the messages loaded so far. [render] runs exactly
+     * once — either from the "show now" tap or from loadAll finishing, whichever comes first.
+     */
+    private fun loadThen(render: () -> Unit) {
+        loadCancelled = false
+        var rendered = false
+        val finish = {
+            if (!rendered && isAdded && active) {
+                rendered = true
+                render()
+            }
+        }
+        showLoading(onShowNow = {
+            loadCancelled = true
+            finish()
+        })
+        CurrentMsgList.loadAll(
+            onProgress = ::updateLoading,
+            shouldContinue = { isAdded && active && !loadCancelled }
+        ) { finish() }
     }
 
     private fun showDateList(days: List<String>) {
@@ -251,9 +278,7 @@ class ChatSearchFragment : MyDialogFragment() {
     }
 
     private fun startSearch(type: SearchType, keyword: String?, day: String?) {
-        showLoading()
-        CurrentMsgList.loadAll(onProgress = ::updateLoading, shouldContinue = { isAdded && active }) {
-            if (!isAdded || !active) return@loadAll // dialog dismissed while loading
+        loadThen {
             val hits = CurrentMsgList.msgList.value.filter { matches(it, type, keyword, day) }
             Utils.log("ChatSearch: type=$type keyword=$keyword day=$day hits=${hits.size}")
             showResults(hits, withPreview = type == SearchType.MEDIA)
@@ -311,7 +336,7 @@ class ChatSearchFragment : MyDialogFragment() {
         }
     }
 
-    private fun showLoading() {
+    private fun showLoading(onShowNow: () -> Unit) {
         root.removeAllViews()
         root.gravity = Gravity.CENTER
         root.content {
@@ -321,6 +346,23 @@ class ChatSearchFragment : MyDialogFragment() {
                 .textColor(0xFF_FFFFFF)
                 .gravity(Gravity.CENTER)
                 .apply { tag = "loading" }
+            // Skip the rest of the (slow) full-history load and search what's loaded so far.
+            add<TextView>()
+                .text("立即显示当前结果")
+                .textSize(13f)
+                .textColor(0xFF_000000.toInt())
+                .gravity(Gravity.CENTER)
+                .width(FILL)
+                .marginHorizontal(24.dp)
+                .margin(top = 16.dp)
+                .padding(top = 10.dp, bottom = 10.dp)
+                .apply {
+                    background = GradientDrawable().apply {
+                        setColor(ACCENT)
+                        cornerRadius = 22.dp.toFloat()
+                    }
+                }
+                .clickable(onShowNow)
         }
     }
 
