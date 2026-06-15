@@ -104,6 +104,11 @@ object Settings {
     // "我的通知" entry into separate friend/group notification entries (each with its own
     // count and direct navigation), and drop the trailing group icon on every group row.
     val contactSections = BooleanPref("contactSections", true)
+    // Chat-settings panel (好友/群资料页 header name): show the contact/group name on multiple
+    // lines instead of truncating to one, and allow long-pressing it to copy. Replaces the
+    // single-line nick view with a multiline TextView that mirrors the original's (async) text.
+    // Opt-in escape hatch since it swaps a custom widget; takes effect next time the panel opens.
+    val profileNameMultiline = BooleanPref("profileNameMultiline", true)
     // How much to darken the chat background image for readability.
     // 0 = original image, 0.9 = almost black. Applied as a black overlay on top
     // of the picked image. Takes effect the next time a chat is opened.

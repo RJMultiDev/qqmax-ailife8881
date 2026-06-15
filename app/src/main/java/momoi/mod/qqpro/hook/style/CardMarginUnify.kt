@@ -17,7 +17,9 @@ import com.tencent.qqnt.watch.ui.componet.select.SelectDialogFragment
 import com.tencent.watch.aio_impl.ui.frames.SettingFrame
 import com.tencent.watch.ime.input.ChooseInputFragment
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.asGroupOrNull
+import momoi.mod.qqpro.hook.contact.ProfileNameView
 import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.forEachAll
 import momoi.mod.qqpro.lib.dp
@@ -100,6 +102,15 @@ class SettingFrameMargins : SettingFrame() {
         }
         Utils.log("CardMarginUnify: chat settings panel normalized")
         return root
+    }
+
+    // Opt-in: make the header name (friend or group) wrap to multiple lines and long-press-copyable.
+    // Done in onViewCreated (not Y) since the nick text is set asynchronously after the view exists.
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        if (Settings.profileNameMultiline.value) {
+            (view as? ViewGroup)?.let { ProfileNameView.enhance(it) }
+        }
     }
 }
 

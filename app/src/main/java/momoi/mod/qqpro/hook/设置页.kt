@@ -244,6 +244,7 @@ class 设置页 : SettingsActivity() {
         },
         SettingsCategory("联系人", "联系人页面") {
             switch("联系人分组", "联系人页用「好友」「群聊」标题分组，通知拆成好友/群两项各带数量，去掉群行末尾图标", Settings.contactSections)
+            switch("资料页姓名多行可复制", "好友/群资料设置页顶部名称过长时换行显示，长按名称可复制；QQ号与昵称分两行显示、可分别长按复制(重进资料页生效)", Settings.profileNameMultiline)
         },
         SettingsCategory("相机与媒体", "拍照、相册与音频") {
             switch("使用应用内相机", "开启后拍照/录像都用应用内相机，关闭后改用系统/第三方相机", Settings.useInAppCamera)
