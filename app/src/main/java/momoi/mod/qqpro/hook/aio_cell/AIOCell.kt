@@ -166,10 +166,16 @@ object AIOCell {
                         }
                         it.tag = senderUid
                     }
+                    // Avatar depends only on the message record, so apply it now and
+                    // unconditionally — never gate it on the async member lookup, which
+                    // silently drops self / missing members and would otherwise leave a
+                    // recycled cell showing the previous sender's avatar.
+                    GroupAvatarHook.bindAvatar(widget, item.d)
+                    // Nick text needs member info, so it follows the member callback.
                     CurrentGroupMembers.get(senderUid) { member ->
                         widget.post {
                             if (widget.getNickWidget<TextView>()?.tag == senderUid) {
-                                GroupAvatarHook.update(widget, item.d, member)
+                                GroupAvatarHook.bindNick(widget, item.d, member)
                             }
                         }
                     }

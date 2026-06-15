@@ -120,20 +120,27 @@ object GroupAvatarHook {
     private val pendingCallbacks = HashMap<Long, ArrayDeque<() -> Unit>>()
     private val widgetCurrentUin = WeakHashMap<AIOCellGroupWidget, Long>()
 
-    fun update(widget: AIOCellGroupWidget, record: MsgRecord, member: MemberInfo) {
+    /**
+     * Apply (or clear) the avatar drawable on a cell's nick view. Depends ONLY on the message
+     * record (sender uin/uid) + settings — never on the async group-member lookup, which silently
+     * drops self and members missing from the (possibly partial) member list. Call this directly
+     * and unconditionally on every (non-collapsed) bind so a recycled cell never keeps the previous
+     * sender's avatar, and self / unknown-member avatars still show.
+     *
+     * The nick *text* is handled separately by [bindNick] once the member info is available.
+     */
+    fun bindAvatar(widget: AIOCellGroupWidget, record: MsgRecord) {
         val nickView = widget.getNickWidget<TextView>() ?: return
         val isSelf = record.senderUid == SelfContact.peerUid
         if (Settings.showGroupAvatar.value && (!isSelf || Settings.showSelfAvatar.value)) {
             val uin = record.senderUin
             widgetCurrentUin[widget] = uin
-            nickView.maxLines = 2
-            // Self messages are right-aligned, so anchor avatar + nick to the end.
-            nickView.gravity = if (isSelf) Gravity.END else Gravity.START
-            nickView.text = member.toDisplayTwoLine()
             val bitmap = avatarBitmaps[uin]
             if (bitmap != null) {
                 applyAvatar(nickView, bitmap, isSelf)
             } else {
+                // Clear immediately so the recycled cell doesn't show the previous avatar
+                // while the new one downloads.
                 nickView.setCompoundDrawables(null, null, null, null)
                 val needsDownload = !pendingCallbacks.containsKey(uin)
                 pendingCallbacks.getOrPut(uin) { ArrayDeque() }.addLast {
@@ -152,9 +159,27 @@ object GroupAvatarHook {
             }
         } else {
             widgetCurrentUin.remove(widget)
+            nickView.setCompoundDrawables(null, null, null, null)
+            nickView.setPaddingRelative(nickView.paddingStart, 0, nickView.paddingEnd, nickView.paddingBottom)
+        }
+    }
+
+    /**
+     * Set the nick text (and its layout: two-line + end-aligned when an avatar is shown). Requires
+     * member info, so it runs from the group-member callback. The avatar itself is already handled
+     * by [bindAvatar]; this only touches text/alignment/padding.
+     */
+    fun bindNick(widget: AIOCellGroupWidget, record: MsgRecord, member: MemberInfo) {
+        val nickView = widget.getNickWidget<TextView>() ?: return
+        val isSelf = record.senderUid == SelfContact.peerUid
+        if (Settings.showGroupAvatar.value && (!isSelf || Settings.showSelfAvatar.value)) {
+            nickView.maxLines = 2
+            // Self messages are right-aligned, so anchor avatar + nick to the end.
+            nickView.gravity = if (isSelf) Gravity.END else Gravity.START
+            nickView.text = member.toDisplayTwoLine()
+        } else {
             nickView.maxLines = 1
             nickView.gravity = Gravity.START
-            nickView.setCompoundDrawables(null, null, null, null)
             nickView.setPaddingRelative(nickView.paddingStart, 0, nickView.paddingEnd, nickView.paddingBottom)
             nickView.text = member.toDisplay()
         }
