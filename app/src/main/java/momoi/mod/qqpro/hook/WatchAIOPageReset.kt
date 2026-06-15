@@ -1,9 +1,11 @@
 package momoi.mod.qqpro.hook
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import com.tencent.qqnt.watch.ui.componet.tablayout.CircleIndicator
 import com.tencent.watch.aio_impl.ui.WatchAIOFragment
 import moye.wearqq.IMEOperation
@@ -82,6 +84,16 @@ class WatchAIOPageReset : WatchAIOFragment() {
 
     override fun onPause() {
         super.onPause()
+        // Swipe-back / back-key to exit the chat leaves the soft keyboard open over the previous
+        // screen (the inline EditText is popped without the IME being dismissed). Hide it here so it
+        // closes with the chat. Best-effort; harmless on the attachment paths below.
+        runCatching {
+            val v = view
+            if (v != null) {
+                val imm = v.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                imm?.hideSoftInputFromWindow(v.windowToken, 0)
+            }
+        }.onFailure { Utils.log("WatchAIOFragment.onPause hideSoftInput failed: $it") }
         // Any attachment action that leaves the chat (gallery / camera / system picker / IME
         // preview) navigates away instead of calling the overlay's selector. Closing the overlay
         // here covers all those paths; direct in-place sends are handled by selector -> dismiss().
