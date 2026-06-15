@@ -1,7 +1,12 @@
 package momoi.mod.qqpro.hook
 
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
+import android.widget.TextView
 import java.lang.ref.WeakReference
 import com.tencent.qqnt.watch.add.QQAddFriendFragment
 import momoi.anno.mixin.Mixin
@@ -74,6 +79,14 @@ internal fun View.findNavControllerFromTree(): Any? {
 class AddFriendPrefill : QQAddFriendFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // Enable pasting a number into the search field. The numeric pad drives `curString` (g),
+        // which is what the search reads; the EditText (e) is just display — so a raw paste never
+        // reached the search. setupPaste keeps g synced with the field and adds a long-press paste.
+        try {
+            setupPaste(this, e)
+        } catch (ex: Exception) {
+            Utils.log("AddFriendPrefill paste setup error: ${ex.message}")
+        }
         val code = arguments?.getString(EXTRA_SEARCH_PREFILL)
         if (code.isNullOrEmpty()) return
         try {
@@ -84,4 +97,43 @@ class AddFriendPrefill : QQAddFriendFragment() {
             Utils.log("AddFriendPrefill error: ${ex.message}")
         }
     }
+}
+
+/**
+ * Make paste work on the add-friend search field. Lives OUTSIDE the @Mixin class on purpose: the
+ * anonymous [TextWatcher] / [View.OnLongClickListener] below must compile into this (normal) file's
+ * class, not be copied into the target fragment — anonymous classes declared inside a @Mixin body
+ * crash at runtime with IllegalAccessError (see the qqpro-mixin-anon-class note).
+ *
+ *  - A [TextWatcher] mirrors whatever ends up in the field into [QQAddFriendFragment.g] (curString,
+ *    the value the search actually uses), so a system paste-menu paste also takes effect.
+ *  - A long-press handler pastes the clipboard's digits directly (guaranteed affordance even if the
+ *    native paste menu doesn't show on the watch).
+ */
+internal fun setupPaste(fragment: QQAddFriendFragment, edit: TextView) {
+    edit.addTextChangedListener(object : TextWatcher {
+        override fun afterTextChanged(s: Editable?) {
+            fragment.g = s?.toString().orEmpty().filter { it.isDigit() }.take(11)
+        }
+        override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
+        override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
+    })
+    edit.isLongClickable = true
+    edit.setOnLongClickListener(object : View.OnLongClickListener {
+        override fun onLongClick(v: View): Boolean {
+            val ctx = v.context
+            val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            val raw = cm?.primaryClip?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)?.coerceToText(ctx)?.toString().orEmpty()
+            val digits = raw.filter { it.isDigit() }.take(11)
+            if (digits.isEmpty()) {
+                Utils.toast(ctx, "剪贴板没有可粘贴的号码")
+                return true
+            }
+            edit.text = digits          // triggers the TextWatcher → keeps curString in sync
+            fragment.g = digits
+            Utils.toast(ctx, "已粘贴")
+            return true
+        }
+    })
 }
