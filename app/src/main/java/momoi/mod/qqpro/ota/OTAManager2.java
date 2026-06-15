@@ -1,11 +1,9 @@
 package momoi.mod.qqpro.ota;
 
 import android.Manifest;
-import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageInfo;
@@ -474,37 +472,36 @@ public class OTAManager2 {
     }
 
     /**
-     * Show update dialog with changelog
+     * Show update dialog with changelog. Uses our own watch-styled dialog ([UpdateDialog]) instead
+     * of the framework {@link android.app.AlertDialog}, which renders with oversized margins /
+     * clipped buttons on the round watch (forced tiny compile SDK + overridden display DPI).
      */
     private void showUpdateDialog() {
         mainHandler.post(new Runnable() {
             @Override
             public void run() {
-                AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                builder.setTitle("Update Available: V" + latestVersion)
-                       .setMessage(changelog)
-                       .setCancelable(true)
-                       .setPositiveButton("Update", new DialogInterface.OnClickListener() {
-                           @Override
-                           public void onClick(DialogInterface dialog, int which) {
-                               initiateDownload();
-                           }
-                       })
-                       .setNeutralButton("Later", new DialogInterface.OnClickListener() {
-                           @Override
-                           public void onClick(DialogInterface dialog, int which) {
-                               dialog.dismiss();
-                           }
-                       })
-                       .setNegativeButton("Do not remind", new DialogInterface.OnClickListener() {
-                           @Override
-                           public void onClick(DialogInterface dialog, int which) {
-                               setUpdateCheckEnabled(false);
-                               showToast("Update checks disabled. You can re-enable in settings.");
-                               dialog.dismiss();
-                           }
-                       })
-                       .show();
+                try {
+                    UpdateDialog.show(
+                        context,
+                        latestVersion,
+                        changelog,
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                initiateDownload();
+                            }
+                        },
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                setUpdateCheckEnabled(false);
+                                showToast("已关闭更新提醒，可在设置中重新开启");
+                            }
+                        }
+                    );
+                } catch (Throwable t) {
+                    logError("Failed to show update dialog: " + t);
+                }
             }
         });
     }
