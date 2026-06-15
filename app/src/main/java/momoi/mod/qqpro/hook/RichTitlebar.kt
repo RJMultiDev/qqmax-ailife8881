@@ -111,7 +111,15 @@ object RichTitlebar {
                 setTextColor(0xFF_FFFFFF.toInt())
                 textSize = 13f
                 isSingleLine = true
-                ellipsize = TextUtils.TruncateAt.END
+                if (Settings.titlebarMarquee.value) {
+                    // Scroll the over-long name instead of clamping it with an ellipsis. Marquee
+                    // needs the view "selected" to animate without focus, and a forever repeat.
+                    ellipsize = TextUtils.TruncateAt.MARQUEE
+                    marqueeRepeatLimit = -1
+                    isSelected = true
+                } else {
+                    ellipsize = TextUtils.TruncateAt.END
+                }
                 text = name
             }
             val countTv = TextView(ctx).apply {

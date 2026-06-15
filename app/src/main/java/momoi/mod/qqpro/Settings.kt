@@ -63,6 +63,8 @@ object Settings {
     // the titlebar header. Works even when the titlebar is off; when on, the header badge is hidden.
     val floatUnreadInChat = BooleanPref("floatUnreadInChat", false)
     val titlebarHeight = FloatPref("titlebarHeight", 16f)
+    // When the titlebar name is too long, scroll it as marquee instead of truncating with "…".
+    val titlebarMarquee = BooleanPref("titlebarMarquee", false)
     // Move the home/main page's page-indicator dots to the bottom and scale their size by
     // titlebarHeight (relative to the default 16dp).
     val bottomMainNav = BooleanPref("bottomMainNav", true)
