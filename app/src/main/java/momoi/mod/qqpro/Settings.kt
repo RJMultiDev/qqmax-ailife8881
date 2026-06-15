@@ -15,6 +15,8 @@ object Settings {
     val scale = FloatPref("scale", 0.7f)
     val chatScale = FloatPref("chatScale", 0.8f)
     val enableSmoothScroll = BooleanPref("enableSmoothScroll", true)
+    // Multiplier applied to the rotary-encoder scroll distance (1.0 = system default).
+    val encoderScrollSpeed = FloatPref("encoderScrollSpeed", 1.0f)
     val blockBack = BooleanPref("blockBack", false)
     val swapCenterKeyboard = BooleanPref("swapCenterKeyboard", true)
 

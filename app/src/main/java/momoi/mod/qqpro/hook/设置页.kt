@@ -143,6 +143,7 @@ class 设置页 : SettingsActivity() {
             switch("返回先回首页", "不在首页时按返回先滑回第一页，已在首页才退出", Settings.backToFirstPage)
             switch("屏蔽返回键", "用于把右滑当作返回的手表（如米兔）", Settings.blockBack)
             switch("平滑表冠滚动", "表冠滚动没有动画时开启", Settings.enableSmoothScroll)
+            slider("表冠滚动速度", "表冠滚动距离倍率，默认 1.0", Settings.encoderScrollSpeed, min = 0.3f, max = 4f)
 
             // ── 通知与提醒 ── 消息通知、声音与震动
             section("通知与提醒", "消息通知、声音与震动")
