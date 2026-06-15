@@ -146,14 +146,26 @@ object PlusOneButton {
 
         val btn = button ?: TextView(widget.context).apply {
             setText("+1")
-            setTextColor(0xFF4A9EFF.toInt())
+            setTextColor(0xFFFFFFFF.toInt())
             textSize = 10f
-            gravity = Gravity.END
+            gravity = Gravity.CENTER
+            // Rounded translucent-dark pill so the "+1" stays visible even when the bubble
+            // color is set close to the text color (a bare blue glyph vanished on blue bubbles).
+            setPadding(12, 2, 12, 2)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                setColor(0x66000000)
+                cornerRadius = 100f
+            }
         }.also { button = it }
 
         if (btn.parent !== warp) {
             (btn.parent as? ViewGroup)?.removeView(btn)
-            warp.addView(btn, LinearLayout.LayoutParams(FILL, WRAP).apply { topMargin = 2 })
+            // Wrap-width pill, right-aligned, instead of a full-width row.
+            warp.addView(btn, LinearLayout.LayoutParams(WRAP, WRAP).apply {
+                topMargin = 2
+                gravity = Gravity.END
+            })
         }
         btn.visibility = View.VISIBLE
         attachedTo = WeakReference(widget)
