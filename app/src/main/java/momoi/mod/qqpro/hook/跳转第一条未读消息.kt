@@ -71,21 +71,28 @@ class SkipAction(
         if (isClicked) return
         val list = CurrentMsgList.msgList.value
         Utils.log("SkipAction click: count=$count lastUnreadMsg=${lastUnreadMsg != null} listSize=${list.size}")
+
+        val onProgress: (Int) -> Unit = { pct -> tv.text = "加载中 $pct%" }
+        val onFail: () -> Unit = {
+            Utils.toast(tv.context, "加载失败，请重试")
+            tv.text = format(count)
+            isClicked = false
+        }
         // Remember where we are now and show the back-down button so the user can return here.
         BubbleTextView.beginJumpUp()
         when {
             lastUnreadMsg != null -> {
-                CurrentMsgList.upwardMsg(CurrentMsgList.getMsgIndex(lastUnreadMsg!!), count) {
+                isClicked = true
+                CurrentMsgList.upwardMsg(CurrentMsgList.getMsgIndex(lastUnreadMsg!!), count, onProgress, onFail) {
                     rv.scrollToPosition(it)
                 }
-                isClicked = true
             }
             // Not scrolled yet: jump straight to the first unread, measured from the latest message.
             list.isNotEmpty() && count > 0 -> {
-                CurrentMsgList.upwardMsg(list.size - 1, count - 1) {
+                isClicked = true
+                CurrentMsgList.upwardMsg(list.size - 1, count - 1, onProgress, onFail) {
                     rv.scrollToPosition(it)
                 }
-                isClicked = true
             }
         }
     }
