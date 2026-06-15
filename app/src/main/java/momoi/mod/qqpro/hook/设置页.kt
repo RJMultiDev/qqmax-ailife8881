@@ -47,7 +47,9 @@ import momoi.mod.qqpro.lib.textSize
 import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.width
 import momoi.mod.qqpro.util.ChatBackground
+import momoi.mod.qqpro.util.SettingsBackup
 import momoi.mod.qqpro.util.Utils
+import momoi.mod.qqpro.watchdog.LogExporter
 import momoi.mod.qqpro.watchdog.DebugActivity
 import momoi.mod.qqpro.watchdog.WatchdogTestActivity
 import moye.wearqq.SettingsActivity
@@ -56,6 +58,7 @@ import kotlin.math.roundToInt
 private val ACCENT = 0xFF_4FC3F7.toInt()
 private val TRACK_INACTIVE = 0xFF_3A3A3A.toInt()
 private const val REQ_PICK_CHAT_BG = 0x9B01
+private const val REQ_IMPORT_SETTINGS = 0x9B02
 
 // Kept at file scope (not a @Mixin field — those can't have initializers) so
 // onActivityResult can refresh the picker's status text after picking/clearing.
@@ -258,6 +261,12 @@ class 设置页 : SettingsActivity() {
         },
         SettingsCategory("调试", "诊断与日志") {
             switch("卡死监控", "监测主线程卡死并弹出报告，崩溃捕获始终开启。手表休眠可能误报，可关闭(重启应用生效)", Settings.watchdogEnabled)
+            actionCard("导出设置", "将本页所有设置导出为文件保存到下载文件夹，可选 JSON 或 XML") {
+                exportSettings()
+            }
+            actionCard("导入设置", "从文件恢复本页设置(自动识别 JSON / XML)，部分需重启应用生效") {
+                importSettings()
+            }
             actionCard("调试菜单", "查看设备信息与调试日志，可复制/分享/保存") {
                 startActivity(Intent(this@设置页, DebugActivity::class.java))
             }
@@ -481,14 +490,59 @@ class 设置页 : SettingsActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != REQ_PICK_CHAT_BG) return
-        val uri = data?.data
-        if (resultCode == Activity.RESULT_OK && uri != null && ChatBackground.save(this, uri)) {
-            Utils.toast(this, "已设置聊天背景")
-        } else {
-            Utils.toast(this, "设置失败")
+        when (requestCode) {
+            REQ_PICK_CHAT_BG -> {
+                val uri = data?.data
+                if (resultCode == Activity.RESULT_OK && uri != null && ChatBackground.save(this, uri)) {
+                    Utils.toast(this, "已设置聊天背景")
+                } else {
+                    Utils.toast(this, "设置失败")
+                }
+                updateBgStatus()
+            }
+            REQ_IMPORT_SETTINGS -> {
+                val uri = data?.data
+                if (resultCode != Activity.RESULT_OK || uri == null) return
+                runCatching {
+                    contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() }
+                }.onSuccess { text ->
+                    runCatching { SettingsBackup.import(text) }
+                        .onSuccess { n -> Utils.toast(this, "已导入 $n 项设置，部分需重启应用生效") }
+                        .onFailure { Utils.toast(this, "导入失败: ${it.message}") }
+                }.onFailure { Utils.toast(this, "读取文件失败: ${it.message}") }
+            }
         }
-        updateBgStatus()
+    }
+
+    /** Pick JSON or XML, build the backup, and save it to Downloads (with a share fallback). */
+    private fun exportSettings() {
+        showOptionPicker("导出设置格式", listOf("JSON", "XML"), 0) { which ->
+            val json = which == 0
+            val ext = if (json) "json" else "xml"
+            runCatching {
+                if (json) SettingsBackup.exportJson() else SettingsBackup.exportXml()
+            }.onSuccess { content ->
+                val saved = runCatching { LogExporter.save(this, "qqpro_settings", content, ext) }.getOrNull()
+                if (saved != null) {
+                    Utils.toast(this, "已保存:\n${saved.location}")
+                } else {
+                    Utils.toast(this, "保存失败")
+                }
+            }.onFailure { Utils.toast(this, "导出失败: ${it.message}") }
+        }
+    }
+
+    /** Open the system file picker; the chosen file is applied in onActivityResult. */
+    private fun importSettings() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "*/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        try {
+            startActivityForResult(Intent.createChooser(intent, "选择设置文件"), REQ_IMPORT_SETTINGS)
+        } catch (e: Exception) {
+            Utils.toast(this, "无法打开文件选择器")
+        }
     }
 
     private fun GroupScopeFix.textInput(

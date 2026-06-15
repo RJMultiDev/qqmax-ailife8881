@@ -141,9 +141,25 @@ object Settings {
             it
         }
     } ?: ""
+
+    // Every setting exposed on the settings page, in display order. Used by SettingsBackup to
+    // export/import only these custom settings (not unrelated keys like drafts or the chat-bg path).
+    // Declared last so all the Pref properties above are already initialised.
+    val all: List<Pref<*>> = listOf(
+        scale, chatScale, enableSmoothScroll, encoderScrollSpeed, blockBack, swapCenterKeyboard,
+        showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, inlineSendButton,
+        inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, screenCornerDiameter,
+        hideVoiceButton, backToFirstPage, attachmentOverlay, enableTitlebar, titlebarShowUnread,
+        floatUnreadInChat, titlebarHeight, bottomMainNav, useInAppCamera, gallerySortByDateTaken,
+        useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, enableLinkPreview,
+        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, contactSections,
+        chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
+        doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,
+        notifyVibrateMode, voiceBtnText,
+    )
 }
 
-abstract class Pref<T>(def: T) {
+abstract class Pref<T>(val key: String, def: T) {
     var value: T = def
         set(value) {
             field = value
@@ -151,34 +167,47 @@ abstract class Pref<T>(def: T) {
         }
 
     protected abstract fun set(value: T)
+
+    /** Apply a value parsed from a backup string (settings import). Invalid input is ignored. */
+    abstract fun importString(raw: String)
 }
 
-class FloatPref(private val key: String, def: Float) :
-    Pref<Float>(Settings.sp.getFloat(key, def)) {
+class FloatPref(key: String, def: Float) :
+    Pref<Float>(key, Settings.sp.getFloat(key, def)) {
     override fun set(value: Float) = Settings.sp.edit {
         putFloat(key, value)
     }
+    override fun importString(raw: String) { raw.trim().toFloatOrNull()?.let { value = it } }
 }
 
-class StringPref(private val key: String, def: String) :
-    Pref<String>(Settings.sp.getString(key, def) ?: def) {
+class StringPref(key: String, def: String) :
+    Pref<String>(key, Settings.sp.getString(key, def) ?: def) {
     override fun set(value: String) = Settings.sp.edit {
         putString(key, value)
     }
+    override fun importString(raw: String) { value = raw }
 }
 
-class BooleanPref(private val key: String, def: Boolean) :
-    Pref<Boolean>(Settings.sp.getBoolean(key, def)) {
+class BooleanPref(key: String, def: Boolean) :
+    Pref<Boolean>(key, Settings.sp.getBoolean(key, def)) {
     override fun set(value: Boolean) = Settings.sp.edit {
         putBoolean(key, value)
     }
+    override fun importString(raw: String) { value = parseBool(raw) }
 }
 
-class IntPref(private val key: String, def: Int) :
-    Pref<Int>(Settings.sp.getInt(key, def)) {
+class IntPref(key: String, def: Int) :
+    Pref<Int>(key, Settings.sp.getInt(key, def)) {
     override fun set(value: Int) = Settings.sp.edit {
         putInt(key, value)
     }
+    override fun importString(raw: String) { raw.trim().toIntOrNull()?.let { value = it } }
+}
+
+/** Lenient boolean parse shared by the boolean prefs: accepts true/false and 1/0. */
+internal fun parseBool(raw: String): Boolean {
+    val t = raw.trim()
+    return t.equals("true", ignoreCase = true) || t == "1"
 }
 
 /**
@@ -187,11 +216,12 @@ class IntPref(private val key: String, def: Int) :
  * is absent, so the requested default actually takes effect (the base app reads
  * the key with its own hard-coded default otherwise).
  */
-class WearBooleanPref(private val key: String, def: Boolean) :
-    Pref<Boolean>(seed(key, def)) {
+class WearBooleanPref(key: String, def: Boolean) :
+    Pref<Boolean>(key, seed(key, def)) {
     override fun set(value: Boolean) = Settings.wear.edit {
         putBoolean(key, value)
     }
+    override fun importString(raw: String) { value = parseBool(raw) }
 
     companion object {
         private fun seed(key: String, def: Boolean): Boolean {
@@ -204,16 +234,18 @@ class WearBooleanPref(private val key: String, def: Boolean) :
 }
 
 /** Boolean setting stored in OTAManager2's SharedPreferences (shared with the update library). */
-class OtaBooleanPref(private val key: String, def: Boolean) :
-    Pref<Boolean>(Settings.ota.getBoolean(key, def)) {
+class OtaBooleanPref(key: String, def: Boolean) :
+    Pref<Boolean>(key, Settings.ota.getBoolean(key, def)) {
     override fun set(value: Boolean) = Settings.ota.edit {
         putBoolean(key, value)
     }
+    override fun importString(raw: String) { value = parseBool(raw) }
 }
 
-class WearStringPref(private val key: String, def: String) :
-    Pref<String>(Settings.wear.getString(key, def) ?: def) {
+class WearStringPref(key: String, def: String) :
+    Pref<String>(key, Settings.wear.getString(key, def) ?: def) {
     override fun set(value: String) = Settings.wear.edit {
         putString(key, value)
     }
+    override fun importString(raw: String) { value = raw }
 }

@@ -23,16 +23,21 @@ object LogExporter {
     /** Result of a save attempt: the location to show the user, and whether it landed in Downloads. */
     data class Saved(val location: String, val inDownloads: Boolean)
 
-    fun save(ctx: Context, baseName: String, content: String): Saved? {
+    fun save(ctx: Context, baseName: String, content: String, ext: String = "txt"): Saved? {
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val fileName = "${baseName}_$stamp.txt"
+        val fileName = "${baseName}_$stamp.$ext"
+        val mime = when (ext) {
+            "json" -> "application/json"
+            "xml" -> "text/xml"
+            else -> "text/plain"
+        }
 
         // Android 10+: MediaStore Downloads — no storage permission needed.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             runCatching {
                 val values = ContentValues().apply {
                     put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                    put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+                    put(MediaStore.Downloads.MIME_TYPE, mime)
                     put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
                 }
                 val uri = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
