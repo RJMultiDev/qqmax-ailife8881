@@ -68,6 +68,11 @@ class SwipeBackLayout(context: Context) : FrameLayout(context) {
                     tracking = false
                     val dx = ev.rawX - downX
                     if (ev.actionMasked == MotionEvent.ACTION_UP && dx > width * 0.3f) {
+                        // Snap back to origin before firing: if the callback doesn't finish the
+                        // activity (e.g. it just swaps in new content like the settings detail→list
+                        // navigation), leaving the layout translated would strand the new content
+                        // off-screen.
+                        translationX = 0f
                         onSwipeBack?.invoke()
                     } else {
                         animate().translationX(0f).setDuration(150).start()
