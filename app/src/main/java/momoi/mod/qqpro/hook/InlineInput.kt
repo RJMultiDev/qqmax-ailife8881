@@ -279,6 +279,25 @@ object InlineInput {
 
     private fun insertImage(element: MsgElement) = insertToken("[图片]", ImageTag(element))
 
+    /**
+     * Route ready-to-send elements from QQ's native emoji selector (sysface / fav / market face /
+     * image-gif) into the box as atomic tokens instead of sending them immediately
+     * ([Settings.emojiPickerToInput]). Each element is carried by an [ImageTag] (which buildElements
+     * emits verbatim at send time), labelled by its kind so faces show as "[表情]" and pics as "[图片]".
+     * Returns false when there is no live inline box to receive them (caller then sends normally).
+     */
+    fun insertElements(elements: List<MsgElement>): Boolean {
+        val et = editText() ?: return false
+        runCatching {
+            for (el in elements) {
+                val label = if (el.picElement != null) "[图片]" else "[表情]"
+                insertToken(label, ImageTag(el))
+            }
+            focusAndShow()
+        }.onFailure { Utils.log("InlineInput.insertElements failed: $it") }
+        return true
+    }
+
     private fun insertToken(label: String, tag: InlineTag) {
         val et = editText() ?: return
         val sp = SpannableString(label)

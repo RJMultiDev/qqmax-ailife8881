@@ -40,6 +40,10 @@ object Settings {
     // per chat. Leaving a chat with an unsent draft and coming back restores it. Requires
     // fullInlineInput. Drafts are kept in memory for the app session, cleared once the message is sent.
     val rememberDraft = BooleanPref("rememberDraft", true)
+    // When picking an emoji / sticker / image-gif from QQ's native emoji selector, insert it into
+    // the inline EditText as a token instead of sending it immediately. Lets you keep composing
+    // (mix text + faces + images) and send once. Only applies while fullInlineInput is active.
+    val emojiPickerToInput = BooleanPref("emojiPickerToInput", true)
     // Screen rounded-corner diameter (in dp). Adds left/right margin of this
     // width to the inline chat EditText so the side buttons aren't clipped by a
     // round watch screen's corners.
@@ -155,7 +159,8 @@ object Settings {
     val all: List<Pref<*>> = listOf(
         scale, chatScale, enableSmoothScroll, encoderScrollSpeed, blockBack, swapCenterKeyboard,
         showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, inlineSendButton,
-        inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, screenCornerDiameter,
+        inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
+        screenCornerDiameter,
         hideVoiceButton, backToFirstPage, attachmentOverlay, enableTitlebar, titlebarShowUnread,
         floatUnreadInChat, titlebarHeight, bottomMainNav, useInAppCamera, gallerySortByDateTaken,
         useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, enableLinkPreview,
