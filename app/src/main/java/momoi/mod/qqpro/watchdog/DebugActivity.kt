@@ -21,6 +21,9 @@ import android.widget.TextView
 import android.widget.Toast
 import momoi.mod.qqpro.lib.SwipeBackLayout
 import momoi.mod.qqpro.util.Utils
+import momoi.mod.qqpro.util.runOnUi
+import java.io.File
+import java.io.RandomAccessFile
 
 /**
  * In-app debug menu, opened from the settings "调试" section. Shows live device info plus the tail
@@ -36,10 +39,12 @@ class DebugActivity : Activity() {
     private fun sp(view: TextView, value: Float) =
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, value)
 
+    // Holds the latest built report so the copy/share/save buttons stay in sync once the
+    // background collection finishes. Empty until then.
+    private var report: String = ""
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val report = buildReport()
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -62,7 +67,7 @@ class DebugActivity : Activity() {
         })
 
         val body = TextView(this).apply {
-            this.text = report
+            this.text = "正在收集设备信息与日志…"
             setTextColor(0xFF_DDDDDD.toInt())
             sp(this, 9f)
             setTextIsSelectable(true)
@@ -109,6 +114,16 @@ class DebugActivity : Activity() {
                 onSwipeBack = { finish() }
             }
         )
+
+        // Collect device info + tail the log off the main thread: the log can be large and
+        // DeviceInfo.collect touches a few system services, so doing it in onCreate janks/ANRs.
+        Thread {
+            val r = buildReport()
+            runOnUi {
+                report = r
+                body.text = r
+            }
+        }.start()
     }
 
     /** Device info block + the last [LOG_TAIL_BYTES] of the debug log (never cleared — read only). */
@@ -118,18 +133,28 @@ class DebugActivity : Activity() {
         append("\n== 调试日志 ==\n")
         append(runCatching {
             val f = Utils.debugLogFile
-            if (!f.exists()) {
-                "(无日志文件)"
-            } else {
-                val all = f.readText()
-                if (all.length > LOG_TAIL_BYTES) {
-                    "…(已截断，仅显示最后 ${LOG_TAIL_BYTES / 1024}KB)\n" +
-                        all.substring(all.length - LOG_TAIL_BYTES)
-                } else {
-                    all.ifBlank { "(日志为空)" }
-                }
-            }
+            if (!f.exists()) "(无日志文件)" else tailOf(f, LOG_TAIL_BYTES).ifBlank { "(日志为空)" }
         }.getOrElse { "(读取日志失败: $it)" })
+    }
+
+    /**
+     * Reads only the last [maxBytes] of [f] via a seek, so a multi-MB log never gets loaded whole
+     * (which OOMs). When truncated, drops the partial first line — both to avoid a half-line and to
+     * skip a byte boundary that may sit mid-UTF-8-character.
+     */
+    private fun tailOf(f: File, maxBytes: Int): String = RandomAccessFile(f, "r").use { raf ->
+        val len = raf.length()
+        val start = (len - maxBytes).coerceAtLeast(0)
+        raf.seek(start)
+        val buf = ByteArray((len - start).toInt())
+        raf.readFully(buf)
+        val text = String(buf, Charsets.UTF_8)
+        if (start <= 0) {
+            text
+        } else {
+            val afterFirstLine = text.indexOf('\n').let { if (it >= 0) text.substring(it + 1) else text }
+            "…(已截断，仅显示最后 ${maxBytes / 1024}KB)\n$afterFirstLine"
+        }
     }
 
     private fun button(label: String, color: Int, onClick: () -> Unit): TextView =
