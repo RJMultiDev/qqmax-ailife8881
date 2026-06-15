@@ -97,6 +97,7 @@ class 设置页 : SettingsActivity() {
             switch("完全行内输入", "彻底不打开输入法页面：@、图片、回复、编辑、语音转文字都在输入框内完成。@xxx 与 [图片] 整体删除，回复/编辑在输入框上方显示横幅可点击取消(需开启“聊天页直接输入”)", Settings.fullInlineInput)
             switch("行内发送按钮", "输入页将发送键移到输入框右侧，左侧加关闭键取消发送", Settings.inlineSendButton)
             switch("行内表情按钮", "聊天页输入有文字时左侧显示表情键，点击收起键盘弹出表情选择器插入表情，点输入框恢复键盘", Settings.inlineEmojiButton)
+            switch("记住输入草稿", "分会话记住未发送的输入框内容(文字、@、图片、回复目标)，离开聊天再返回时自动恢复，发送后清除(需开启“完全行内输入”)", Settings.rememberDraft)
             switch("附件浮层", "用输入框左侧 + 键打开附件浮层，移除附件翻页；表情移入附件列表(重进聊天页生效)", Settings.attachmentOverlay)
             switch("单行输入", "输入框固定为单行显示", Settings.singleLineInput)
             switch("输入键居中", "在聊天页面将输入键居中放置", Settings.swapCenterKeyboard)

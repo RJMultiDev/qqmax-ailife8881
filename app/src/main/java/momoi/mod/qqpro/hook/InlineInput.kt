@@ -1,8 +1,13 @@
 package momoi.mod.qqpro.hook
 
 import android.graphics.Rect
+import android.os.Handler
+import android.os.Looper
+import android.text.Editable
 import android.text.SpannableString
+import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.View
@@ -10,13 +15,17 @@ import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.widget.TextView
+import androidx.core.content.edit
 import com.huanli233.qplus.utils.TextUtilKt
+import com.tencent.mobileqq.aio.msglist.holder.base.PicSize
 import com.tencent.qqnt.kernel.nativeinterface.Contact
 import com.tencent.qqnt.kernel.nativeinterface.IOperateCallback
 import com.tencent.qqnt.kernel.nativeinterface.MsgElement
 import com.tencent.qqnt.msg.KernelServiceUtil
 import com.tencent.qqnt.msg.api.impl.MsgUtilApiImpl
 import com.tencent.watch.aio_impl.coreImpl.vb.InputBarController
+import com.tencent.watch.aio_impl.ext.AIOPicDownloader
+import com.tencent.watch.aio_impl.ext.MsgUtil as WatchMsgUtil
 import com.tencent.watch.ime.util.ImeTextUtil
 import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.Settings
@@ -29,6 +38,9 @@ import momoi.mod.qqpro.lib.ImeEditText
 import momoi.mod.qqpro.lib.InlineTag
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.util.Utils
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 import moye.wearqq.AtElementArg
 import moye.wearqq.IMEOperation
 import moye.wearqq.ReplyElementArg
@@ -52,6 +64,8 @@ object InlineInput {
     private val tokenColor = 0xFF_4FC3F7.toInt()
     private const val BANNER_TAG = "qqpro_inline_banner"
 
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     private var editTextRef: WeakReference<ImeEditText>? = null
     private var controllerRef: WeakReference<InputBarController>? = null
     private var bannerRef: WeakReference<TextView>? = null
@@ -59,6 +73,125 @@ object InlineInput {
 
     private data class ReplyState(val msgId: Long, val senderUid: String, val nick: String)
     private var reply: ReplyState? = null
+
+    // ---- per-chat draft persistence (Settings.rememberDraft) ----
+    // In-memory map keeps full fidelity within a session (incl. [图片] image tokens). It is also
+    // mirrored to a "qqpro_drafts" SharedPreferences (as JSON) so a draft survives the app being
+    // closed/killed: text + @ mentions + reply target + image *local file paths* (the pic MsgElement
+    // itself isn't serializable, so we persist its source path and rebuild a fresh element on restore
+    // — only works while the original file still exists). Cleared (both) when the msg is sent.
+    private val drafts = HashMap<String, CharSequence>()
+    private val replyDrafts = HashMap<String, ReplyState?>()
+    private var currentChatKey: String? = null
+    private val draftPrefs by lazy { Utils.application.getSharedPreferences("qqpro_drafts", 0) }
+
+    private fun chatKey(): String? {
+        val uid = CurrentContact.peerUid
+        if (uid.isNullOrEmpty()) return null
+        return "${CurrentContact.chatType}:$uid"
+    }
+
+    /** Snapshot the current box (text + spans) and reply target into the per-chat draft store. */
+    private fun saveDraft() {
+        if (!Settings.rememberDraft.value) return
+        val key = currentChatKey ?: return
+        val et = editText() ?: return
+        drafts[key] = SpannableStringBuilder(et.text ?: "")
+        replyDrafts[key] = reply
+        // Mirror to disk so the draft survives an app restart.
+        runCatching {
+            val json = serializeDraft(et)
+            draftPrefs.edit { if (json == null) remove(key) else putString(key, json) }
+        }.onFailure { Utils.log("InlineInput persist draft failed: $it") }
+    }
+
+    /**
+     * Serialize the box to JSON: an ordered list of text / @-mention / image segments, plus the
+     * reply target. Images are stored as their local source file path (resolved via AIOPicDownloader,
+     * == WatchPicElementExtKt.C0); an image whose path can't be resolved is dropped. Returns null when
+     * there is nothing worth keeping (so the caller removes the key).
+     */
+    private fun serializeDraft(et: ImeEditText): String? {
+        val text = et.text ?: return null
+        val segs = JSONArray()
+        val spans = text.getSpans(0, text.length, InlineTag::class.java)
+            .sortedBy { text.getSpanStart(it) }
+        var i = 0
+        for (tag in spans) {
+            val s = text.getSpanStart(tag); val e = text.getSpanEnd(tag)
+            if (s < i || s < 0 || e <= s) continue
+            if (s > i) segs.put(JSONObject().put("t", text.subSequence(i, s).toString()))
+            when (tag) {
+                is AtTag -> segs.put(JSONObject().put("at", JSONObject()
+                    .put("uid", tag.uid).put("nick", tag.nick).put("type", tag.atType)))
+                is ImageTag -> imagePath(tag.element)?.let { segs.put(JSONObject().put("img", it)) }
+            }
+            i = e
+        }
+        if (i < text.length) segs.put(JSONObject().put("t", text.subSequence(i, text.length).toString()))
+        val o = JSONObject().put("segs", segs)
+        reply?.let { o.put("reply", JSONObject().put("id", it.msgId).put("uid", it.senderUid).put("nick", it.nick)) }
+        return if (segs.length() == 0 && !o.has("reply")) null else o.toString()
+    }
+
+    /** Append a colored, tagged token (used when rebuilding a draft from disk). */
+    private fun appendToken(sb: SpannableStringBuilder, label: String, tag: InlineTag) {
+        val start = sb.length
+        sb.append(label)
+        sb.setSpan(tag, start, start + label.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.setSpan(ForegroundColorSpan(tokenColor), start, start + label.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+
+    /** Local source-file path of a staged pic [element], or null (video / unresolved / missing file). */
+    private fun imagePath(element: MsgElement): String? {
+        if (element.picElement == null) return null
+        val path = runCatching { AIOPicDownloader.a.d(element, PicSize.e) }.getOrNull()
+        return path?.takeIf { it.isNotEmpty() && File(it).exists() }
+    }
+
+    /** Rebuild the box (text + @ spans) and [reply] from the on-disk JSON. Returns true if applied. */
+    private fun restoreFromPrefs(et: ImeEditText, key: String): Boolean {
+        val raw = draftPrefs.getString(key, null) ?: return false
+        return runCatching {
+            val o = JSONObject(raw)
+            val sb = SpannableStringBuilder()
+            o.optJSONArray("segs")?.let { segs ->
+                for (idx in 0 until segs.length()) {
+                    val seg = segs.getJSONObject(idx)
+                    when {
+                        seg.has("t") -> sb.append(seg.getString("t"))
+                        seg.has("at") -> {
+                            val at = seg.getJSONObject("at")
+                            appendToken(sb, "@${at.getString("nick")} ",
+                                AtTag(at.getString("uid"), at.getString("nick"), at.optInt("type", 2)))
+                        }
+                        seg.has("img") -> {
+                            // Rebuild a fresh sendable pic element from the persisted local path; skip
+                            // if the file is gone (moved/deleted since the draft was saved).
+                            val path = seg.getString("img")
+                            if (File(path).exists()) {
+                                runCatching { WatchMsgUtil.a.a(path, 0) }.getOrNull()
+                                    ?.let { appendToken(sb, "[图片]", ImageTag(it)) }
+                            }
+                        }
+                    }
+                }
+            }
+            et.setText(sb)
+            et.setSelection(et.text?.length ?: 0)
+            val r = o.optJSONObject("reply")
+            reply = if (r != null) ReplyState(r.getLong("id"), r.getString("uid"), r.getString("nick")) else null
+            drafts[key] = SpannableStringBuilder(et.text ?: "")
+            replyDrafts[key] = reply
+            true
+        }.getOrElse { Utils.log("InlineInput restore-from-prefs failed: $it"); false }
+    }
+
+    private val draftWatcher = object : TextWatcher {
+        override fun afterTextChanged(s: Editable?) = saveDraft()
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+    }
 
     /** True once an inline EditText is live (a chat is open with the inline pill built). */
     val isReady: Boolean get() = editTextRef?.get() != null
@@ -71,6 +204,26 @@ object InlineInput {
         controllerRef = WeakReference(controller)
         reply = null
         hideBanner()
+        // Restore this chat's unsent draft (text + @/image spans + reply target), if any. The draft is
+        // kept current by draftWatcher on every keystroke and by saveDraft() whenever reply changes, so
+        // the store already holds the latest state from the last time this chat was open.
+        val key = if (Settings.rememberDraft.value) chatKey() else null
+        currentChatKey = key
+        if (key != null) {
+            val mem = drafts[key]
+            if (mem != null) {
+                // Same session: restore the full in-memory copy (keeps [图片] image tokens too).
+                runCatching {
+                    editText.setText(SpannableStringBuilder(mem))
+                    editText.setSelection(editText.text?.length ?: 0)
+                    reply = replyDrafts[key]
+                }.onFailure { Utils.log("InlineInput restore draft failed: $it") }
+            } else {
+                // After an app restart the in-memory map is empty — rebuild from the on-disk JSON.
+                restoreFromPrefs(editText, key)
+            }
+            editText.addTextChangedListener(draftWatcher)
+        }
         // The input bar auto-hides on scroll, detaching this EditText; drop the floating banner then.
         // When it reattaches (bar reshown) the reply/edit state is still live, so rebuild the banner —
         // otherwise the reply/edit indicator vanishes after a scroll-hide/reshow.
@@ -78,6 +231,9 @@ object InlineInput {
             override fun onViewAttachedToWindow(v: View) { updateBanner() }
             override fun onViewDetachedFromWindow(v: View) { hideBanner() }
         })
+        // Show the reply banner for a restored draft (the attach listener above only fires on a later
+        // (re)attach, so an already-attached box wouldn't get it otherwise).
+        if (reply != null) updateBanner()
     }
 
     // ---- inputs from the StartImeUtil interception (InlineImeRoute) ----
@@ -158,6 +314,9 @@ object InlineInput {
     // ---- floating reply/edit banner (overlay above the input bar, so it never shrinks the box) ----
 
     private fun updateBanner() {
+        // updateBanner() is the single chokepoint after any reply/edit-state change, so persist the
+        // per-chat draft (text is already tracked live by draftWatcher; this captures reply changes).
+        saveDraft()
         val label = when {
             MessageEdit.editingMsgId != 0L -> "编辑中（点击取消）"
             reply != null -> "回复 ${reply?.nick}（点击取消）"
@@ -227,7 +386,15 @@ object InlineInput {
         val banner = bannerRef?.get()
         if (banner != null) {
             bannerLayoutListener?.let { banner.viewTreeObserver.removeOnGlobalLayoutListener(it) }
-            (banner.parent as? ViewGroup)?.removeView(banner)
+            // Defer the removeView off the current frame. hideBanner() is also called from the
+            // EditText's onViewDetachedFromWindow, which fires *inside* the AIO fragment view's
+            // detach traversal during a chat-exit (fragment pop) transition. Since the banner is a
+            // direct child of that fragment view, removing it mid-traversal leaves a null entry in
+            // the ViewGroup's children array and crashes later in FragmentContainerView
+            // .endViewTransition → dispatchDetachedFromWindow (NPE on the null child). Posting the
+            // removal runs it as its own message — never nested inside the traversal — so the
+            // children array stays consistent.
+            mainHandler.post { (banner.parent as? ViewGroup)?.removeView(banner) }
         }
         bannerLayoutListener = null
         bannerRef = null

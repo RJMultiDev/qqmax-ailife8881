@@ -36,6 +36,10 @@ object Settings {
     // Show an emoji button in the inline input pill while typing. Tapping it collapses the keyboard
     // and opens a sysface picker at the keyboard position that inserts faces into the EditText.
     val inlineEmojiButton = BooleanPref("inlineEmojiButton", true)
+    // Remember the inline input box contents (typed text, @/image tokens and the reply target)
+    // per chat. Leaving a chat with an unsent draft and coming back restores it. Requires
+    // fullInlineInput. Drafts are kept in memory for the app session, cleared once the message is sent.
+    val rememberDraft = BooleanPref("rememberDraft", true)
     // Screen rounded-corner diameter (in dp). Adds left/right margin of this
     // width to the inline chat EditText so the side buttons aren't clipped by a
     // round watch screen's corners.
