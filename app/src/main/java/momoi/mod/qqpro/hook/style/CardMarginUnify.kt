@@ -12,6 +12,7 @@ import com.tencent.qqnt.watch.troop.ui.member.ui.GroupMemberFragment
 import com.tencent.qqnt.watch.troop.ui.setting.TroopSettingFragment
 import com.tencent.qqnt.watch.selftab.ui.edit.EditAvatarFragment
 import com.tencent.qqnt.watch.selftab.ui.edit.SelfEditProfileFragment
+import com.tencent.qqnt.watch.gallery.preview.MediaBrowserLongClickMenuFragment
 import com.tencent.qqnt.watch.ui.componet.select.SelectDialogFragment
 import com.tencent.watch.aio_impl.ui.frames.SettingFrame
 import com.tencent.watch.ime.input.ChooseInputFragment
@@ -191,6 +192,30 @@ class SelectDialogMargins :
         val root = super.onCreateView(inflater, container, savedInstanceState)
         (root as? ViewGroup)?.normalizeListCards()
         Utils.log("CardMarginUnify: select dialog normalized")
+        return root
+    }
+}
+
+/**
+ * Fullscreen image viewer long-press menu (大图查看长按: 保存到相册/添加到收藏/转发).
+ * Same AndroidX DialogFragment shape as [SelectDialogMargins]: `item_setting_with_switch` cards
+ * (4dp XML margins) in `setting_container`; normalize them to the unified card margin.
+ */
+@Mixin
+// Constructor is never invoked at runtime (ApkMixin copies methods, not constructors); the args
+// here only need to satisfy the super constructor's signature so this compiles.
+class MediaBrowserLongClickMenuMargins :
+    MediaBrowserLongClickMenuFragment({}, "", 0) {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        // super here is redirected to the original onCreateView by ApkMixin, which always
+        // builds and returns the menu view (non-null); typed nullable only at compile time.
+        val root = super.onCreateView(inflater, container, savedInstanceState)!!
+        (root as? ViewGroup)?.normalizeListCards()
+        Utils.log("CardMarginUnify: media browser long-click menu normalized")
         return root
     }
 }
