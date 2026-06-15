@@ -32,6 +32,7 @@ import momoi.mod.qqpro.util.Utils
 object ProfileNameView {
     private const val TAG_NAME = "qqpro_profile_name_ml"
     private const val TAG_PEER = "qqpro_profile_peer_box"
+    private const val TAG_CARD_NAME = "qqpro_card_name_ml"
 
     // `QQ号(昵称)` — capture the leading digits and the parenthesised remainder (greedy to the last
     // ')' so nicks containing parentheses still split correctly).
@@ -62,6 +63,38 @@ object ProfileNameView {
             enhancePeerId(parent)
             Utils.log("ProfileNameView: header enhanced")
         }.onFailure { Utils.log("ProfileNameView.enhance failed: $it") }
+    }
+
+    /**
+     * Profile/member card variant: the single-line [nick] sits inside a wrapper (e.g. a
+     * ConstraintLayout) that is itself a child of a vertical LinearLayout. Hide that wrapper and drop
+     * a multiline, long-press-copyable TextView into the column in its place. Must live here (not in
+     * the @Mixin class) — anonymous listeners declared inside a @Mixin body crash with
+     * IllegalAccessError (see [[qqpro-mixin-anon-class]]).
+     */
+    fun enhanceCardName(nick: SingleLineTextView, fallbackColor: Int, textSizeSp: Float = 13f) {
+        runCatching {
+            val wrapper = nick.parent as? View ?: return
+            val column = wrapper.parent as? LinearLayout ?: return
+            column.findAll { it.tag == TAG_CARD_NAME }?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            val ctx = nick.context
+            val ml = TextView(ctx).apply {
+                tag = TAG_CARD_NAME
+                textSize = textSizeSp
+                setTextColor(fallbackColor)
+                gravity = Gravity.CENTER
+                maxLines = 4
+                ellipsize = TextUtils.TruncateAt.END
+                text = nick.text
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                setOnLongClickListener { copyAndToast(ctx, (it as TextView).text, "已复制昵称"); true }
+            }
+            column.addView(ml, column.indexOfChild(wrapper) + 1)
+            wrapper.visibility = View.GONE
+            mirror(ml) { runCatching { nick.text }.getOrNull() }
+            Utils.log("ProfileNameView: card name shown multiline")
+        }.onFailure { Utils.log("ProfileNameView.enhanceCardName failed: $it") }
     }
 
     /** Replace the single-line header nick with a multiline, long-press-copyable TextView. */

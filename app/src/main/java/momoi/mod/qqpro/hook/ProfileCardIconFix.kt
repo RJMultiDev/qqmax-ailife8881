@@ -13,6 +13,8 @@ import com.tencent.qqnt.watch.profile.ProfileData
 import com.tencent.qqnt.watch.profile.ui.ProfileCardFragment
 import com.tencent.widget.SingleLineTextView
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.hook.contact.ProfileNameView
 import momoi.mod.qqpro.util.Utils
 import mqq.app.MobileQQ
 
@@ -29,6 +31,27 @@ class ProfileCardIconFix : ProfileCardFragment() {
         super.onViewCreated(view, savedInstanceState)
         fixGotoChatIcon(view)
         enrichProfile(view)
+        if (Settings.profileNameMultiline.value) makeNameMultiline(view)
+    }
+
+    /**
+     * Opt-in ([Settings.profileNameMultiline]): show the card's name on multiple lines instead of
+     * the single-line widget that truncates with "…". The actual view-swap + mirror lives in
+     * [ProfileNameView.enhanceCardName] — anonymous listeners declared inside a @Mixin body crash
+     * with IllegalAccessError, so it must run from a non-mixin helper class.
+     */
+    private fun makeNameMultiline(view: View) {
+        try {
+            val pkg = requireContext().packageName
+            val nickView = view.findViewById<View>(
+                resources.getIdentifier("nickname", "id", pkg)
+            ) as? SingleLineTextView ?: return
+            val qqView = view.findViewById<TextView>(resources.getIdentifier("self_qq", "id", pkg))
+            val color = qqView?.currentTextColor ?: 0xFF_FFFFFF.toInt()
+            ProfileNameView.enhanceCardName(nickView, color)
+        } catch (e: Exception) {
+            Utils.log("ProfileCardIconFix multiline error: ${e.message}")
+        }
     }
 
     private fun fixGotoChatIcon(view: View) {
