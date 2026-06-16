@@ -68,6 +68,7 @@ private enum class SearchType(val label: String) {
     MEDIA("图片 / 视频"),
     OTHER("其他文件"),
     DATE("按日期"),
+    USER("按发送者"),
 }
 
 /**
@@ -169,6 +170,7 @@ class ChatSearchFragment : MyDialogFragment() {
                     when (type) {
                         SearchType.TEXT -> showTextInput()
                         SearchType.DATE -> startDateFlow()
+                        SearchType.USER -> startUserFlow()
                         else -> startSearch(type, null, null)
                     }
                 }
@@ -277,11 +279,58 @@ class ChatSearchFragment : MyDialogFragment() {
         }
     }
 
-    private fun startSearch(type: SearchType, keyword: String?, day: String?) {
+    private fun startSearch(
+        type: SearchType,
+        keyword: String?,
+        day: String?,
+        senderUid: String? = null
+    ) {
         loadThen {
-            val hits = CurrentMsgList.msgList.value.filter { matches(it, type, keyword, day) }
-            Utils.log("ChatSearch: type=$type keyword=$keyword day=$day hits=${hits.size}")
+            val hits = CurrentMsgList.msgList.value.filter { matches(it, type, keyword, day, senderUid) }
+            Utils.log("ChatSearch: type=$type keyword=$keyword day=$day sender=$senderUid hits=${hits.size}")
             showResults(hits, withPreview = type == SearchType.MEDIA)
+        }
+    }
+
+    /** Page history, then list the distinct senders (with message counts) to pick one. */
+    private fun startUserFlow() {
+        loadThen {
+            val senders = CurrentMsgList.msgList.value
+                .asSequence()
+                .filter { it.d.elements.isNotEmpty() }
+                .filter { it.d.elements[0].elementType != ElementType.GREY_TIP }
+                .groupingBy { senderKey(it) }
+                .aggregate { _, acc: Sender?, item, _ ->
+                    if (acc == null) Sender(senderKey(item), senderName(item), 1)
+                    else acc.also { it.count++ }
+                }
+                .values
+                .sortedByDescending { it.count }
+            showUserList(senders)
+        }
+    }
+
+    private fun showUserList(senders: List<Sender>) {
+        root.removeAllViews()
+        root.gravity = Gravity.NO_GRAVITY
+        if (senders.isEmpty()) {
+            showEmpty("没有可选发送者")
+            return
+        }
+        root.content {
+            title("选择发送者")
+            val list = add<androidx.recyclerview.widget.RecyclerView>().linearLayout()
+            (list.layoutParams as LinearLayout.LayoutParams).apply {
+                width = FILL; height = 0; weight = 1f
+            }
+            list.content(
+                data = senders,
+                factory = { simpleRow() },
+                update = { sender ->
+                    (getChildAt(0) as TextView).text = "${sender.name}  (${sender.count})"
+                    clickable { startSearch(SearchType.USER, null, null, sender.uid) }
+                }
+            )
         }
     }
 
@@ -545,7 +594,8 @@ private fun matches(
     item: WatchAIOMsgItem,
     type: SearchType,
     keyword: String?,
-    day: String?
+    day: String?,
+    senderUid: String?
 ): Boolean {
     val rec = item.d
     val elements = rec.elements
@@ -563,7 +613,25 @@ private fun matches(
         }
         SearchType.OTHER -> elements.any { it.elementType in OTHER_TYPES }
         SearchType.DATE -> day != null && dayFmt.format(Date(rec.msgTime * 1000)) == day
+        SearchType.USER -> senderUid != null && senderKey(item) == senderUid
     }
+}
+
+/** A distinct sender bucket for the [SearchType.USER] picker. */
+private class Sender(val uid: String, val name: String, var count: Int)
+
+/** Stable identity for grouping a message by its sender (uid, falling back to uin). */
+private fun senderKey(item: WatchAIOMsgItem): String {
+    val rec = item.d
+    return rec.senderUid?.takeIf { it.isNotEmpty() } ?: rec.senderUin.toString()
+}
+
+/** Best display name for a sender: group card → remark → nick → the cell's resolved name. */
+private fun senderName(item: WatchAIOMsgItem): String {
+    val rec = item.d
+    return sequenceOf(rec.sendMemberName, rec.sendRemarkName, rec.sendNickName, item.l?.toString())
+        .firstOrNull { !it.isNullOrBlank() }
+        ?: senderKey(item)
 }
 
 /** Concatenated text of all TEXT elements (for keyword matching). */
