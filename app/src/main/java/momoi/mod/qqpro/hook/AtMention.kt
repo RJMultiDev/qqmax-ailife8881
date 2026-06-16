@@ -10,6 +10,7 @@ import android.view.View
 import android.widget.TextView
 import com.tencent.qqnt.kernel.nativeinterface.MemberInfo
 import com.tencent.qqnt.watch.contact.api.IContactRuntimeService
+import com.tencent.qqnt.msg.KernelServiceUtil
 import com.tencent.qqnt.watch.profile.ProfileData
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.hook.action.CurrentContact
@@ -51,7 +52,27 @@ fun View.openMemberProfile(member: MemberInfo) {
 fun View.openMemberProfileByUid(uid: String) {
     if (uid.isEmpty()) return
     CurrentGroupMembers.info?.get(uid)?.let { return openMemberProfile(it) }
-    navigateToProfile(ProfileData("0-0", -1, "", uid, "", false))
+    // QQ's ProfileCardFragment.onViewCreated does Long.parseLong(profileData.uin) — opening with an
+    // empty uin (uid-only, e.g. a grey-tip name) makes it crash with NumberFormatException. Resolve
+    // the uin from the uid first; if it can't be resolved, skip rather than crash the app.
+    val uin = uidToUin(uid)
+    if (uin == null) {
+        Utils.log("openMemberProfileByUid: no uin for uid=$uid; skip to avoid ProfileCard parseLong crash")
+        Utils.toast(context, "无法打开资料卡")
+        return
+    }
+    navigateToProfile(ProfileData("0-0", -1, uin, uid, "", false))
+}
+
+/**
+ * Resolve a member [uid] to its numeric uin string via the kernel uix-convert service (the same
+ * call the app's own grey-tip decoder uses), or null if it can't be resolved.
+ */
+private fun uidToUin(uid: String): String? = try {
+    KernelServiceUtil.f()?.uixConvertService?.y(uid)?.takeIf { it > 0L }?.toString()
+} catch (e: Throwable) {
+    Utils.log("uidToUin failed for $uid: ${e.message}")
+    null
 }
 
 /** Navigate to `profileCardFragment` with [profileData] via the obfuscated NavController. */
