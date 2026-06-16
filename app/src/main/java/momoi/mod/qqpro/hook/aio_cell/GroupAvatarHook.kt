@@ -13,6 +13,7 @@ import android.text.TextPaint
 import android.text.TextUtils
 import android.text.style.RelativeSizeSpan
 import android.view.Gravity
+import android.view.View
 import android.widget.TextView
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
@@ -51,13 +52,20 @@ private fun MemberInfo.memberType() = when {
 
 fun MemberInfo.levelTagSpan(): CharSequence {
     val type = memberType()
-    // Level display removed: the kernel never populates MemberInfo.memberLevel
-    // and the server refuses getMemberExtInfo, so only render role / special-title
-    // tags. Normal members get no tag at all.
-    val label = when {
+    // The bulk member list doesn't carry memberLevel; it's only populated when the per-member
+    // detail query ran (see CurrentGroupMembers + Settings.showMemberLevel). When enabled and
+    // present, prepend the LV<n> badge; the role / special-title suffix is independent.
+    val showLevel = Settings.showMemberLevel.value && memberLevel > 0
+    val role = when {
         !memberSpecialTitle.isNullOrEmpty() -> memberSpecialTitle!!
         type == TYPE_OWNER -> "群主"
         type == TYPE_ADMIN -> "管理员"
+        else -> null
+    }
+    val label = when {
+        showLevel && role != null -> "LV$memberLevel $role"
+        showLevel -> "LV$memberLevel"
+        role != null -> role
         else -> return ""
     }
     return buildSpannedString {
@@ -181,24 +189,27 @@ object GroupAvatarHook {
     fun bindNick(widget: AIOCellGroupWidget, record: MsgRecord, member: MemberInfo) {
         val nickView = widget.getNickWidget<TextView>() ?: return
         val isSelf = record.senderUid == SelfContact.peerUid
-        // The name only: keep the native (correct group-card) text unless the user opted in to our
-        // resolved 群名片/备注/昵称. The role tag is independent and gets appended regardless.
-        // Captured up front (before we overwrite the view) so it reflects what QQ set in super.i.
-        val name: CharSequence = if (Settings.replaceGroupNick.value) {
-            member.displayName()
-        } else {
-            nickView.text?.takeIf { it.isNotEmpty() } ?: member.displayName()
-        }
-        if (Settings.showGroupAvatar.value && (!isSelf || Settings.showSelfAvatar.value)) {
+        // The display name. Always resolve from the member (群名片/备注/昵称) — never read it back
+        // from nickView.text: on a recycled cell that text is OUR OWN previously-decorated output
+        // ("name\nLV…"), and re-decorating it nests the tag and doubles the ellipsis. displayName()
+        // is the native group-card text anyway.
+        val name: CharSequence = member.displayName()
+        val showAvatar = Settings.showGroupAvatar.value && (!isSelf || Settings.showSelfAvatar.value)
+        if (showAvatar) {
             nickView.maxLines = 2
             nickView.ellipsize = TextUtils.TruncateAt.END
             // Self messages are right-aligned, so anchor avatar + nick to the end.
             nickView.gravity = if (isSelf) Gravity.END else Gravity.START
-            // Usable text width = view width minus paddings and the avatar drawable. Unknown before
-            // the first layout (width==0) → set text now without ellipsizing, then re-run in a post
-            // once the width is settled so a long name + tag collapses the name to a single line.
+            // The tag (when present, e.g. level enabled) always occupies line 2, so the name is
+            // always a single line — ellipsize it to the usable width. Compute that width
+            // DETERMINISTICALLY from the avatar size we will reserve, NOT from compoundPaddingLeft:
+            // the avatar drawable is attached asynchronously by bindAvatar, so compoundPaddingLeft
+            // is 0 (no truncation) or full (truncation) depending purely on download timing — that
+            // race was truncating short names like "悠奕" → "悠…" only when the avatar was cached.
+            val avatarReserve = (nickView.textSize * Settings.avatarSizeScale.value).toInt() + 4.dp
             val applyText = {
-                val avail = nickView.width - nickView.compoundPaddingLeft - nickView.compoundPaddingRight
+                val w = if (nickView.width > 0) nickView.width else (nickView.parent as? View)?.width ?: 0
+                val avail = w - nickView.paddingLeft - nickView.paddingRight - avatarReserve
                 nickView.text = member.twoLineNick(name, nickView.paint, avail)
             }
             applyText()

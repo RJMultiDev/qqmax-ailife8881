@@ -190,11 +190,17 @@ object AIOCell {
                         GroupAvatarHook.bindAvatar(widget, item.d)
                         // Nick text needs member info, so it follows the member callback.
                         CurrentGroupMembers.get(senderUid) { member ->
-                            widget.post {
+                            val apply = {
                                 if (widget.getNickWidget<TextView>()?.tag == senderUid) {
                                     GroupAvatarHook.bindNick(widget, item.d, member)
                                 }
                             }
+                            // Cache hits call back synchronously on the main thread during this bind
+                            // pass — apply immediately so the leveled nick replaces the native text in
+                            // the SAME frame (no one-frame flicker while scrolling). Only the async
+                            // (kernel network) callback, off the main thread, needs to post.
+                            if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) apply()
+                            else widget.post(apply)
                         }
                     }
                 }

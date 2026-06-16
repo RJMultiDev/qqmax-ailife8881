@@ -30,6 +30,10 @@ object Settings {
     // Replace the group message sender NAME with our resolved 群名片/备注/昵称. Off by default:
     // keep the native sender name (the role/头衔 tag is appended either way — it's independent).
     val replaceGroupNick = BooleanPref("replaceGroupNick", false)
+    // Show the member's group LV<n> level badge in the nick tag. No UI toggle; off by default
+    // because it needs a per-member detail query (getMemberInfoForMqq) that the bulk member list
+    // doesn't carry. Enable manually to render levels.
+    val showMemberLevel = BooleanPref("showMemberLevel", false)
     val inlineSendButton = BooleanPref("inlineSendButton", true)
     val inlineChatInput = BooleanPref("inlineChatInput", true)
     // Fully replace the InputMethodFragment with the inline EditText: @/图片/回复/编辑/STT
@@ -172,7 +176,7 @@ object Settings {
     // Declared last so all the Pref properties above are already initialised.
     val all: List<Pref<*>> = listOf(
         scale, chatScale, enableSmoothScroll, encoderScrollSpeed, blockBack, swapCenterKeyboard,
-        showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, inlineSendButton,
+        showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
         screenCornerDiameter,
         hideVoiceButton, backToFirstPage, attachmentOverlay, enableTitlebar, titlebarShowUnread,
