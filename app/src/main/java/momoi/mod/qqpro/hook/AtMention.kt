@@ -18,8 +18,9 @@ import momoi.mod.qqpro.hook.action.isGroup
 import momoi.mod.qqpro.util.Utils
 import mqq.app.MobileQQ
 
-// Link color for tappable @member spans (matches the bright nick-tag blue).
-private const val AT_LINK_COLOR = 0xFF_5E97F6.toInt()
+// Link color for tappable @member spans (matches the bright nick-tag blue). Also reused
+// for clickable grey-tip member names (see GrayTipMention.kt) so they look consistent.
+internal const val AT_LINK_COLOR = 0xFF_5E97F6.toInt()
 
 /**
  * Open [member]'s profile card — the same destination reached by tapping their
@@ -29,39 +30,54 @@ private const val AT_LINK_COLOR = 0xFF_5E97F6.toInt()
  * from this view's tree (see [findNavControllerFromTree]).
  */
 fun View.openMemberProfile(member: MemberInfo) {
+    val isFriend = try {
+        val app = MobileQQ.getMobileQQ().peekAppRuntime()
+        (app?.getRuntimeService(IContactRuntimeService::class.java, "") as? IContactRuntimeService)
+            ?.isFriend(member.uid) ?: false
+    } catch (e: Exception) {
+        false
+    }
+    // ProfileData(birthday, gender, uin, uid, nickName, isFriend) — the card
+    // re-fetches the full profile from the uid on open.
+    navigateToProfile(ProfileData("0-0", -1, member.uin.toString(), member.uid, member.showName(), isFriend))
+}
+
+/**
+ * Open the profile card for a bare [uid] — used when only the uid is known (e.g. grey
+ * tip names, whose uid is carried on the highlight span). If the uid belongs to a loaded
+ * current-group member we reuse its richer info; otherwise the card re-fetches from the
+ * uid alone.
+ */
+fun View.openMemberProfileByUid(uid: String) {
+    if (uid.isEmpty()) return
+    CurrentGroupMembers.info?.get(uid)?.let { return openMemberProfile(it) }
+    navigateToProfile(ProfileData("0-0", -1, "", uid, "", false))
+}
+
+/** Navigate to `profileCardFragment` with [profileData] via the obfuscated NavController. */
+private fun View.navigateToProfile(profileData: ProfileData) {
     try {
         val nav = findNavControllerFromTree() ?: run {
-            Utils.log("openMemberProfile: NavController not found in view tree")
+            Utils.log("navigateToProfile: NavController not found in view tree")
             return
         }
         val destId = resources.getIdentifier("profileCardFragment", "id", context.packageName)
         if (destId == 0) {
-            Utils.log("openMemberProfile: profileCardFragment id not found")
+            Utils.log("navigateToProfile: profileCardFragment id not found")
             return
         }
-        val showNick = member.showName()
-        val isFriend = try {
-            val app = MobileQQ.getMobileQQ().peekAppRuntime()
-            (app?.getRuntimeService(IContactRuntimeService::class.java, "") as? IContactRuntimeService)
-                ?.isFriend(member.uid) ?: false
-        } catch (e: Exception) {
-            false
-        }
-        // ProfileData(birthday, gender, uin, uid, nickName, isFriend) — the card
-        // re-fetches the full profile from the uid on open.
-        val profileData = ProfileData("0-0", -1, member.uin.toString(), member.uid, showNick, isFriend)
         val bundle = Bundle().apply { putParcelable("profile_data", profileData) }
         // navigate(int destId, Bundle args, NavOptions options) — name obfuscated.
         val navigate = nav.javaClass.methods.firstOrNull { m ->
             val p = m.parameterTypes
             p.size == 3 && p[0] == Int::class.javaPrimitiveType && p[1] == Bundle::class.java
         } ?: run {
-            Utils.log("openMemberProfile: navigate(int,Bundle,..) not found on ${nav.javaClass.name}")
+            Utils.log("navigateToProfile: navigate(int,Bundle,..) not found on ${nav.javaClass.name}")
             return
         }
         navigate.invoke(nav, destId, bundle, null)
     } catch (e: Exception) {
-        Utils.log("openMemberProfile error: ${e.message}")
+        Utils.log("navigateToProfile error: ${e.message}")
     }
 }
 

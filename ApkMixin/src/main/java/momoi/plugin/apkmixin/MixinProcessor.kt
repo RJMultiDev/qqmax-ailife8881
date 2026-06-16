@@ -147,12 +147,71 @@ class MixinProcessor(
 
     private fun processMethods(srcSmali: Smali, trgSmali: Smali) {
         srcSmali.methods.forEach { srcMethod ->
+            // A @ConstructorHook method is not copied as a normal method; its body is
+            // spliced into the target's matching <init> (see injectConstructorHook).
+            if (srcMethod.body.contains("Lmomoi/anno/mixin/ConstructorHook;")) {
+                injectConstructorHook(srcMethod, trgSmali)
+                return@forEach
+            }
             processMethodStaticHook(srcMethod)
             trgSmali.findMethod(srcMethod)?.let { trgMethod ->
                 processMethodBody(srcMethod, trgMethod, trgSmali)
             }
             trgSmali.methods.add(srcMethod)
         }
+    }
+
+    /**
+     * Splice a @ConstructorHook method's instructions onto the end of the target
+     * constructor with the same argument signature. Constructors aren't parsed as
+     * methods (the method regex excludes `<init>`), so the target `<init>` lives in
+     * [Smali.otherLines] and is edited there as text. The hook's parameter registers
+     * map 1:1 to the constructor's, so only parameter registers (p0..pN) may be used —
+     * we reject any local (vN) to avoid clobbering the constructor's register file.
+     */
+    private fun injectConstructorHook(srcMethod: SmaliMethod, trgSmali: Smali) {
+        val instructions = extractInjectableInstructions(srcMethod.body)
+        if (instructions.isBlank()) return
+        if (Regex("\\bv\\d+\\b").containsMatchIn(instructions)) {
+            throw IllegalStateException(
+                "@ConstructorHook ${srcMethod.name}(${srcMethod.args}) must use only parameter " +
+                    "registers (p0..), no locals (vN). Body:\n$instructions"
+            )
+        }
+        val args = Regex.escape(srcMethod.args)
+        val ctorRegex = Regex(
+            "(\\.method [^\\n]*constructor <init>\\($args\\)V.*?)(\\n[ \\t]*return-void)([ \\t]*\\n\\.end method)",
+            setOf(RegexOption.DOT_MATCHES_ALL)
+        )
+        val match = ctorRegex.find(trgSmali.otherLines)
+            ?: throw IllegalStateException(
+                "@ConstructorHook: target constructor <init>(${srcMethod.args})V not found"
+            )
+        val patched = match.groupValues[1] + "\n" + instructions + match.groupValues[2] + match.groupValues[3]
+        trgSmali.otherLines = trgSmali.otherLines.replace(match.value, patched)
+    }
+
+    /**
+     * Pull the executable instruction lines out of a method body: drop annotation
+     * blocks, the .locals/.registers/.param/.prologue/.line/.local directives, the
+     * closing .end method, and the trailing return. What remains is the code to splice.
+     */
+    private fun extractInjectableInstructions(body: String): String {
+        val withoutAnnotations = body.replace(
+            Regex("\\n[ \\t]*\\.annotation .*?\\.end annotation", setOf(RegexOption.DOT_MATCHES_ALL)),
+            ""
+        )
+        return withoutAnnotations.lines()
+            .map { it.trimEnd() }
+            .filter { line ->
+                val t = line.trim()
+                t.isNotEmpty() &&
+                    !t.startsWith(".locals") && !t.startsWith(".registers") &&
+                    !t.startsWith(".param") && !t.startsWith(".prologue") &&
+                    !t.startsWith(".line") && !t.startsWith(".local ") &&
+                    !t.startsWith(".end") && t != "return-void" && t != "return"
+            }
+            .joinToString("\n") { if (it.startsWith(" ") || it.startsWith("\t")) it else "    $it" }
     }
 
     private fun processMethodStaticHook(srcMethod: SmaliMethod) {

@@ -2,6 +2,7 @@ package momoi.mod.qqpro.hook.aio_cell
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.text.method.LinkMovementMethod
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -132,6 +133,16 @@ object AIOCell {
             p6: LifecycleOwner?
         ) {
             super.i(view, item, p3, p4, p5, p6)
+            // Grey-tip cells (WatchGrayTipsCell) have a bare TextView as their root view —
+            // not an AIOCellGroupWidget — and the native cell sets no movement method, so
+            // the member-name spans built into tipsContent (see GrayTipMention.kt) are
+            // inert. Enable them here; the spans themselves are created at decode time.
+            if (Settings.parseAtMember.value && view is TextView) {
+                if (view.movementMethod !is LinkMovementMethod) {
+                    view.movementMethod = LinkMovementMethod.getInstance()
+                    view.highlightColor = 0x33888888
+                }
+            }
             val widget = view as? AIOCellGroupWidget ?: return
             run {
                 val senderUid = item.d.senderUid
