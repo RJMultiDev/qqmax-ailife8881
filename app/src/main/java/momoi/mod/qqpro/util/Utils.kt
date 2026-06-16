@@ -62,9 +62,20 @@ object Utils {
         java.io.File(application.safeCacheDir, "qqpro_debug.log")
     }
 
+    // Read the "启用日志" toggle straight from the qqpro prefs (not the Settings object) so logging
+    // has no dependency on Settings init. SharedPreferences caches in memory, so this is cheap.
+    private val proPrefs by lazy { application.getSharedPreferences("qqpro", Context.MODE_PRIVATE) }
+
+    /** Logging is always on in debug builds; in release it requires the "启用日志" setting (default off). */
+    val loggingEnabled: Boolean get() = isDebug || proPrefs.getBoolean("enableLog", false)
+
+    /** Save the full on-device debug log file to the Downloads folder. Returns the saved location. */
+    fun saveLogToDownloads(): momoi.mod.qqpro.watchdog.LogExporter.Saved? =
+        momoi.mod.qqpro.watchdog.LogExporter.saveFile(application, "qqpro_debug", debugLogFile, "log")
+
     fun log(msg: String) {
-        // Logging is enabled only in debug builds; release builds (android:debuggable=0) skip it.
-        if (!isDebug) return
+        // Always log in debug builds; in release only when the user enabled it (default off).
+        if (!loggingEnabled) return
         Log.e("QQ Max", msg)
         // This watch ROM strips app android.util.Log; QLog reliably reaches logcat
         try {

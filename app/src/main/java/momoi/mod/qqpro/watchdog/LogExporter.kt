@@ -23,6 +23,47 @@ object LogExporter {
     /** Result of a save attempt: the location to show the user, and whether it landed in Downloads. */
     data class Saved(val location: String, val inDownloads: Boolean)
 
+    /**
+     * Save an existing file (e.g. the full debug log) to Downloads by STREAMING it, so a multi-MB
+     * log is never loaded whole into memory. Same destination strategy as [save].
+     */
+    fun saveFile(ctx: Context, baseName: String, src: File, ext: String = "log"): Saved? {
+        if (!src.exists()) return null
+        val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val fileName = "${baseName}_$stamp.$ext"
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            runCatching {
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+                val uri = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: return@runCatching null
+                ctx.contentResolver.openOutputStream(uri)?.use { out -> src.inputStream().use { it.copyTo(out) } }
+                return Saved("下载/$fileName", true)
+            }
+        }
+
+        runCatching {
+            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            dir.mkdirs()
+            val file = File(dir, fileName)
+            src.copyTo(file, overwrite = true)
+            return Saved(file.absolutePath, true)
+        }
+
+        runCatching {
+            val dir = File(ctx.getExternalFilesDir(null), "logs").apply { mkdirs() }
+            val file = File(dir, fileName)
+            src.copyTo(file, overwrite = true)
+            return Saved(file.absolutePath, false)
+        }
+
+        return null
+    }
+
     fun save(ctx: Context, baseName: String, content: String, ext: String = "txt"): Saved? {
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val fileName = "${baseName}_$stamp.$ext"

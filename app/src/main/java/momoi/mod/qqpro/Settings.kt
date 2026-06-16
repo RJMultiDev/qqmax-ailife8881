@@ -146,6 +146,9 @@ object Settings {
     // 8s+ shows a "应用卡死" report. Crash capture is always on; this gates only hang detection,
     // which can false-positive on a watch that suspends/dozes. Read once at install time.
     val watchdogEnabled = BooleanPref("watchdogEnabled", true)
+    // Persist Utils.log output to the on-device log file. Always on in debug builds; in release
+    // builds logging is off unless this is enabled (default off). Read live by Utils.log.
+    val enableLog = BooleanPref("enableLog", false)
 
     // ===== NWear QQ 设置 (by 爅峫) — backed by the base app's "wearqq" prefs =====
     val singleLineInput = WearBooleanPref("single_line_input", false)
@@ -185,7 +188,7 @@ object Settings {
         picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, contactSections,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
         doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,
-        notifyVibrateMode, voiceBtnText,
+        notifyVibrateMode, voiceBtnText, watchdogEnabled, enableLog,
     )
 }
 

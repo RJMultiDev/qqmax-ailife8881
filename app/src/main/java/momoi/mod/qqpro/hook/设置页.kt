@@ -268,6 +268,19 @@ class 设置页 : SettingsActivity() {
         },
         SettingsCategory("调试", "诊断与日志") {
             switch("卡死监控", "监测主线程卡死并弹出报告，崩溃捕获始终开启。手表休眠可能误报，可关闭(重启应用生效)", Settings.watchdogEnabled)
+            switch("启用日志", "记录调试日志到文件用于排查问题，发行版默认关闭", Settings.enableLog)
+            actionCard("保存日志到下载", "将调试日志文件保存到下载文件夹") {
+                val saved = Utils.saveLogToDownloads()
+                Utils.toast(
+                    this@设置页,
+                    when {
+                        saved == null -> "保存失败(无日志文件?)"
+                        saved.inDownloads -> "已保存到下载文件夹:\n${saved.location}"
+                        else -> "无法写入下载，已保存到:\n${saved.location}"
+                    },
+                    longDuration = true
+                )
+            }
             actionCard("导出设置", "将本页所有设置导出为文件保存到下载文件夹，可选 JSON 或 XML") {
                 exportSettings()
             }
