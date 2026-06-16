@@ -374,10 +374,17 @@ object InlineInput {
                     ))
                     bannerRef = WeakReference(banner)
                     // Keep the banner pinned just above the input bar as the keyboard pushes it around.
-                    val pill = et.parent as? View
+                    // Register on the banner's OWN observer (which is the shared window observer once
+                    // attached, so it still sees every global layout) — never the input bar's, since
+                    // that view detaches on scroll and would make the matching remove fail. Drop any
+                    // previous listener first: re-entering this branch across scroll hide/reshow cycles
+                    // otherwise leaks a listener every time, and the pile of stale listeners each
+                    // mutate layout during the traversal until the container's child array corrupts
+                    // (null-child NPE in FrameLayout.layoutChildren).
+                    removeBannerListener()
                     val listener = ViewTreeObserver.OnGlobalLayoutListener { repositionBanner() }
                     bannerLayoutListener = listener
-                    (pill ?: et).viewTreeObserver.addOnGlobalLayoutListener(listener)
+                    banner.viewTreeObserver.addOnGlobalLayoutListener(listener)
                 }
                 banner.text = label
                 banner.visibility = View.VISIBLE
@@ -386,8 +393,18 @@ object InlineInput {
         }
     }
 
+    /** Drop the global-layout listener from the (shared, still-attached) banner observer, if any. */
+    private fun removeBannerListener() {
+        val l = bannerLayoutListener ?: return
+        bannerRef?.get()?.viewTreeObserver?.takeIf { it.isAlive }?.removeOnGlobalLayoutListener(l)
+        bannerLayoutListener = null
+    }
+
     private fun repositionBanner() {
         val banner = bannerRef?.get() ?: return
+        // A leaked/late listener must never touch a detached banner: mutating its layout would run
+        // against a stale parent during a traversal. Bail unless it's still attached to the tree.
+        if (!banner.isAttachedToWindow) return
         val et = editText() ?: return
         val content = banner.parent as? View ?: return
         val pill = et.parent as? View ?: et
@@ -404,7 +421,7 @@ object InlineInput {
     private fun hideBanner() {
         val banner = bannerRef?.get()
         if (banner != null) {
-            bannerLayoutListener?.let { banner.viewTreeObserver.removeOnGlobalLayoutListener(it) }
+            removeBannerListener()
             // Defer the removeView off the current frame. hideBanner() is also called from the
             // EditText's onViewDetachedFromWindow, which fires *inside* the AIO fragment view's
             // detach traversal during a chat-exit (fragment pop) transition. Since the banner is a
