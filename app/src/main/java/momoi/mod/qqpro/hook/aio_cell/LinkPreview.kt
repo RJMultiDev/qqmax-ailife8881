@@ -306,13 +306,24 @@ object LinkPreview {
         }
     }
 
-    private fun unescape(s: String) = s
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&#x27;", "'")
-        .replace("&nbsp;", " ")
-        .trim()
+    private val numericEntity = Regex("""&#(x?)([0-9a-fA-F]+);""")
+
+    private fun unescape(s: String): String {
+        // Decode numeric character references first (&#NNNN; decimal and &#xNNNN; hex). Many pages
+        // entity-encode their whole <title>/og text as numeric refs (e.g. 163.com encodes every CJK
+        // char), which previously showed up verbatim as "&#x6211;&#x7684;…" garbage.
+        val decoded = numericEntity.replace(s) { m ->
+            val code = m.groupValues[2].toIntOrNull(if (m.groupValues[1].isEmpty()) 10 else 16)
+            if (code != null && code in 0..0x10FFFF) String(Character.toChars(code)) else m.value
+        }
+        return decoded
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace("&#x27;", "'")
+            .replace("&nbsp;", " ")
+            .trim()
+    }
 }
