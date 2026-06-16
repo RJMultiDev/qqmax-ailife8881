@@ -107,11 +107,30 @@ private fun hasClickableSpan(sp: Spannable, start: Int, end: Int): Boolean =
  * non-member text are left alone. No-op outside groups, when the setting is off,
  * or before the member list has loaded.
  */
+/**
+ * Content TextViews that ran [parseAtMembers] in a group chat. Tracked weakly so that
+ * when the member list finishes loading (it arrives async, after the first screen of
+ * messages has already been bound) we can re-linkify the already-rendered cells without
+ * waiting for them to scroll-recycle. See [relinkifyAtMembers].
+ */
+internal val atContentViews: MutableSet<TextView> =
+    java.util.Collections.newSetFromMap(java.util.WeakHashMap())
+
+private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+/** Re-run [parseAtMembers] on every tracked content view — call when members load. */
+fun relinkifyAtMembers() {
+    mainHandler.post { atContentViews.toList().forEach { it.parseAtMembers() } }
+}
+
 fun TextView.parseAtMembers() {
     if (!Settings.parseAtMember.value || !CurrentContact.isGroup) return
-    val members = CurrentGroupMembers.info ?: return
     val raw = text ?: return
     if (raw.indexOf('@') < 0) return
+    // Remember the view so it can be re-linkified once the member list arrives (it loads
+    // async — the first rendered cells would otherwise stay un-linked until recycled).
+    atContentViews.add(this)
+    val members = CurrentGroupMembers.info ?: return
     // Names longest-first so "@张三丰" wins over a member literally named "张三".
     val named = members.values
         .flatMap { m -> setOf(m.cardName, m.remark, m.nick).filter { it.isNotEmpty() }.map { it to m } }
@@ -134,6 +153,11 @@ fun TextView.parseAtMembers() {
                     i = end
                     continue
                 }
+            } else {
+                // DIAG: log the bytes after an unmatched '@' to understand "no-space" cases.
+                val tail = s.substring(i, minOf(s.length, i + 12))
+                Utils.log("parseAtMembers: no match after @ -> [" +
+                    tail.map { it.code.toString(16) }.joinToString(" ") + "] '" + tail + "'")
             }
         }
         i++

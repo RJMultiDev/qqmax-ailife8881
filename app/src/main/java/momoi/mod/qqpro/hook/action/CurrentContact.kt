@@ -51,6 +51,8 @@ class Hook(p0: IAIOFactory) : ChatPie(p0) {
                     CurrentGroupMembers.info = it.infos
                     CurrentGroupMembers.callbacks.forEach { it() }
                     CurrentGroupMembers.callbacks.clear()
+                    // Re-linkify cells that were bound before the member list arrived.
+                    momoi.mod.qqpro.hook.relinkifyAtMembers()
                 }
             }
         }
