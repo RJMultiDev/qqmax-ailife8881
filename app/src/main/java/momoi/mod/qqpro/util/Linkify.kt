@@ -32,8 +32,8 @@ fun currentUrlPattern(): Pattern =
     if (Settings.wideUrlMatch.value) widePattern else strictPattern
 
 // Bare 6–15 digit number (QQ/group number range), not glued to other digits.
-// Only matched when rich/wide URL matching is on; tapping confirms a friend/group
-// search prefilled with the number.
+// Only matched when the (independent) number-parsing setting is on; tapping
+// confirms a friend/group search prefilled with the number.
 private val numberPattern: Pattern = Pattern.compile("(?<![0-9])[0-9]{6,15}(?![0-9])")
 
 /** First URL found in [text], honoring the wide-match setting, or null. */
@@ -73,10 +73,10 @@ fun TextView.linkify() {
             Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
     }
-    // When rich (wide) URL matching is on, also make bare 6–15 digit numbers
-    // tappable to search a friend/group. Skip any that overlap a matched URL so
-    // digits inside a link aren't double-spanned.
-    if (Settings.wideUrlMatch.value) {
+    // When number parsing is on, also make bare 6–15 digit numbers tappable to
+    // search a friend/group. Skip any that overlap a matched URL so digits inside
+    // a link aren't double-spanned.
+    if (Settings.parseNumber.value) {
         val numbers = mutableListOf<Pair<Int, Int>>()
         val numMatcher = numberPattern.matcher(spannable)
         while (numMatcher.find()) {

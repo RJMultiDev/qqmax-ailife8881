@@ -259,6 +259,8 @@ class 设置页 : SettingsActivity() {
         SettingsCategory("链接", "消息中的网址") {
             switch("点击链接确认", "点击消息中的链接时，弹窗询问是否用浏览器打开", Settings.confirmOpenLink)
             switch("识别无前缀链接", "同时识别不带 http(s):// 的网址，如 example.com/x", Settings.wideUrlMatch)
+            switch("识别号码", "把消息中的 6-15 位数字(QQ号/群号)变为可点击，点击可搜索好友/群", Settings.parseNumber)
+            switch("识别@成员", "群聊中把 @成员 及灰条提示中的成员名变为可点击，点击打开其资料卡(同点头像/昵称)", Settings.parseAtMember)
             switch("链接预览", "消息含链接时尝试解析网站图标、标题与简介，显示在消息下方", Settings.enableLinkPreview)
         },
         SettingsCategory("关于与更新", "版本更新") {

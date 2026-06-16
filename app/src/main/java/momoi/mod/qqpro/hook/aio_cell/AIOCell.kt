@@ -20,6 +20,7 @@ import momoi.mod.qqpro.hook.action.CurrentGroupMembers
 import momoi.mod.qqpro.hook.action.CurrentMsgList
 import momoi.mod.qqpro.hook.action.isGroup
 import momoi.mod.qqpro.lib.create
+import momoi.mod.qqpro.hook.parseAtMembers
 import momoi.mod.qqpro.util.linkify
 import momoi.mod.qqpro.warp
 import java.lang.ref.WeakReference
@@ -206,6 +207,7 @@ object AIOCell {
             if (matched == null || matched.appendMode) {
                 (widget.contentWidget as? TextView)?.let {
                     it.linkify()
+                    it.parseAtMembers()
                     it.layoutParams?.let {
                         it.width = ViewGroup.LayoutParams.WRAP_CONTENT
                         it.height = ViewGroup.LayoutParams.WRAP_CONTENT

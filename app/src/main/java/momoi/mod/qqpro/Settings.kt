@@ -100,6 +100,13 @@ object Settings {
     val confirmOpenLink = BooleanPref("confirmOpenLink", true)
     // Also detect links without an http(s):// prefix (e.g. "example.com/x").
     val wideUrlMatch = BooleanPref("wideUrlMatch", true)
+    // Make bare 6–15 digit numbers (QQ/group numbers) tappable to search a
+    // friend/group. Independent of the URL-matching settings.
+    val parseNumber = BooleanPref("parseNumber", true)
+    // In group chats, make @member mentions (and member names highlighted in grey
+    // system tips) tappable — opens the member's profile card, same as tapping their
+    // avatar/name.
+    val parseAtMember = BooleanPref("parseAtMember", true)
     // Try to resolve a client-side preview (icon/title/description) for links in
     // messages and show it below the text. Makes a network request per unique link.
     val enableLinkPreview = BooleanPref("enableLinkPreview", true)
@@ -170,7 +177,7 @@ object Settings {
         screenCornerDiameter,
         hideVoiceButton, backToFirstPage, attachmentOverlay, enableTitlebar, titlebarShowUnread,
         floatUnreadInChat, titlebarHeight, bottomMainNav, replyFullSearch, useInAppCamera, gallerySortByDateTaken,
-        useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, enableLinkPreview,
+        useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
         picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, contactSections,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
         doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,
