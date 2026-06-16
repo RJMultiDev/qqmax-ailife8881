@@ -23,6 +23,8 @@ class GroupAvatarPreview : SettingFrame() {
         super.onViewCreated(view, savedInstanceState)
         // 在右侧设置页(群聊与单聊都有)加入"搜索聊天记录"入口。
         addChatSearchEntry(this)
+        // 单聊设置页底部加入"TA的空间"入口,跳转该好友的QQ空间。
+        addQzoneEntry(this)
         val args = arguments ?: return
         val peerId = args.getString("key_bundle_peer_id")
         val chatType = args.getInt("key_bundle_chat_type")
