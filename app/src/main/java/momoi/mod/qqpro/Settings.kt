@@ -52,6 +52,10 @@ object Settings {
     // modes (inline and non-inline) and regardless of whether text has been typed.
     val hideVoiceButton = BooleanPref("hideVoiceButton", false)
     val backToFirstPage = BooleanPref("backToFirstPage", true)
+    // When tapping a reply to jump to its source message, drop the page-load cap (normally ~1000
+    // pages) and keep paging up until the source is found or the top of history is reached. Lets
+    // very old reply sources be located, at the cost of a possibly long load.
+    val replyFullSearch = BooleanPref("replyFullSearch", false)
     // Replace the input bar's emoji button with a "+" button that opens the attachment
     // list as an overlay over the chat (like the long-press menu). Removes the attachment
     // ViewPager page (友: 聊天+设置 两页; 非好友: 仅聊天), and moves 表情 into the overlay list.
@@ -162,7 +166,7 @@ object Settings {
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
         screenCornerDiameter,
         hideVoiceButton, backToFirstPage, attachmentOverlay, enableTitlebar, titlebarShowUnread,
-        floatUnreadInChat, titlebarHeight, bottomMainNav, useInAppCamera, gallerySortByDateTaken,
+        floatUnreadInChat, titlebarHeight, bottomMainNav, replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, enableLinkPreview,
         picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, contactSections,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,

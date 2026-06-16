@@ -232,6 +232,7 @@ class 设置页 : SettingsActivity() {
         SettingsCategory("导航与滚动", "翻页、返回与表冠") {
             switch("主页导航在底部", "主页(会话列表)翻页指示器移到底部，并随标题栏高度放大", Settings.bottomMainNav)
             switch("返回先回首页", "不在首页时按返回先滑回第一页，已在首页才退出", Settings.backToFirstPage)
+            switch("回复跳转加载全部", "点击回复跳转到源消息时不限制翻页次数，一直向上加载直到找到或到达历史顶端(较旧的源消息也能定位，可能较慢)", Settings.replyFullSearch)
             switch("屏蔽返回键", "用于把右滑当作返回的手表（如米兔）", Settings.blockBack)
             switch("平滑表冠滚动", "表冠滚动没有动画时开启", Settings.enableSmoothScroll)
             slider("表冠滚动速度", "表冠滚动距离倍率，默认 1.0", Settings.encoderScrollSpeed, min = 0.3f, max = 4f)

@@ -29,6 +29,14 @@ object CurrentMsgList {
     var msgList = Observable(mutableListOf<WatchAIOMsgItem>())
         private set
 
+    // Fires (after [msgList] has been updated) ONLY for older-history "load previous page" results.
+    // The value carried is MsgListState.updateType: it has bit 0x4 set for any pre-page result, and
+    // equals 5 (LoadPrePageFail) when the top of history is reached. Unrelated list updates (incoming
+    // message, read/status change, first-page load) never set bit 0x4, so waiting on this signal
+    // instead of the generic [msgList] observer is what makes upward paging reliable — a spurious
+    // update can no longer be mistaken for the page we requested. See [loadOlderPage].
+    val topPageResult = Observable(0)
+
     fun getMsgIndex(msg: WatchAIOMsgItem): Int {
         return msgList.value.indexOf(msg)
     }
@@ -70,6 +78,42 @@ object CurrentMsgList {
     }
 
     /**
+     * Request one page of older messages and wait specifically for the pre-page (older-history)
+     * load result — NOT just any [msgList] mutation. Previously the loaders waited on
+     * `msgList.observeOnce`, which fires on EVERY state push from the AIO framework (incoming msg,
+     * read-receipt/status change, sticker refresh, …). Such an unrelated update would wake the
+     * waiter mid-load; since it didn't add older history the loader concluded "reached top" and
+     * failed — the cause of the intermittent "加载失败，请重试" where pressing again works (the real
+     * page had quietly arrived in the meantime). We now wait on [topPageResult], which only fires
+     * for genuine pre-page results, and read end-of-history from the kernel's own LoadPrePageFail
+     * signal instead of guessing by list size.
+     *
+     * [onResult] is invoked on the UI thread with `reachedTop == true` when the kernel reports
+     * LoadPrePageFail (no more older messages). [onTimeout] fires (UI thread) if no pre-page result
+     * arrives within [timeoutMs].
+     */
+    private fun loadOlderPage(
+        timeoutMs: Long,
+        onResult: (reachedTop: Boolean) -> Unit,
+        onTimeout: () -> Unit
+    ) {
+        var settled = false
+        topPageResult.observeOnce { updateType ->
+            if (settled) return@observeOnce
+            settled = true
+            ThreadManager.runOnUiThread({ onResult(updateType == 5) })
+        }
+        ThreadManager.runOnUiThread({
+            if (settled) return@runOnUiThread
+            settled = true
+            Utils.log("loadOlderPage: timed out waiting for pre-page result, size=${msgList.value.size}")
+            onTimeout()
+        }, timeoutMs)
+        isLoadingMsg = false // clear any stuck guard from a previously interrupted load
+        loadMoreMsg()
+    }
+
+    /**
      * Scroll target is [count] messages above [current]. Pages in older messages until enough
      * history is loaded, then invokes [callback] with the resulting list position.
      *
@@ -106,28 +150,17 @@ object CurrentMsgList {
             val pct = ((before - startSize) * 100 / (target - startSize)).coerceIn(0, 99)
             onProgress(pct)
         }
-        var settled = false
-        msgList.observeOnce {
-            if (settled) return@observeOnce
-            settled = true
-            ThreadManager.runOnUiThread({
-                if (msgList.value.size <= before) {
-                    // List stopped growing -> reached the top of history before the target.
+        loadOlderPage(5000L, onResult = { reachedTop ->
+            when {
+                msgList.value.size >= target -> callback(msgList.value.size - target - 1)
+                // LoadPrePageFail, or a pre-page that added nothing new -> top reached before target.
+                reachedTop || msgList.value.size <= before -> {
                     Utils.log("upwardMsg: reached top of history before target=$target, size=${msgList.value.size}")
                     onFail()
-                } else {
-                    upwardMsgInternal(target, startSize, onProgress, onFail, callback)
                 }
-            })
-        }
-        ThreadManager.runOnUiThread({
-            if (settled) return@runOnUiThread
-            settled = true
-            Utils.log("upwardMsg: timed out waiting for more msgs, target=$target size=${msgList.value.size}")
-            onFail()
-        }, 5000L)
-        isLoadingMsg = false // clear any stuck guard from a previously interrupted load
-        loadMoreMsg()
+                else -> upwardMsgInternal(target, startSize, onProgress, onFail, callback)
+            }
+        }, onTimeout = onFail)
     }
 
     /**
@@ -153,36 +186,24 @@ object CurrentMsgList {
             return
         }
         val before = msgList.value.size
-        var settled = false
-        msgList.observeOnce {
-            if (settled) return@observeOnce
-            settled = true
-            ThreadManager.runOnUiThread({
-                if (!shouldContinue()) {
-                    Utils.log("loadAll: cancelled, stopping")
-                    return@runOnUiThread
-                }
-                if (msgList.value.size <= before) {
+        loadOlderPage(5000L, onResult = { reachedTop ->
+            when {
+                !shouldContinue() -> Utils.log("loadAll: cancelled, stopping")
+                reachedTop || msgList.value.size <= before -> {
                     Utils.log("loadAll: reached top of history, total=${msgList.value.size}")
                     onDone()
-                } else {
+                }
+                else -> {
                     onProgress(msgList.value.size)
                     loadAll(onProgress, shouldContinue, onDone)
                 }
-            })
-        }
-        ThreadManager.runOnUiThread({
-            if (settled) return@runOnUiThread
-            settled = true
-            Utils.log("loadAll: timed out waiting for more msgs, total=${msgList.value.size}")
-            if (shouldContinue()) onDone()
-        }, 5000L)
-        isLoadingMsg = false // clear any stuck guard from a previously interrupted load
-        loadMoreMsg()
+            }
+        }, onTimeout = { if (shouldContinue()) onDone() })
     }
 
     fun findMsg(
         seq: Long,
+        onProgress: (Int) -> Unit = {},
         result: (WatchAIOMsgItem?) -> Unit,
         repeatCount: Int = 1000
     ) {
@@ -196,29 +217,19 @@ object CurrentMsgList {
             result(null)
             return
         }
-        // Load older messages and retry. Two ways to stop instead of hanging forever:
-        // 1) the list stopped growing after a load -> we reached the top of history;
-        // 2) no update arrived within the timeout -> load is stuck / nothing to load.
+        // Load older messages and retry. Stop instead of hanging forever when the kernel reports
+        // the top of history (LoadPrePageFail), a pre-page added nothing new, or no pre-page result
+        // arrives within the timeout.
         val sizeBefore = msgList.value.size
-        var settled = false
-        msgList.observeOnce {
-            if (settled) return@observeOnce
-            settled = true
-            if (msgList.value.size <= sizeBefore) {
-                // Reached the top of history without finding the target.
+        onProgress(sizeBefore) // how many messages are loaded so far while we keep paging up
+        loadOlderPage(3000L, onResult = { reachedTop ->
+            if (reachedTop || msgList.value.size <= sizeBefore) {
                 Utils.log("findMsg: reached top of history, seq=$seq not found")
                 result(null)
             } else {
-                findMsg(seq, result, repeatCount - 1)
+                findMsg(seq, onProgress, result, repeatCount - 1)
             }
-        }
-        ThreadManager.runOnUiThread({
-            if (settled) return@runOnUiThread
-            settled = true
-            Utils.log("findMsg: timed out waiting for more msgs, seq=$seq")
-            result(null)
-        }, 3000L)
-        loadMoreMsg()
+        }, onTimeout = { result(null) })
     }
 
     @Mixin
@@ -228,6 +239,12 @@ object CurrentMsgList {
             vb = this
             uiOp = uiHelper
             val msg = msgList.value
+            // MsgListState.updateType (public int field `c`): bit 0x4 marks an older-history
+            // "load previous page" result; value 5 == LoadPrePageFail (top of history reached).
+            // Captured here so [loadOlderPage] waiters can correlate to the actual page load.
+            val updateType = runCatching {
+                state.javaClass.getDeclaredField("c").apply { isAccessible = true }.getInt(state)
+            }.getOrElse { -1 }
             val list = state as LinkedList<WatchAIOMsgItem>
             var insertIndex = -1
             while (true) {
@@ -257,6 +274,9 @@ object CurrentMsgList {
                 }
             }
             msgList.update(list.toMutableList())
+            // Notify pre-page waiters only for older-history results (bit 0x4), after msgList is
+            // updated so they observe the new size.
+            if (updateType and 4 != 0) topPageResult.update(updateType)
             super.n(list as MsgListUiState, uiHelper)
         }
     }
