@@ -71,6 +71,6 @@ apkMixin {
     }
 
     output {
-        signedFileName = "QQPro_${versionName}.apk"
+        signedFileName = "QQMax_${versionName}.apk"
     }
 }
