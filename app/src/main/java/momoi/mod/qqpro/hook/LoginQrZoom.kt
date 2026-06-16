@@ -46,11 +46,21 @@ object LoginQrZoomHelper {
                 Utils.log("LoginQrZoom: qr_code_container not found")
                 return
             }
-            qr.setOnClickListener { showZoom(qr) }
+            attachTapZoom(qr)
             Utils.log("LoginQrZoom: attached zoom to QR view")
         } catch (e: Throwable) {
             Utils.log("LoginQrZoom: attach failed: ${e.javaClass.simpleName}: ${e.message}")
         }
+    }
+
+    /**
+     * Tap [qr] to blow up a snapshot of it to (almost) full screen, tap again to dismiss.
+     * Shared by the login-QR and self-QR hooks; the self QR is rendered tiny on a watch face,
+     * so this makes it scannable. Public so @Mixin method bodies (copied into QQ's package) can
+     * reach it.
+     */
+    fun attachTapZoom(qr: View) {
+        qr.setOnClickListener { showZoom(qr) }
     }
 
     private fun showZoom(qr: View) {
