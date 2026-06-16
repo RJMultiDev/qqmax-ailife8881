@@ -9,6 +9,8 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.drawable.BitmapDrawable
 import android.os.Handler
 import android.os.Looper
+import android.text.TextPaint
+import android.text.TextUtils
 import android.text.style.RelativeSizeSpan
 import android.view.Gravity
 import android.widget.TextView
@@ -81,33 +83,40 @@ fun MemberInfo.levelTagSpan(): CharSequence {
     }
 }
 
-fun MemberInfo.toDisplay(): CharSequence {
+/** Single-line "name + role tag" ([name] kept verbatim; tag floats to the trailing edge). */
+fun MemberInfo.oneLineNick(name: CharSequence): CharSequence {
     val isSelf = uid == SelfContact.peerUid
     val tag = levelTagSpan()
+    if (tag.isEmpty()) return name
     return buildSpannedString {
         if (isSelf) {
-            append(displayName())
-            if (tag.isNotEmpty()) {
-                append(" ")
-                append(tag)
-            }
+            append(name); append(" "); append(tag)
         } else {
-            if (tag.isNotEmpty()) {
-                append(tag)
-                append(" ")
-            }
-            append(displayName())
+            append(tag); append(" "); append(name)
         }
     }
 }
 
-fun MemberInfo.toDisplayTwoLine(): CharSequence = buildSpannedString {
+/**
+ * Two-line nick text shown beside the avatar:
+ *  - no tag: just the (possibly long) [name], free to wrap onto both lines;
+ *  - with tag: the name on a single (ellipsized) line, the role tag on the line below.
+ *
+ * The name must be ellipsized to one line ourselves: a single TextView with "name\ntag" + maxLines=2
+ * would otherwise let a long name wrap across both lines and push the tag off (clipped). [avail] is
+ * the usable text width (0 = unknown yet → don't ellipsize, caller re-runs after layout).
+ */
+fun MemberInfo.twoLineNick(name: CharSequence, namePaint: TextPaint, avail: Int): CharSequence {
     val tag = levelTagSpan()
-    if (tag.isNotEmpty()) {
-        append(tag)
+    if (tag.isEmpty()) return name // no tag → let the name use up to maxLines (2)
+    val nameLine = if (avail > 0)
+        TextUtils.ellipsize(name, namePaint, avail.toFloat(), TextUtils.TruncateAt.END)
+    else name
+    return buildSpannedString {
+        append(nameLine)
         append("\n")
+        append(tag)
     }
-    append(displayName())
 }
 
 object GroupAvatarHook {
@@ -172,16 +181,33 @@ object GroupAvatarHook {
     fun bindNick(widget: AIOCellGroupWidget, record: MsgRecord, member: MemberInfo) {
         val nickView = widget.getNickWidget<TextView>() ?: return
         val isSelf = record.senderUid == SelfContact.peerUid
+        // The name only: keep the native (correct group-card) text unless the user opted in to our
+        // resolved 群名片/备注/昵称. The role tag is independent and gets appended regardless.
+        // Captured up front (before we overwrite the view) so it reflects what QQ set in super.i.
+        val name: CharSequence = if (Settings.replaceGroupNick.value) {
+            member.displayName()
+        } else {
+            nickView.text?.takeIf { it.isNotEmpty() } ?: member.displayName()
+        }
         if (Settings.showGroupAvatar.value && (!isSelf || Settings.showSelfAvatar.value)) {
             nickView.maxLines = 2
+            nickView.ellipsize = TextUtils.TruncateAt.END
             // Self messages are right-aligned, so anchor avatar + nick to the end.
             nickView.gravity = if (isSelf) Gravity.END else Gravity.START
-            nickView.text = member.toDisplayTwoLine()
+            // Usable text width = view width minus paddings and the avatar drawable. Unknown before
+            // the first layout (width==0) → set text now without ellipsizing, then re-run in a post
+            // once the width is settled so a long name + tag collapses the name to a single line.
+            val applyText = {
+                val avail = nickView.width - nickView.compoundPaddingLeft - nickView.compoundPaddingRight
+                nickView.text = member.twoLineNick(name, nickView.paint, avail)
+            }
+            applyText()
+            if (nickView.width == 0) nickView.post(applyText)
         } else {
             nickView.maxLines = 1
             nickView.gravity = Gravity.START
             nickView.setPaddingRelative(nickView.paddingStart, 0, nickView.paddingEnd, nickView.paddingBottom)
-            nickView.text = member.toDisplay()
+            nickView.text = member.oneLineNick(name)
         }
     }
 

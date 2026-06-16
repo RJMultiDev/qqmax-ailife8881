@@ -217,6 +217,7 @@ class 设置页 : SettingsActivity() {
             switch("自己也显示头像", "自己的消息也显示头像和两行昵称，与他人一致", Settings.showSelfAvatar)
             slider("头像大小", "群聊头像大小(相对昵称文字的倍数)，默认 3", Settings.avatarSizeScale, min = 1.5f, max = 6f)
             switch("合并连续消息头", "同一人连发多条时，只在第一条显示头像和昵称", Settings.hideRepeatedSender)
+            switch("替换发送者名字", "用解析到的群名片/备注/昵称替换群消息发送者名字；关闭(默认)则保留原生名字。群主/管理员/头衔标签不受此开关影响，始终显示", Settings.replaceGroupNick)
             actionCard("清除头像缓存", "删除已缓存的头像，重进聊天页将重新下载最新头像") {
                 val n = GroupAvatarHook.clearAvatarCache()
                 Utils.toast(this@设置页, "已清除 $n 个头像缓存")

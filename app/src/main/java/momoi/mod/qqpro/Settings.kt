@@ -27,6 +27,9 @@ object Settings {
     // Group chat avatar size, as a multiple of the nickname text size. Default 3x.
     val avatarSizeScale = FloatPref("avatarSizeScale", 2.5f)
     val hideRepeatedSender = BooleanPref("hideRepeatedSender", true)
+    // Replace the group message sender NAME with our resolved 群名片/备注/昵称. Off by default:
+    // keep the native sender name (the role/头衔 tag is appended either way — it's independent).
+    val replaceGroupNick = BooleanPref("replaceGroupNick", false)
     val inlineSendButton = BooleanPref("inlineSendButton", true)
     val inlineChatInput = BooleanPref("inlineChatInput", true)
     // Fully replace the InputMethodFragment with the inline EditText: @/图片/回复/编辑/STT
@@ -162,7 +165,7 @@ object Settings {
     // Declared last so all the Pref properties above are already initialised.
     val all: List<Pref<*>> = listOf(
         scale, chatScale, enableSmoothScroll, encoderScrollSpeed, blockBack, swapCenterKeyboard,
-        showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, inlineSendButton,
+        showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, inlineSendButton,
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
         screenCornerDiameter,
         hideVoiceButton, backToFirstPage, attachmentOverlay, enableTitlebar, titlebarShowUnread,
