@@ -15,6 +15,7 @@ import android.widget.ImageView
 import com.tencent.qqnt.account.login.ui.QrLoginFragment
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.util.Utils
+import momoi.mod.qqpro.util.runOnUi
 
 /**
  * Login screen: tap the QR code to blow it up to (almost) full screen so it's
@@ -31,12 +32,38 @@ class LoginQrZoom : QrLoginFragment() {
         LoginQrZoomHelper.attach(root)
         return root
     }
+
+    // LoginQrCodeStateCallback: Q() = QR scanned, k() = QR expired. Once the QR changes
+    // state the enlarged snapshot is stale (it still shows the old, now-invalid code), so
+    // close the zoom overlay and let the user see the scanned/expired tip underneath.
+    override fun Q() {
+        super.Q()
+        LoginQrZoomHelper.dismiss()
+    }
+
+    override fun k() {
+        super.k()
+        LoginQrZoomHelper.dismiss()
+    }
 }
 
 // Must be public (not `private`/package-private): the @Mixin's Y() body is copied
 // into QQ's package and references this class, so it has to be accessible there —
 // a private object triggers IllegalAccessError at runtime.
 object LoginQrZoomHelper {
+    // The currently-shown zoom overlay (login or self QR), so a QR state change can dismiss it.
+    @Volatile
+    private var current: FrameLayout? = null
+
+    /** Close the zoom overlay if one is open (safe to call from any thread / when none is open). */
+    fun dismiss() {
+        val o = current ?: return
+        runOnUi {
+            (o.parent as? ViewGroup)?.removeView(o)
+            if (current === o) current = null
+        }
+    }
+
     fun attach(root: View) {
         try {
             val ctx = root.context
@@ -85,11 +112,15 @@ object LoginQrZoomHelper {
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
         overlay.addView(image, FrameLayout.LayoutParams(side, side, Gravity.CENTER))
-        overlay.setOnClickListener { content.removeView(overlay) }
+        overlay.setOnClickListener {
+            content.removeView(overlay)
+            if (current === overlay) current = null
+        }
         content.addView(overlay, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         ))
+        current = overlay
     }
 
     private fun Context.findActivity(): Activity? {
