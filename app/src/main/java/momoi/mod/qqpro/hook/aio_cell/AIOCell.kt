@@ -132,12 +132,12 @@ object AIOCell {
         ) {
             super.i(view, item, p3, p4, p5, p6)
             val widget = view as? AIOCellGroupWidget ?: return
-            if (CurrentContact.isGroup) {
+            run {
                 val senderUid = item.d.senderUid
                 val nickView = widget.getNickWidget<TextView>()
                 // hide the avatar/nick header when the previous (older) message in
                 // the list is from the same sender, so consecutive messages only
-                // show the header once.
+                // show the header once. Applies in both group AND DM chats.
                 val hideHeader = Settings.hideRepeatedSender.value
                     && item.d.msgType != NTMsgType.GRAYTIPS
                     && run {
@@ -166,16 +166,22 @@ object AIOCell {
                         }
                         it.tag = senderUid
                     }
-                    // Avatar depends only on the message record, so apply it now and
-                    // unconditionally — never gate it on the async member lookup, which
-                    // silently drops self / missing members and would otherwise leave a
-                    // recycled cell showing the previous sender's avatar.
-                    GroupAvatarHook.bindAvatar(widget, item.d)
-                    // Nick text needs member info, so it follows the member callback.
-                    CurrentGroupMembers.get(senderUid) { member ->
-                        widget.post {
-                            if (widget.getNickWidget<TextView>()?.tag == senderUid) {
-                                GroupAvatarHook.bindNick(widget, item.d, member)
+                    // The custom avatar/nick rebind is group-only: it relies on the
+                    // group-member lookup and group-card naming. In DM, leave the
+                    // header as the native super.i() rendered it (only the collapse
+                    // above is our doing) so consecutive-message combining still works.
+                    if (CurrentContact.isGroup) {
+                        // Avatar depends only on the message record, so apply it now and
+                        // unconditionally — never gate it on the async member lookup, which
+                        // silently drops self / missing members and would otherwise leave a
+                        // recycled cell showing the previous sender's avatar.
+                        GroupAvatarHook.bindAvatar(widget, item.d)
+                        // Nick text needs member info, so it follows the member callback.
+                        CurrentGroupMembers.get(senderUid) { member ->
+                            widget.post {
+                                if (widget.getNickWidget<TextView>()?.tag == senderUid) {
+                                    GroupAvatarHook.bindNick(widget, item.d, member)
+                                }
                             }
                         }
                     }
