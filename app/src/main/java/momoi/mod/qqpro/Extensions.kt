@@ -49,6 +49,15 @@ fun View.warp(): LinearLayout {
     return warp
 }
 
+/**
+ * Idempotent [warp]: if this view is already inside one of our vertical wrapper LinearLayouts,
+ * return that instead of nesting another. Every cell hook (reply/forward/ark/file, link preview,
+ * +1) used to wrap the content independently, each guarded only by its own cache — so a recycled
+ * cell accumulated nested wrappers, each carrying a leftover `FILL/0/weight=1` lp that ballooned
+ * a plain one-line message into a full-screen bubble. Sharing a single wrapper prevents that.
+ */
+fun View.warpOnce(): LinearLayout = (parent as? LinearLayout) ?: warp()
+
 fun String?.emptyUse(other: String) = if (isNullOrEmpty()) other else this
 
 fun File.child(path: String) = File(this, path)

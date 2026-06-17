@@ -208,12 +208,23 @@ object GroupAvatarHook {
             // race was truncating short names like "悠奕" → "悠…" only when the avatar was cached.
             val avatarReserve = (nickView.textSize * Settings.avatarSizeScale.value).toInt() + 4.dp
             val applyText = {
-                val w = if (nickView.width > 0) nickView.width else (nickView.parent as? View)?.width ?: 0
-                val avail = w - nickView.paddingLeft - nickView.paddingRight - avatarReserve
+                // Base the usable width on the CELL/row, never on nickView.width: the nick view is
+                // wrap_content, so its own width reflects the PREVIOUS (recycled, often shorter)
+                // text. Using it ellipsized long names early and inconsistently — a UI dump showed
+                // the SAME name truncated to 303px in one cell and 261px in another while ~420px
+                // was free. The parent cell spans the row (stable basis); fall back to the screen
+                // width when it isn't laid out yet.
+                val parentW = (nickView.parent as? View)?.width ?: 0
+                val basis = if (parentW > 0) parentW
+                    else Utils.application.resources.displayMetrics.widthPixels
+                // Leave a small trailing gap so a long name never kisses the right edge.
+                val avail = basis - nickView.paddingLeft - nickView.paddingRight - avatarReserve - 8.dp
                 nickView.text = member.twoLineNick(name, nickView.paint, avail)
             }
             applyText()
-            if (nickView.width == 0) nickView.post(applyText)
+            // Re-run once the real cell width is known (first layout after a fresh bind), so a
+            // zero/stale basis never sticks.
+            if ((nickView.parent as? View)?.width ?: 0 == 0) nickView.post(applyText)
         } else {
             nickView.maxLines = 1
             nickView.gravity = Gravity.START

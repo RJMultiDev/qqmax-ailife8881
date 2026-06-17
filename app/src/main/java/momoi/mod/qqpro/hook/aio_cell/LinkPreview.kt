@@ -20,7 +20,7 @@ import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.util.firstUrl
 import momoi.mod.qqpro.util.runOnUi
 import momoi.mod.qqpro.util.withScheme
-import momoi.mod.qqpro.warp
+import momoi.mod.qqpro.warpOnce
 import java.util.WeakHashMap
 
 /**
@@ -59,7 +59,9 @@ object LinkPreview {
         val card = cards.getOrPut(widget) {
             val c = Card(content!!.context)
             // Wrap the message text in a vertical column and append the preview below it.
-            val warp = content.warp()
+            // warpOnce: reuse an existing wrapper (e.g. one a special-message hook already made)
+            // instead of nesting a second LinearLayout, which used to leak a weighted wrapper.
+            val warp = content.warpOnce()
             warp.addView(c.root, LinearLayout.LayoutParams(FILL, WRAP).apply {
                 topMargin = dp(content.context, 4)
             })

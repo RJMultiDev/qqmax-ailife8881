@@ -23,9 +23,18 @@ import momoi.mod.qqpro.hook.action.isGroup
 import momoi.mod.qqpro.lib.create
 import momoi.mod.qqpro.hook.parseAtMembers
 import momoi.mod.qqpro.util.linkify
-import momoi.mod.qqpro.warp
+import momoi.mod.qqpro.util.Utils
+import momoi.mod.qqpro.warpOnce
+import android.widget.LinearLayout
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
+
+private fun lpName(v: Int?) = when (v) {
+    null -> "?"
+    ViewGroup.LayoutParams.MATCH_PARENT -> "FILL"
+    ViewGroup.LayoutParams.WRAP_CONTENT -> "WRAP"
+    else -> v.toString()
+}
 
 object AIOCell {
     val AIOCellGroupWidget.contentWidget get() = this.getContentWidget<View>()!!
@@ -105,7 +114,7 @@ object AIOCell {
         fun getOrCreate(widget: AIOCellGroupWidget): T {
             return views.getOrPut(widget) {
                 val view = createView(widget.context)
-                val warp = widget.contentWidget.warp()
+                val warp = widget.contentWidget.warpOnce()
                 warp.addView(view, 0)
                 WeakReference(view)
             }.get()!!
@@ -225,9 +234,46 @@ object AIOCell {
                 (widget.contentWidget as? TextView)?.let {
                     it.linkify()
                     it.parseAtMembers()
-                    it.layoutParams?.let {
-                        it.width = ViewGroup.LayoutParams.WRAP_CONTENT
-                        it.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                    // Reset the content AND every wrapper LinearLayout it sits inside back to
+                    // "hug content". When this cell is recycled from one that had a
+                    // +1/link-preview/special view, the content stays wrapped in one (or, from
+                    // older builds, several NESTED) vertical LinearLayouts whose lp still carries
+                    // weight=1 (FILL/0/1f). A weighted child balloons to fill all remaining vertical
+                    // space — a one-line message rendered a full-screen-tall bubble. WRAP alone
+                    // doesn't undo weight; only weight=0 does, and the weight may live on an
+                    // intermediate wrapper, not the TextView. Walk the whole chain up to the bubble
+                    // FrameLayout. LinkPreview re-asserts FILL/weight on the content afterwards when
+                    // a preview is actually present, so this only neutralises plain text.
+                    it.layoutParams?.let { lp ->
+                        lp.width = ViewGroup.LayoutParams.WRAP_CONTENT
+                        lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                        (lp as? LinearLayout.LayoutParams)?.weight = 0f
+                    }
+                    var p = it.parent
+                    while (p is LinearLayout) {
+                        (p.layoutParams as? LinearLayout.LayoutParams)?.let { lp ->
+                            lp.width = ViewGroup.LayoutParams.WRAP_CONTENT
+                            lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                            lp.weight = 0f
+                        }
+                        p = p.parent
+                    }
+                    it.requestLayout()
+                    // Diagnostic: dump the full ancestor lp chain for wrapped plain-text cells so we
+                    // can see exactly what is forcing the bubble height on the real device.
+                    if (it.parent is LinearLayout) {
+                        val sb = StringBuilder("bubble-chain text='${it.text?.take(8)}' ")
+                        var v: View? = it
+                        var depth = 0
+                        while (v != null && depth < 8) {
+                            val lp = v.layoutParams
+                            val w = lp?.width; val h = lp?.height
+                            val wt = (lp as? LinearLayout.LayoutParams)?.weight
+                            sb.append("\n  [${depth}] ${v.javaClass.simpleName} lp=${lpName(w)}x${lpName(h)} wt=$wt mH=${v.measuredHeight} vis=${v.visibility}")
+                            v = v.parent as? View
+                            depth++
+                        }
+                        Utils.log(sb.toString())
                     }
                 }
             }

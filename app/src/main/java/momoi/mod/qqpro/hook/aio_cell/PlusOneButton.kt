@@ -14,7 +14,6 @@ import momoi.mod.qqpro.enums.ElementType
 import momoi.mod.qqpro.enums.NTMsgType
 import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.action.CurrentMsgList
-import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.Observable
 import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.util.Utils
@@ -132,12 +131,19 @@ object PlusOneButton {
         // Get or create the warp container for this widget's content.
         val warp = warps[widget] ?: run {
             val content = widget.getContentWidget<View>() as? TextView ?: return
-            // Reuse the vertical container if LinkPreview already created one.
+            // Reuse the vertical container if LinkPreview / a special-message hook already created
+            // one (in which case that owner manages the content's width — e.g. LinkPreview needs
+            // FILL so the text fills the preview column).
             val container = if (content.parent is LinearLayout) {
                 content.parent as LinearLayout
             } else {
+                // +1 created the wrapper itself → no full-width sibling card. warp() defaults the
+                // wrapped child to FILL/weight, which makes the bubble collapse to the +1 button's
+                // width (a long "Testing testing" rendered as a button-wide "Te"). Force the text to
+                // hug its content so the bubble keeps its natural text width and the pill sits at the
+                // bottom-right.
                 content.warp().also {
-                    content.layoutParams = LinearLayout.LayoutParams(FILL, 0, 1f)
+                    content.layoutParams = LinearLayout.LayoutParams(WRAP, WRAP)
                 }
             }
             warps[widget] = container
