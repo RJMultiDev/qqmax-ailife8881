@@ -26,3 +26,25 @@ fun RecyclerView.smoothScrollToStart(position: Int) {
             }
         })
 }
+
+/**
+ * Force a continuous smooth scroll to the very bottom of the list. The native go-to-bottom (and
+ * RecyclerView's own [LinearSmoothScroller]) does a fast "interim seek" over long distances that
+ * jump-cuts and skips binding the messages in between. Instead we drive [scrollBy] a fixed amount
+ * every animation frame until the list can no longer scroll down, so it stays a smooth, constant
+ * speed scroll and every intermediate item is bound (loaded) on the way.
+ */
+fun RecyclerView.smoothScrollToEnd(position: Int) {
+    // Cancel any in-flight smooth scroll (e.g. a previous tap) first.
+    stopScroll()
+    val step = (resources.displayMetrics.density * 48f).toInt().coerceAtLeast(1)
+    val runner = object : Runnable {
+        override fun run() {
+            // canScrollVertically(1) == false means we're at the real bottom.
+            if (!canScrollVertically(1)) return
+            scrollBy(0, step)
+            postOnAnimation(this)
+        }
+    }
+    postOnAnimation(runner)
+}

@@ -100,9 +100,25 @@ class BubbleTextView(context: Context) : TextView(context) {
             returnAnchor = null
             scrollBackToAnchor(anchor)
         } else {
-            // No pending anchor (or already scrolled past it): the real go-to-bottom (native behaviour).
+            // No pending anchor (or already scrolled past it): the real go-to-bottom.
             returnAnchor = null
             forceShow = false
+            goToBottom(v)
+        }
+    }
+
+    /**
+     * Scroll all the way to the latest message. The native go-to-bottom snaps instantly when the
+     * target is far, which skips binding (loading) the messages in between; force a continuous
+     * smooth scroll instead so every intermediate message is visited. Falls back to the native
+     * click if the list/index isn't available.
+     */
+    private fun goToBottom(v: View?) {
+        val rv = runCatching { CurrentMsgList.vb.H }.getOrNull()
+        val last = CurrentMsgList.msgList.value.size - 1
+        if (rv != null && last >= 0) {
+            rv.smoothScrollToEnd(last)
+        } else {
             delegateClick?.onClick(v)
         }
     }
@@ -123,7 +139,7 @@ class BubbleTextView(context: Context) : TextView(context) {
         if (rv == null || idx < 0) {
             // Anchor no longer loaded — fall back to going straight to the bottom.
             forceShow = false
-            delegateClick?.onClick(this)
+            goToBottom(this)
             return
         }
         rv.smoothScrollToStart(idx)
