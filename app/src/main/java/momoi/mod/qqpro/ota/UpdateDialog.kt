@@ -65,18 +65,13 @@ object UpdateDialog {
                 .gravity(Gravity.CENTER)
                 .width(FILL)
                 .padding(top = 6.dp, bottom = 12.dp)
-        }
 
-        // Changelog scrolls so a long one never pushes the buttons off-screen.
-        val scroll = ScrollView(context).apply { isFillViewport = false }
-        val msg = TextView(context)
-            .text(changelog)
-            .textSize(13f)
-            .textColor(0xFF_DDDDDD)
-        scroll.addView(msg, ViewGroup.LayoutParams(FILL, WRAP))
-        root.addView(scroll, LinearLayout.LayoutParams(FILL, 0, 1f))
+            add<TextView>()
+                .text(changelog)
+                .textSize(13f)
+                .textColor(0xFF_DDDDDD)
+                .width(FILL)
 
-        root.content {
             button("更新", ACCENT, 0xFF_000000.toInt()) {
                 dialog.dismiss()
                 onUpdate.run()
@@ -90,8 +85,15 @@ object UpdateDialog {
             }
         }
 
+        // Whole dialog (title + changelog + buttons) scrolls as one so nothing gets
+        // clipped off-screen on the round watch, no matter how long the changelog is.
+        val scroll = ScrollView(context).apply {
+            isFillViewport = true
+            addView(root, ViewGroup.LayoutParams(FILL, WRAP))
+        }
+
         val swipe = SwipeBackLayout(context).apply {
-            addView(root, FILL, FILL)
+            addView(scroll, FILL, FILL)
             onSwipeBack = { dialog.dismiss() }
         }
         dialog.setContentView(swipe)
