@@ -43,6 +43,9 @@ class DebugActivity : Activity() {
     // background collection finishes. Empty until then.
     private var report: String = ""
 
+    // Promoted to a field so refreshes outside onCreate (e.g. after clearing the log) can update it.
+    private lateinit var body: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -66,7 +69,7 @@ class DebugActivity : Activity() {
             setPadding(0, dp(4), 0, dp(8))
         })
 
-        val body = TextView(this).apply {
+        body = TextView(this).apply {
             this.text = "正在收集设备信息与日志…"
             setTextColor(0xFF_DDDDDD.toInt())
             sp(this, 9f)
@@ -97,6 +100,29 @@ class DebugActivity : Activity() {
         root.addView(
             row,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        )
+
+        // Two-tap confirm (no AlertDialog — it renders badly at watch DPI): first tap arms,
+        // second tap within the window actually clears.
+        val clearBtn = button("清空日志", 0xFF_B71C1C.toInt()) {}
+        clearBtn.setOnClickListener {
+            if (clearArmed) {
+                clearLog()
+                clearArmed = false
+                clearBtn.text = "清空日志"
+            } else {
+                clearArmed = true
+                clearBtn.text = "再次点击确认清空"
+                clearBtn.postDelayed({
+                    clearArmed = false
+                    clearBtn.text = "清空日志"
+                }, 3000)
+            }
+        }
+        root.addView(
+            clearBtn,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                .apply { topMargin = dp(6) }
         )
 
         root.addView(
@@ -177,6 +203,28 @@ class DebugActivity : Activity() {
             cm.setPrimaryClip(ClipData.newPlainText("debug", text))
             Toast.makeText(this, "已复制", Toast.LENGTH_SHORT).show()
         }.onFailure { Log.e("Watchdog", "copy failed", it) }
+    }
+
+    private var clearArmed = false
+
+    /** Truncate the on-device debug log file and refresh the on-screen report. */
+    private fun clearLog() {
+        runCatching {
+            val f = Utils.debugLogFile
+            if (f.exists()) f.writeText("")
+            Toast.makeText(this, "已清空日志", Toast.LENGTH_SHORT).show()
+            // Rebuild so the body reflects the now-empty log.
+            Thread {
+                val r = buildReport()
+                runOnUi {
+                    report = r
+                    body.text = r
+                }
+            }.start()
+        }.onFailure {
+            Log.e("Watchdog", "clear log failed", it)
+            Toast.makeText(this, "清空失败", Toast.LENGTH_LONG).show()
+        }
     }
 
     private var pendingSave: String? = null
