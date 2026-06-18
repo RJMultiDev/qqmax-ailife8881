@@ -321,9 +321,11 @@ object InlineInput {
 
     private fun onBannerClick() {
         if (MessageEdit.editingMsgId != 0L) {
-            // Cancel an edit: drop edit state and the prefilled original text.
+            // Cancel an edit: drop edit state, the prefilled original text/@/image tokens, AND the
+            // staged reply (editing a reply message also carries the reply over).
             MessageEdit.consume()
             editText()?.text?.clear()
+            reply = null
         } else {
             reply = null
         }

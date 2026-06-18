@@ -24,7 +24,9 @@ class InputMethodFragmentHook : InputMethodFragment() {
     // so the edited text takes its place.
     override fun J(str: String?) {
         val editId = MessageEdit.editingMsgId
-        if (editId != 0L && !str.isNullOrBlank()) {
+        // Recall the original when editing — also for an image-only edit (str is blank but a staged
+        // attachment is being sent), otherwise the edit would add a copy instead of replacing.
+        if (editId != 0L && (!str.isNullOrBlank() || IMEOperation.extraMsg.isNotEmpty())) {
             MessageEdit.consume()
             Utils.log("message edit: recall original msgId=$editId then send")
             runCatching { KernelServiceUtil.c()?.recallMsg(CurrentContact, editId, null) }

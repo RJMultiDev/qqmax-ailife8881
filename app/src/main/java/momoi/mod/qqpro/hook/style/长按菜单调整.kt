@@ -26,6 +26,7 @@ import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.hook.HistoryMsgRegistry
 import momoi.mod.qqpro.hook.forwardText
 import momoi.mod.qqpro.hook.forwardMsgRecord
+import momoi.mod.qqpro.hook.repeatMsgRecord
 import momoi.mod.qqpro.hook.shareMessage
 import momoi.mod.qqpro.hook.view.PartialCopyFragment
 import momoi.mod.qqpro.asGroup
@@ -50,13 +51,16 @@ import momoi.mod.qqpro.util.runOnUi
 
 val menuSort = arrayOf(
     "回复",
-    "@Ta",
     "复制文本",
     "复读文本",
     "去聊天",
-    "加好友",
     "删除",
 )
+
+// Native menu items we hide because the same action is already reachable elsewhere in QQPro:
+//   @Ta  → use the inline @ button / member picker
+//   加好友 → reachable from the profile card
+private val hiddenNativeMenuItems = arrayOf("@Ta", "加好友")
 
 // Clone the native menu item layout (icon + desc + hidden switch) so injected items
 // (转发 / 编辑) look identical to the built-in ones.
@@ -97,6 +101,9 @@ private fun process(group: ViewGroup, msg: MsgRecord?, msgItem: WatchAIOMsgItem?
         }
     }
     linear.removeAllViews()
+    // 移除已在别处提供的原生项(@Ta 用行内@/成员选择，加好友在资料卡)。从 items 删除即可：
+    // menuSort 查不到它们会跳过，下面的兜底循环也不会再把它们加回去。
+    hiddenNativeMenuItems.forEach { items.remove(it) }
     LinearScope(linear).add<View>()
         .width(FILL)
         .height(if (Utils.isRoundScreen) 0.16f.vh else 0)
@@ -166,6 +173,19 @@ private fun process(group: ViewGroup, msg: MsgRecord?, msgItem: WatchAIOMsgItem?
             dismiss()
         }, 1)
     }
+    // 复制图片：仅对包含图片的消息显示。占位入口(暂不实现复制到剪贴板的实际行为)。
+    val hasPic = msg?.elements?.any { it.picElement != null } == true
+    if (hasPic) {
+        val copyIcon = items["复制文本"]?.let { item ->
+            val res = item.context.resources
+            val pkg = item.context.packageName
+            item.findViewById<ImageView>(res.getIdentifier("icon", "id", pkg))?.drawable
+        } ?: ContextCompat.getDrawable(linear.context, 0x7e0805cd)
+        linear.addView(cloneMenuItem(linear, "复制图片", copyIcon) {
+            Utils.log("copy image: not implemented yet")
+            dismiss()
+        }, 1)
+    }
     // 删除(本地删除，非撤回)：原生删除只更新数据库，当前会话列表不会实时刷新(需重进会话)。
     // 自行调用 deleteMsg(与原生一致：本地删除、无确认框)，并在成功回调里把该消息实时移除。
     val deleteId = msg?.msgId
@@ -218,12 +238,28 @@ private fun process(group: ViewGroup, msg: MsgRecord?, msgItem: WatchAIOMsgItem?
             dismiss()
         }, 1)
     }
-    // 编辑：仅对自己发出的文本消息生效。打开输入法页面（同复读）预填原文，发送时先撤回原消息。
+    // 复读：原生"复读文本"只重发纯文本，丢掉回复/图片等。改接到自己的 repeatMsgRecord(下载重建图片后
+    // 把整条消息原样重发到当前会话)，从而支持文本/@/回复/图片/视频/语音等。
+    if (msg != null) {
+        if (items["复读文本"] != null) {
+            items["复读文本"]?.setOnClickListener {
+                repeatMsgRecord(msg)
+                dismiss()
+            }
+        } else if (forwardable) {
+            // 纯媒体消息原生没有"复读文本"项，注入一个"复读"。
+            val repeatIcon = ContextCompat.getDrawable(linear.context, 0x7e0805cd)
+            linear.addView(cloneMenuItem(linear, "复读", repeatIcon) {
+                repeatMsgRecord(msg)
+                dismiss()
+            }, 1)
+        }
+    }
+    // 编辑：仅对自己发出的、可重发的消息生效(文本/@/回复/图片等)。打开输入法预填原内容，发送时先撤回原消息。
     val isSelf = msg != null && msg.senderUid == SelfContact.peerUid
-    if (isSelf && fwdText != null) {
-        val editId = msg!!.msgId
+    if (isSelf && (fwdText != null || forwardable)) {
         linear.addView(cloneMenuItem(linear, "编辑", editIconDrawable()) {
-            MessageEdit.begin(editId, fwdText)
+            MessageEdit.beginFull(msg!!)
             dismiss()
         }, 1)
     }

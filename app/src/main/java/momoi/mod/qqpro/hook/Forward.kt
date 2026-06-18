@@ -8,6 +8,7 @@ import com.tencent.qqnt.kernel.nativeinterface.MsgRecord
 import com.tencent.qqnt.watch.contact.api.IContactRuntimeService
 import com.tencent.watch.ime.util.ImeTextUtil
 import momoi.mod.qqpro.MsgUtil
+import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.child
 import momoi.mod.qqpro.safeCacheDir
 import download
@@ -114,6 +115,36 @@ fun View.forwardMsgRecord(msg: MsgRecord, title: String = "转发") {
         kotlin.Unit
     }
 }
+
+/**
+ * Re-send a copy of [msg] to the CURRENTLY OPEN chat (the 复读 action). Unlike [forwardMsgRecord]
+ * (which opens the friend selector to send elsewhere), this resends in place. Supports any
+ * self-contained message — text / @ / reply / image / video / voice / sticker — by re-sending its
+ * original elements with each picture rebuilt from a freshly-downloaded local file (received pics
+ * point at the sender's local path and won't second-transfer otherwise). Runs the rebuild off the
+ * UI thread because it blocks on the image download.
+ */
+fun repeatMsgRecord(msg: MsgRecord) {
+    Utils.log("repeatMsgRecord: begin msgId=${msg.msgId} elems=${msg.elements?.map { it.elementType }}")
+    val original = ArrayList(msg.elements ?: emptyList())
+    val contact = Contact(CurrentContact.chatType, CurrentContact.peerUid, CurrentContact.guildId)
+    Thread {
+        val elements = rebuildForForward(original)
+        Utils.log("repeatMsgRecord: re-sending ${elements.size} element(s) via sendMsg")
+        MsgUtil.msgService.sendMsg(
+            contact, 0L, elements,
+            IOperateCallback { code, errMsg -> Utils.log("repeatMsgRecord: result code=$code msg=$errMsg") }
+        )
+    }.start()
+}
+
+/**
+ * Rebuild [elements] for re-send the same way [forwardMsgRecord] does (download each picture to a
+ * fresh local file and build a new pic element from it; pass other elements through). Exposed so the
+ * 编辑 flow can stage re-sendable image elements. Must run off the UI thread (blocks on download).
+ */
+fun rebuildElementsForResend(elements: List<MsgElement>): ArrayList<MsgElement> =
+    rebuildForForward(elements)
 
 /**
  * Replace each PicElement with a fresh pic MsgElement built from a freshly-downloaded local file
