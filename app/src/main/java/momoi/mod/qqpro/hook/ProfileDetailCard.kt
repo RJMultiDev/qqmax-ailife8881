@@ -144,6 +144,46 @@ object ProfileDetailCard {
         .map { it.trim() }.filter { it.isNotEmpty() }.distinct()
         .takeIf { it.isNotEmpty() }?.joinToString(" ")
 
+    /**
+     * Compact plain-text lines (no row icons) for embedding in a non-card context (e.g. the DM
+     * settings page). When [includeGenderBirthday] is false, gender and birthday are omitted (the
+     * native page already shows them) — leaving age · zodiac · 生肖, location, and bio.
+     */
+    fun infoLines(info: Info, includeGenderBirthday: Boolean): List<String> {
+        val out = mutableListOf<String>()
+        val tags = buildList {
+            if (info.age > 0) add("${info.age}岁")
+            if (includeGenderBirthday) sexLabel(info.sex)?.let { add(it) }
+            zodiac(info)?.let { add(it) }
+            shengXiao(info.birthYear)?.let { add("属$it") }
+        }
+        if (tags.isNotEmpty()) out.add(tags.joinToString(" · "))
+        if (includeGenderBirthday) birthday(info)?.let { out.add("生日 $it") }
+        location(info)?.let { out.add(it) }
+        info.bio.trim().takeIf { it.isNotEmpty() }?.let { out.add(it) }
+        return out
+    }
+
+    // Public field formatters (null when unavailable) for callers that lay fields out themselves
+    // (e.g. the DM settings chips) rather than using [bindInto].
+    fun zodiacText(info: Info): String? = zodiac(info)
+    fun locationText(info: Info): String? = location(info)
+    fun shengXiaoText(info: Info): String? = shengXiao(info.birthYear)?.let { "属$it" }
+    fun birthdayText(info: Info): String? = birthday(info)
+
+    /** Resolve uin → uid (sync) then [fetch] the detail by uid. */
+    fun fetchByUin(uin: Long, cb: (Info?) -> Unit) {
+        runCatching {
+            val app = MobileQQ.sMobileQQ?.peekAppRuntime()
+            val ks = app?.getRuntimeService(IKernelService::class.java, "") as? IKernelService
+            val ps = ks?.profileService
+            val uid = ps?.getUidByUin("qqpro_profile", arrayListOf(uin))?.get(uin)
+            Utils.log("ProfileDetailCard.fetchByUin uin=$uin uid=$uid")
+            if (uid.isNullOrEmpty()) { cb(null); return }
+            fetch(uid, cb)
+        }.onFailure { Utils.log("ProfileDetailCard.fetchByUin error: $it"); cb(null) }
+    }
+
     /** Async server fetch; parses into [Info]; invokes [cb] (possibly on a binder thread → caller posts). */
     fun fetch(uid: String, cb: (Info?) -> Unit) {
         runCatching {

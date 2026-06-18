@@ -6,6 +6,7 @@ import com.tencent.qqnt.watch.gallery.preview.RFWLayerLaunchUtilKt
 import com.tencent.watch.aio_impl.ui.frames.SettingFrame
 import download
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.child
 import momoi.mod.qqpro.safeCacheDir
 import momoi.mod.qqpro.hook.view.addChatSearchEntry
@@ -25,6 +26,8 @@ class GroupAvatarPreview : SettingFrame() {
         addChatSearchEntry(this)
         // 单聊设置页底部加入"TA的空间"入口,跳转该好友的QQ空间。
         addQzoneEntry(this)
+        // 单聊设置页在原生性别/生日下方补充 年龄·星座·生肖 / 地区 / 签名(随增强资料卡开关)。
+        if (Settings.useRichProfile.value) addDmExtraInfo(this)
         // 群聊设置页加入"群公告"入口,查看该群的当前公告。
         addGroupBulletinEntry(this)
         val args = arguments ?: return
