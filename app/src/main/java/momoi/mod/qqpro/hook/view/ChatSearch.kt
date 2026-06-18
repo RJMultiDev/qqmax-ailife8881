@@ -13,6 +13,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.widget.doAfterTextChanged
 import com.tencent.qqnt.kernel.nativeinterface.MsgRecord
 import com.tencent.watch.aio_impl.data.WatchAIOMsgItem
 import com.tencent.watch.aio_impl.ui.frames.SettingFrame
@@ -317,14 +318,10 @@ class ChatSearchFragment : MyDialogFragment() {
             showEmpty("没有可选发送者")
             return
         }
-        root.content {
-            title("选择发送者")
-            val list = add<androidx.recyclerview.widget.RecyclerView>().linearLayout()
-            (list.layoutParams as LinearLayout.LayoutParams).apply {
-                width = FILL; height = 0; weight = 1f
-            }
+        lateinit var list: androidx.recyclerview.widget.RecyclerView
+        fun bind(data: List<Sender>) {
             list.content(
-                data = senders,
+                data = data,
                 factory = { simpleRow() },
                 update = { sender ->
                     (getChildAt(0) as TextView).text = "${sender.name}  (${sender.count})"
@@ -332,6 +329,36 @@ class ChatSearchFragment : MyDialogFragment() {
                 }
             )
         }
+        lateinit var filter: EditText
+        root.content {
+            title("选择发送者")
+            // Type-to-filter the sender list by name (handy when a group has many members).
+            filter = add<EditText>()
+                .textSize(13f)
+                .textColor(0xFF_FFFFFF)
+                .width(FILL)
+                .padding(10.dp)
+                .apply {
+                    hint = "筛选发送者"
+                    setHintTextColor(0xFF_777777.toInt())
+                    setSingleLine()
+                    background = GradientDrawable().apply {
+                        setColor(0xFF_222222.toInt())
+                        cornerRadius = 12.dp.toFloat()
+                    }
+                }
+                .marginHorizontal(16.dp)
+                .margin(bottom = 8.dp)
+            list = add<androidx.recyclerview.widget.RecyclerView>().linearLayout()
+            (list.layoutParams as LinearLayout.LayoutParams).apply {
+                width = FILL; height = 0; weight = 1f
+            }
+        }
+        filter.doAfterTextChanged { e ->
+            val q = e?.toString()?.trim().orEmpty()
+            bind(if (q.isEmpty()) senders else senders.filter { it.name.contains(q, ignoreCase = true) })
+        }
+        bind(senders)
     }
 
     private fun showResults(hits: List<WatchAIOMsgItem>, withPreview: Boolean) {
