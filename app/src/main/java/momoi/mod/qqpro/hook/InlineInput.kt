@@ -20,6 +20,8 @@ import com.huanli233.qplus.utils.TextUtilKt
 import com.tencent.mobileqq.aio.msglist.holder.base.PicSize
 import com.tencent.qqnt.kernel.nativeinterface.Contact
 import com.tencent.qqnt.kernel.nativeinterface.IOperateCallback
+import com.tencent.mobileqq.text.QQText
+import com.tencent.qqnt.emotion.utils.QQSysFaceUtil
 import com.tencent.qqnt.kernel.nativeinterface.MsgElement
 import com.tencent.qqnt.msg.KernelServiceUtil
 import com.tencent.qqnt.msg.api.impl.MsgUtilApiImpl
@@ -303,19 +305,52 @@ object InlineInput {
         val et = editText() ?: return false
         runCatching {
             for (el in elements) {
-                val label = if (el.picElement != null) "[图片]" else "[表情]"
-                insertToken(label, ImageTag(el))
+                when {
+                    el.picElement != null -> insertToken("[图片]", ImageTag(el))
+                    el.faceElement != null -> insertFace(el)
+                    else -> insertToken("[表情]", ImageTag(el))
+                }
             }
             focusAndShow()
         }.onFailure { Utils.log("InlineInput.insertElements failed: $it") }
         return true
     }
 
-    private fun insertToken(label: String, tag: InlineTag) {
+    /**
+     * Insert a sysface element so the actual emoji glyph is shown in the box instead of a literal
+     * "[表情]". [FaceElementParser] renders the face to a CharSequence carrying QQ's EmoticonSpan
+     * (the same span the chat list draws); we lay an atomic [ImageTag] over that run so it deletes
+     * in one backspace and [buildElements] emits the exact original element verbatim at send time.
+     * Falls back to a plain "[表情]" token if rendering fails (e.g. an unusual face type).
+     */
+    private fun insertFace(el: MsgElement) {
+        val fe = el.faceElement
+        // The picker stores a serverId in faceIndex (and faceType 3 = animated sticker, 1/2 = static).
+        // Render the static face glyph the same way the inline emoji panel does — convert serverId →
+        // localId and build a QQText EmoticonSpan — which works for every type (FaceElementParser only
+        // handled plain sysfaces and returned empty for the animated ones). The animated lottie can't
+        // play in an EditText, but the static face shows; the original element still sends verbatim.
+        val rendered = runCatching {
+            val localId = QQSysFaceUtil.a.a(fe.faceIndex)
+            QQText(QQSysFaceUtil.a.g(localId), 3, 18, null)
+        }.onFailure { Utils.log("insertFace render failed type=${fe.faceType} index=${fe.faceIndex}: $it") }
+            .getOrNull()
+        Utils.log("insertFace type=${fe.faceType} index=${fe.faceIndex} rendered='${rendered}' len=${rendered?.length}")
+        if (rendered.isNullOrEmpty()) { insertToken("[表情]", ImageTag(el)); return }
+        insertSpan(rendered, ImageTag(el), colorize = false)
+    }
+
+    private fun insertToken(label: String, tag: InlineTag) = insertSpan(label, tag, colorize = true)
+
+    /**
+     * Lay [tag] (and optionally the token tint) over [label] and splice it in at the caret as one
+     * atomic run. [colorize] is off for rendered faces so the emoji glyph keeps its own colours.
+     */
+    private fun insertSpan(label: CharSequence, tag: InlineTag, colorize: Boolean) {
         val et = editText() ?: return
         val sp = SpannableString(label)
-        sp.setSpan(tag, 0, label.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        sp.setSpan(ForegroundColorSpan(tokenColor), 0, label.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sp.setSpan(tag, 0, sp.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        if (colorize) sp.setSpan(ForegroundColorSpan(tokenColor), 0, sp.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         val start = et.selectionStart.coerceAtLeast(0)
         val end = et.selectionEnd.coerceAtLeast(start)
         et.text?.replace(start, end, sp)
