@@ -119,14 +119,20 @@ class DebugActivity : Activity() {
                 }, 3000)
             }
         }
-        root.addView(
+        // 清空日志 + 关闭 share one row to save vertical space.
+        val row2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row2.addView(
             clearBtn,
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { topMargin = dp(6) }
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                .apply { rightMargin = dp(3) }
         )
-
-        root.addView(
+        row2.addView(
             button("关闭", 0xFF_555555.toInt()) { finish() },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                .apply { leftMargin = dp(3) }
+        )
+        root.addView(
+            row2,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { topMargin = dp(6) }
         )
