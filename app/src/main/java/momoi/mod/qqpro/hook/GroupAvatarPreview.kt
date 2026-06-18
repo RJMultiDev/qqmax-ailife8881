@@ -25,6 +25,8 @@ class GroupAvatarPreview : SettingFrame() {
         addChatSearchEntry(this)
         // 单聊设置页底部加入"TA的空间"入口,跳转该好友的QQ空间。
         addQzoneEntry(this)
+        // 群聊设置页加入"群公告"入口,查看该群的当前公告。
+        addGroupBulletinEntry(this)
         val args = arguments ?: return
         val peerId = args.getString("key_bundle_peer_id")
         val chatType = args.getInt("key_bundle_chat_type")
