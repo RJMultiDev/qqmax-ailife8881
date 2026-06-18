@@ -8,6 +8,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import com.tencent.watch.aio_impl.data.WatchAIOMsgItem
 import com.tencent.watch.aio_impl.ui.cell.base.BaseWatchItemCell
+import com.tencent.watch.aio_impl.ui.cell.marketface.WatchMarketFaceMsgItem
+import momoi.mod.qqpro.hook.aio_cell.MarketFaceImage
 import com.tencent.watch.aio_impl.ui.widget.AIOCellGroupWidget
 import me.jessyan.autosize.AutoSizeConfig
 import momoi.anno.mixin.Mixin
@@ -26,6 +28,11 @@ abstract class 缩小文本 : BaseWatchItemCell<WatchAIOMsgItem, View>() {
         p5: LifecycleOwner?
     ) {
         super.i(view, item, p2, p3, p4, p5)
+        // Market-face (sticker / saved image-emoji) cells render their image into an ImageView and
+        // carry no picElement; capture it so it can be opened fullscreen / copied / shared.
+        if (item is WatchMarketFaceMsgItem) {
+            MarketFaceImage.onBind(item.d.msgId, view)
+        }
         (view as? AIOCellGroupWidget)?.getContentWidget<View>()?.let { content ->
             content.asGroupOrNull()?.forEach {
                 resize(it)

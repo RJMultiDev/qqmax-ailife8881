@@ -124,6 +124,46 @@ fun View.copyImageToClipboard(msg: MsgRecord, msgItem: WatchAIOMsgItem?) {
     }.start()
 }
 
+/**
+ * Copy an already-rendered image [file] (e.g. a market-face/sticker drawable we captured) to the
+ * system clipboard as a content URI. Unlike [copyImageToClipboard] this takes a ready file rather
+ * than resolving a picElement, so it works for messages that carry no picElement.
+ */
+fun View.copyImageFileToClipboard(file: File) {
+    val ctx = context.applicationContext
+    Thread {
+        val uri = runCatching {
+            val dst = File(shareDir(ctx), file.name)
+            file.copyTo(dst, overwrite = true)
+            fileUri(ctx, dst)
+        }.onFailure { Utils.log("copyImageFile: stage/uri failed: $it") }.getOrNull()
+        runOnUi {
+            if (uri == null) { Utils.toast(context, "图片不可用"); return@runOnUi }
+            runCatching {
+                val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newUri(ctx.contentResolver, "image", uri))
+                Utils.toast(context, "已复制图片")
+            }.onFailure { Utils.log("copyImageFile: setPrimaryClip failed: $it"); Utils.toast(context, "复制失败") }
+        }
+    }.start()
+}
+
+/** System-share an already-rendered image [file] (market-face/sticker) via the share sheet. */
+fun View.shareImageFile(file: File) {
+    val ctx = context.applicationContext
+    Thread {
+        val uri = runCatching {
+            val dst = File(shareDir(ctx), file.name)
+            file.copyTo(dst, overwrite = true)
+            fileUri(ctx, dst)
+        }.onFailure { Utils.log("shareImageFile: stage/uri failed: $it") }.getOrNull()
+        runOnUi {
+            if (uri == null) { Utils.toast(context, "图片不可用"); return@runOnUi }
+            startSend(ctx, arrayListOf(uri), listOf("image/png"), null)
+        }
+    }.start()
+}
+
 private fun shareDir(ctx: Context): File =
     (ctx.getExternalFilesDir("share") ?: ctx.filesDir).apply { if (!exists()) mkdirs() }
 

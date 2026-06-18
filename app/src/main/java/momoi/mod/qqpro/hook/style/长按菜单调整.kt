@@ -29,6 +29,9 @@ import momoi.mod.qqpro.hook.forwardMsgRecord
 import momoi.mod.qqpro.hook.repeatMsgRecord
 import momoi.mod.qqpro.hook.shareMessage
 import momoi.mod.qqpro.hook.copyImageToClipboard
+import momoi.mod.qqpro.hook.copyImageFileToClipboard
+import momoi.mod.qqpro.hook.shareImageFile
+import momoi.mod.qqpro.hook.aio_cell.MarketFaceImage
 import momoi.mod.qqpro.hook.view.PartialCopyFragment
 import momoi.mod.qqpro.asGroup
 import momoi.mod.qqpro.drawable.editIconDrawable
@@ -184,6 +187,25 @@ private fun process(group: ViewGroup, msg: MsgRecord?, msgItem: WatchAIOMsgItem?
         } ?: ContextCompat.getDrawable(linear.context, 0x7e0805cd)
         linear.addView(cloneMenuItem(linear, "复制图片", copyIcon) {
             linear.copyImageToClipboard(msg!!, msgItem)
+            dismiss()
+        }, 1)
+    }
+    // 表情(大表情/商城表情/收藏图片)没有 picElement，但单元格里捕获了渲染出的图，据此提供复制图片/系统分享。
+    val mfFile = msg?.takeIf { r -> r.elements?.any { it.marketFaceElement != null } == true }
+        ?.let { MarketFaceImage.fileFor(it.msgId) }
+    if (mfFile != null) {
+        val copyIcon = items["复制文本"]?.let { item ->
+            val res = item.context.resources
+            val pkg = item.context.packageName
+            item.findViewById<ImageView>(res.getIdentifier("icon", "id", pkg))?.drawable
+        } ?: ContextCompat.getDrawable(linear.context, 0x7e0805cd)
+        linear.addView(cloneMenuItem(linear, "复制图片", copyIcon) {
+            linear.copyImageFileToClipboard(mfFile)
+            dismiss()
+        }, 1)
+        val sysShareIcon = ContextCompat.getDrawable(linear.context, 0x7e0805cd) // R.drawable.icon_share
+        linear.addView(cloneMenuItem(linear, "系统分享", sysShareIcon) {
+            linear.shareImageFile(mfFile)
             dismiss()
         }, 1)
     }
