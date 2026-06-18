@@ -1,5 +1,7 @@
 package momoi.mod.qqpro.hook
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -82,6 +84,42 @@ fun View.shareMessage(msg: MsgRecord, msgItem: WatchAIOMsgItem?) {
                 text != null -> startSend(ctx, ArrayList(), ArrayList(), text)
                 else -> Utils.toast(context, "分享内容不可用")
             }
+        }
+    }.start()
+}
+
+/**
+ * Copy the message's (first) image to the system clipboard as a content URI, so it can be pasted
+ * into other apps. Resolves the original file the same way [shareMessage] does (on-disk → kernel
+ * download → HTTP), copies it into the FileProvider-shared dir, then puts a [ClipData.newUri] on the
+ * clipboard. Blocking work runs off the UI thread.
+ */
+fun View.copyImageToClipboard(msg: MsgRecord, msgItem: WatchAIOMsgItem?) {
+    val ctx = context.applicationContext
+    val picEl = (msg.elements ?: emptyList()).firstOrNull { it.picElement != null }
+    if (picEl == null) {
+        Utils.toast(context, "没有可复制的图片")
+        return
+    }
+    Utils.toast(context, "正在准备图片…")
+    Thread {
+        val staged = runCatching { resolvePicFile(ctx, picEl, msgItem)?.let { stagePic(ctx, it) } }
+            .getOrElse { Utils.log("copyImage: staging error: $it"); null }
+        val uri = staged?.let { (file, _) ->
+            runCatching { fileUri(ctx, file) }
+                .onFailure { Utils.log("copyImage: uri failed for ${file.path}: $it") }
+                .getOrNull()
+        }
+        runOnUi {
+            if (uri == null) {
+                Utils.toast(context, "图片不可用")
+                return@runOnUi
+            }
+            runCatching {
+                val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newUri(ctx.contentResolver, "image", uri))
+                Utils.toast(context, "已复制图片")
+            }.onFailure { Utils.log("copyImage: setPrimaryClip failed: $it"); Utils.toast(context, "复制失败") }
         }
     }.start()
 }

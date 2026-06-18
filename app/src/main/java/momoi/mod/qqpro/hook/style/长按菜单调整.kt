@@ -28,6 +28,7 @@ import momoi.mod.qqpro.hook.forwardText
 import momoi.mod.qqpro.hook.forwardMsgRecord
 import momoi.mod.qqpro.hook.repeatMsgRecord
 import momoi.mod.qqpro.hook.shareMessage
+import momoi.mod.qqpro.hook.copyImageToClipboard
 import momoi.mod.qqpro.hook.view.PartialCopyFragment
 import momoi.mod.qqpro.asGroup
 import momoi.mod.qqpro.drawable.editIconDrawable
@@ -173,7 +174,7 @@ private fun process(group: ViewGroup, msg: MsgRecord?, msgItem: WatchAIOMsgItem?
             dismiss()
         }, 1)
     }
-    // 复制图片：仅对包含图片的消息显示。占位入口(暂不实现复制到剪贴板的实际行为)。
+    // 复制图片：仅对包含图片的消息显示。解析原图后以 content URI 形式放入系统剪贴板。
     val hasPic = msg?.elements?.any { it.picElement != null } == true
     if (hasPic) {
         val copyIcon = items["复制文本"]?.let { item ->
@@ -182,7 +183,7 @@ private fun process(group: ViewGroup, msg: MsgRecord?, msgItem: WatchAIOMsgItem?
             item.findViewById<ImageView>(res.getIdentifier("icon", "id", pkg))?.drawable
         } ?: ContextCompat.getDrawable(linear.context, 0x7e0805cd)
         linear.addView(cloneMenuItem(linear, "复制图片", copyIcon) {
-            Utils.log("copy image: not implemented yet")
+            linear.copyImageToClipboard(msg!!, msgItem)
             dismiss()
         }, 1)
     }
