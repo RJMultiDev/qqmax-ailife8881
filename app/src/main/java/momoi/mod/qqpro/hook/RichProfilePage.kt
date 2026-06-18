@@ -204,6 +204,24 @@ object RichProfilePage {
             styleButton(gotoChat)
             styleButton(atBtn)
 
+            // TA的空间 — open the user's QZone home feed (reuses the chat-settings QZone shortcut).
+            val uinLong = uin.trim().toLongOrNull()
+            if (uinLong != null && uinLong > 0) {
+                val qzone = TextView(ctx).apply {
+                    text = "🌟 TA的空间"
+                    textSize = 14f
+                    setTextColor(0xFF_FFFFFF.toInt())
+                    gravity = Gravity.CENTER
+                    background = pill()
+                    isClickable = true
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, H,
+                    ).apply { topMargin = 10.dp }
+                }
+                qzone.setOnClickListener { openUserQzone(qzone, uinLong) }
+                content.addView(qzone)
+            }
+
             val scroll = ScrollView(ctx).apply {
                 tag = TAG
                 isFillViewport = false

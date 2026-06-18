@@ -67,7 +67,7 @@ fun addQzoneEntry(fragment: SettingFrame) {
 }
 
 /** Navigate to the QZone home feed of [uin] via the (obfuscated) androidx NavController. */
-private fun openUserQzone(anchor: View, uin: Long) {
+fun openUserQzone(anchor: View, uin: Long) {
     runCatching {
         val nav = anchor.findNavControllerFromTree() ?: run {
             Utils.log("Qzone: NavController not found in view tree")
