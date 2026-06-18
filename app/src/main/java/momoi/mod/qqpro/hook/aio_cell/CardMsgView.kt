@@ -10,6 +10,7 @@ import com.tencent.qqnt.kernel.nativeinterface.ArkElement
 import loadPicUrl
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.confirmOpenUrl
+import momoi.mod.qqpro.showDialog
 import momoi.mod.qqpro.hook.openAddSearch
 import momoi.mod.qqpro.hook.style.heightLimit
 import momoi.mod.qqpro.hook.view.loadOsmStaticMap
@@ -131,6 +132,15 @@ class CardMsgView(context: Context) : LinearLayout(context) {
                 loadLocationCard(json, meta)
                 return
             }
+            // Group announcement (app=com.tencent.mannounce): meta holds a "mannounce"
+            // object whose title/text are base64-encoded, so the generic path would show
+            // the raw base64 string. Decode and render the real title + body.
+            if (json.str("app") == "com.tencent.mannounce") {
+                mContact.visibility = GONE
+                mGeneric.visibility = VISIBLE
+                loadAnnounceCard(meta, ark.bytesData)
+                return
+            }
             mContact.visibility = GONE
             mGeneric.visibility = VISIBLE
             val data = meta.json(meta.keys.first())!!
@@ -212,6 +222,60 @@ class CardMsgView(context: Context) : LinearLayout(context) {
         } catch (e: Exception) {
             Utils.log("CardMsgView contact card error: ${e.message}")
         }
+    }
+
+    /**
+     * Renders a shared group announcement card (app=com.tencent.mannounce). The "mannounce"
+     * meta object carries base64-encoded title/text (otherwise shown as a raw base64 string),
+     * plus gc (group code), fid and pics. We decode and show title + full body inline.
+     */
+    private fun loadAnnounceCard(meta: Json, raw: String) {
+        try {
+            val a = meta.json("mannounce")
+                ?: meta.keys.firstOrNull()?.let { meta.json(it) }
+                ?: return
+            val title = decodeB64(a.str("title"))?.trim()
+                ?.takeIf { it.isNotEmpty() } ?: "群公告"
+            val text = decodeB64(a.str("text"))?.trim().orEmpty()
+
+            mTvTitle.text = title
+            mIvIcon.visibility = GONE
+            if (text.isNotEmpty()) {
+                mTvDesc.visibility = VISIBLE
+                mTvDesc.text = text
+            } else {
+                mTvDesc.visibility = GONE
+            }
+            mTvTag.visibility = VISIBLE
+            mTvTag.text = "[群公告]"
+
+            // pic is a JSON array (no array support in Json), so pull the first id from the raw
+            // bytes: "pic":[{"height":..,"url":"<id>","width":..}]. Images load from the same
+            // qpic endpoint as group-bulletin images: gdynamic.qpic.cn/gdynamic/<id>/0.
+            val picId = Regex("\"pic\"\\s*:\\s*\\[\\s*\\{[^}]*?\"url\"\\s*:\\s*\"([^\"]+)\"")
+                .find(raw)?.groupValues?.get(1)
+            if (!picId.isNullOrEmpty()) {
+                val url = "http://gdynamic.qpic.cn/gdynamic/$picId/0"
+                mIvPreview.visibility = VISIBLE
+                mIvPreview.loadPicUrl(url)
+                clickable {
+                    (mIvPreview.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let {
+                        this@CardMsgView.showDialog(momoi.mod.qqpro.hook.view.ZoomableImageFragment(it))
+                    }
+                }
+            } else {
+                mIvPreview.visibility = GONE
+                setOnClickListener(null)
+                isClickable = false
+            }
+        } catch (e: Exception) {
+            Utils.log("CardMsgView announce card error: ${e.message}")
+        }
+    }
+
+    /** Decode a base64 string used by mannounce title/text; null if absent or invalid. */
+    private fun decodeB64(s: String?): String? = s?.takeIf { it.isNotEmpty() }?.let {
+        runCatching { String(android.util.Base64.decode(it, android.util.Base64.DEFAULT)) }.getOrNull()
     }
 
     /**
