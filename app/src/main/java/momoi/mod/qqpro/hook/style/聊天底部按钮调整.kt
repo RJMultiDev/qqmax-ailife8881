@@ -65,6 +65,9 @@ import momoi.mod.qqpro.util.Utils
 import java.io.File
 import java.io.FileOutputStream
 
+// Last emitted inlineGrow debug line; used to suppress repeated identical logs across layout passes.
+private var lastInlineGrowLog = ""
+
 @Mixin
 class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
     @SuppressLint("ResourceType", "ClickableViewAccessibility")
@@ -169,7 +172,13 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                     sliver.layoutParams = slp
                                 }
                             }
-                            Utils.log("inlineGrow state=${runCatching { b.g }.getOrNull()} parent=${parent.javaClass.simpleName} inFooter=$inFooter lines=$lines target=$target sliverH=${sliver?.layoutParams?.height} rootTop=${rootContainer.top} rootH=${rootContainer.height}")
+                            // applyInlineGrow runs on every layout pass; only log when the values
+                            // actually change so the debug log isn't spammed with identical lines.
+                            val inlineGrowMsg = "inlineGrow state=${runCatching { b.g }.getOrNull()} parent=${parent.javaClass.simpleName} inFooter=$inFooter lines=$lines target=$target sliverH=${sliver?.layoutParams?.height} rootTop=${rootContainer.top} rootH=${rootContainer.height}"
+                            if (inlineGrowMsg != lastInlineGrowLog) {
+                                lastInlineGrowLog = inlineGrowMsg
+                                Utils.log(inlineGrowMsg)
+                            }
                         }
                         pill.content {
                             emojiBtn = add<ImageView>().height(lineH).adjustViewBounds()
