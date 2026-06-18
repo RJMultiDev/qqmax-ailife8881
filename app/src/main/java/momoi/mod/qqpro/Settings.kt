@@ -55,6 +55,10 @@ object Settings {
     // width to the inline chat EditText so the side buttons aren't clipped by a
     // round watch screen's corners.
     val screenCornerDiameter = FloatPref("screenCornerDiameter", 15f)
+    // Rich titlebar side margin (in dp). Adds left/right inset to the titlebar
+    // name/count row and the floating unread badge so they aren't clipped by a
+    // round watch screen's corners. Separate from the chat EditText spacing above.
+    val titlebarSideMargin = FloatPref("titlebarSideMargin", 15f)
     // Hide the voice (microphone) button in the chat input bar entirely, in all input
     // modes (inline and non-inline) and regardless of whether text has been typed.
     val hideVoiceButton = BooleanPref("hideVoiceButton", false)
@@ -190,7 +194,7 @@ object Settings {
         scale, chatScale, enableSmoothScroll, encoderScrollSpeed, blockBack, swapCenterKeyboard,
         showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
-        screenCornerDiameter,
+        screenCornerDiameter, titlebarSideMargin,
         hideVoiceButton, backToFirstPage, attachmentOverlay, enableTitlebar, titlebarShowUnread,
         floatUnreadInChat, titlebarHeight, bottomMainNav, replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,

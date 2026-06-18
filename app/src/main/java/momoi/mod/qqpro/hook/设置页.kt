@@ -231,6 +231,7 @@ class 设置页 : SettingsActivity() {
             switch("未读数浮在聊天左上角", "其它会话未读数红标浮在聊天页左上角而非标题栏内，无标题栏也可用(重进聊天页生效)", Settings.floatUnreadInChat)
             switch("标题栏名称滚动", "标题栏名称过长时滚动显示，而非省略号截断(重进聊天页生效)", Settings.titlebarMarquee)
             slider("标题栏高度", "富标题栏高度(dp)，默认 16", Settings.titlebarHeight, min = 16f, max = 32f)
+            slider("标题栏左右边距", "富标题栏与未读红标左右留出的空白(dp)，避免圆屏圆角裁切", Settings.titlebarSideMargin, min = 0f, max = 48f)
         },
         SettingsCategory("导航与滚动", "翻页、返回与表冠") {
             switch("主页导航在底部", "主页(会话列表)翻页指示器移到底部，并随标题栏高度放大", Settings.bottomMainNav)

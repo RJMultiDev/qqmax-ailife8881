@@ -89,7 +89,7 @@ object RichTitlebar {
             (indicator?.parent as? ViewGroup)?.removeView(indicator)
 
             val heightPx = Settings.titlebarHeight.value.toInt().dp
-            val corner = Settings.screenCornerDiameter.value.toInt().dp
+            val corner = Settings.titlebarSideMargin.value.toInt().dp
             val screenW = ctx.resources.displayMetrics.widthPixels
             // Match the input pill exactly: it sits at (chat content base inset) + (corner margin).
             val sideMargin = baseInset + corner
@@ -209,7 +209,7 @@ object RichTitlebar {
             }
 
             val peerId = fragment.arguments?.getString("key_bundle_peer_id").orEmpty()
-            val corner = Settings.screenCornerDiameter.value.toInt().dp
+            val corner = Settings.titlebarSideMargin.value.toInt().dp
 
             val view = TextView(ctx).apply {
                 tag = FLOAT_TAG
