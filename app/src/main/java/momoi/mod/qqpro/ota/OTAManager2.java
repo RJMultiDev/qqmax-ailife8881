@@ -521,29 +521,42 @@ public class OTAManager2 {
      * Download APK in-app using DownloadManager
      */
     private void downloadInApp() {
-        String destination = context.getExternalFilesDir(null).toString() + "/" + DOWNLOAD_FILE_NAME;
-        File file = new File(destination);
-        if (file.exists()) {
-            file.delete();
+        try {
+            String destination = context.getExternalFilesDir(null).toString() + "/" + DOWNLOAD_FILE_NAME;
+            File file = new File(destination);
+            if (file.exists()) {
+                file.delete();
+            }
+
+            DownloadManager downloadManager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
+            Uri downloadUri = Uri.parse(downloadUrl);
+            DownloadManager.Request request = new DownloadManager.Request(downloadUri);
+            request.setMimeType(MIME_TYPE);
+            request.setTitle("Downloading Update");
+            request.setDescription("Downloading version " + latestVersion);
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalFilesDir(context, null, DOWNLOAD_FILE_NAME);
+
+            // Register broadcast receiver for download completion
+            setupDownloadCompleteReceiver(destination);
+
+            // Enqueue download
+            downloadManager.enqueue(request);
+            showToast("Downloading update...");
+
+            logDebug("Download started: " + downloadUrl);
+        } catch (Throwable t) {
+            // DownloadManager can reject the destination path (e.g. SecurityException
+            // "Unsupported path" when running in a cloned/secondary user profile),
+            // or fail for other reasons. Don't crash — report failure and offer browser fallback.
+            logError("In-app download failed: " + t);
+            showToast("下载失败，请重试或在浏览器中下载");
+            try {
+                openInBrowser();
+            } catch (Throwable t2) {
+                logError("Browser fallback also failed: " + t2);
+            }
         }
-
-        DownloadManager downloadManager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
-        Uri downloadUri = Uri.parse(downloadUrl);
-        DownloadManager.Request request = new DownloadManager.Request(downloadUri);
-        request.setMimeType(MIME_TYPE);
-        request.setTitle("Downloading Update");
-        request.setDescription("Downloading version " + latestVersion);
-        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-        request.setDestinationInExternalFilesDir(context, null, DOWNLOAD_FILE_NAME);
-
-        // Register broadcast receiver for download completion
-        setupDownloadCompleteReceiver(destination);
-
-        // Enqueue download
-        downloadManager.enqueue(request);
-        showToast("Downloading update...");
-
-        logDebug("Download started: " + downloadUrl);
     }
 
     /**
