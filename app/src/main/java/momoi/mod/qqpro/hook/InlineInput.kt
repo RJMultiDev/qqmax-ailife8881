@@ -234,6 +234,8 @@ object InlineInput {
         // Show the reply banner for a restored draft (the attach listener above only fires on a later
         // (re)attach, so an already-attached box wouldn't get it otherwise).
         if (reply != null) updateBanner()
+        // 上拉打开键盘: pulling the chat list up past its bottom opens the inline keyboard.
+        ChatPullUpKeyboard.attach(editText)
     }
 
     // ---- inputs from the StartImeUtil interception (InlineImeRoute) ----
@@ -531,6 +533,15 @@ object InlineInput {
         return out
     }
 
+    /**
+     * Public entry for "pull up over chat to open the keyboard" (ChatPullUpKeyboard). Pops the
+     * floating input bar and focuses the inline EditText, same as a reply/@/STT route would.
+     */
+    fun openKeyboard() {
+        if (editText() == null) return
+        focusAndShow()
+    }
+
     private fun focusAndShow() {
         // The input bar auto-hides (state g=0, arrow only) when the chat list is scrolled up. f(true)
         // targets the sliver state (g=1) which only shows at the list bottom, so it does nothing here.
@@ -551,6 +562,10 @@ object InlineInput {
                 et.requestFocus()
                 et.setSelection(et.text?.length ?: 0)
                 et.requestRectangleOnScreen(Rect(0, 0, et.width, et.height), true)
+                // requestFocus alone won't raise the soft keyboard; ask the IMM explicitly.
+                (et.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                    as? android.view.inputmethod.InputMethodManager)
+                    ?.showSoftInput(et, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
             }.onFailure { Utils.log("InlineInput.focusAndShow failed: $it") }
         }
     }
