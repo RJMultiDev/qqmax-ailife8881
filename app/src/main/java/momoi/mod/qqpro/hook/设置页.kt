@@ -102,6 +102,9 @@ class 设置页 : SettingsActivity() {
         // screen (the main activity gets this from QQ's fling framework). Wrap the settings
         // content so the same gesture finishes this plain Activity.
         val swipeBack = SwipeBackLayout(this).apply {
+            // The settings page must always be swipeable, even when "屏蔽应用内右滑返回" is on —
+            // otherwise a watch with no hardware back button can't leave this screen to turn it off.
+            ignoreDisableSetting = true
             // Opaque background so the strip revealed while the content slides right
             // doesn't flash the window background.
             setBackgroundColor(0xFF_121212.toInt())
@@ -238,6 +241,7 @@ class 设置页 : SettingsActivity() {
             switch("返回先回首页", "不在首页时按返回先滑回第一页，已在首页才退出", Settings.backToFirstPage)
             switch("回复跳转加载全部", "点击回复跳转到源消息时不限制翻页次数，一直向上加载直到找到或到达历史顶端(较旧的源消息也能定位，可能较慢)", Settings.replyFullSearch)
             switch("屏蔽返回键", "用于把右滑当作返回的手表（如米兔）", Settings.blockBack)
+            switch("屏蔽应用内右滑返回", "关闭 QQ 应用内右滑返回上一页的手势", Settings.disableSwipeBack)
             switch("平滑表冠滚动", "表冠滚动没有动画时开启", Settings.enableSmoothScroll)
             slider("表冠滚动速度", "表冠滚动距离倍率，默认 1.0", Settings.encoderScrollSpeed, min = 0.3f, max = 4f)
         },

@@ -7,6 +7,7 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.AbsSeekBar
 import android.widget.FrameLayout
+import momoi.mod.qqpro.Settings
 import kotlin.math.abs
 
 /**
@@ -22,6 +23,11 @@ import kotlin.math.abs
 class SwipeBackLayout(context: Context) : FrameLayout(context) {
 
     var onSwipeBack: (() -> Unit)? = null
+
+    // When true, this instance ignores the global "屏蔽应用内右滑返回" setting and always allows
+    // swipe-back. Used by the settings page itself so the user can't get trapped on a watch
+    // without a hardware back button after turning the setting on.
+    var ignoreDisableSetting = false
 
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private var downX = 0f
@@ -40,7 +46,9 @@ class SwipeBackLayout(context: Context) : FrameLayout(context) {
                 downX = ev.rawX
                 downY = ev.rawY
                 tracking = false
-                blockSwipe = isOnHorizontalDragWidget(this, ev.rawX, ev.rawY)
+                // Disabled globally → never intercept (settings page opts out via ignoreDisableSetting).
+                blockSwipe = (!ignoreDisableSetting && Settings.disableSwipeBack.value) ||
+                    isOnHorizontalDragWidget(this, ev.rawX, ev.rawY)
             }
             MotionEvent.ACTION_MOVE -> {
                 if (blockSwipe) return false

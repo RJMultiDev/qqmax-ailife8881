@@ -18,6 +18,7 @@ object Settings {
     // Multiplier applied to the rotary-encoder scroll distance (1.0 = system default).
     val encoderScrollSpeed = FloatPref("encoderScrollSpeed", 1.0f)
     val blockBack = BooleanPref("blockBack", false)
+    val disableSwipeBack = BooleanPref("disableSwipeBack", false)
     val swapCenterKeyboard = BooleanPref("swapCenterKeyboard", true)
 
     // ===== QQ Max 设置 (by AILIFE) =====
@@ -191,7 +192,7 @@ object Settings {
     // export/import only these custom settings (not unrelated keys like drafts or the chat-bg path).
     // Declared last so all the Pref properties above are already initialised.
     val all: List<Pref<*>> = listOf(
-        scale, chatScale, enableSmoothScroll, encoderScrollSpeed, blockBack, swapCenterKeyboard,
+        scale, chatScale, enableSmoothScroll, encoderScrollSpeed, blockBack, disableSwipeBack, swapCenterKeyboard,
         showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
         screenCornerDiameter, titlebarSideMargin,
