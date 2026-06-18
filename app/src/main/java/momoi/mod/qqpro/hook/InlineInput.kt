@@ -196,12 +196,23 @@ object InlineInput {
     /** True once an inline EditText is live (a chat is open with the inline pill built). */
     val isReady: Boolean get() = editTextRef?.get() != null
 
+    // Native (pre-scale) text size per inline EditText, captured once so the size multiplier
+    // applied in register() never compounds across re-registers.
+    private val editBaseTextSize = java.util.WeakHashMap<ImeEditText, Float>()
+
     private fun editText(): ImeEditText? = editTextRef?.get()
 
     /** Called from the input-bar hook each time the inline pill is (re)built for a chat. */
     fun register(editText: ImeEditText, controller: InputBarController) {
         editTextRef = WeakReference(editText)
         controllerRef = WeakReference(controller)
+        // Match the chat message text size multiplier so the inline input box scales with it.
+        // Capture the native size in a tag the first time so re-registers never compound.
+        val scale = Settings.textSizeScale.value
+        if (scale != 1.0f) {
+            val base = editBaseTextSize.getOrPut(editText) { editText.textSize }
+            editText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, base * scale)
+        }
         reply = null
         hideBanner()
         // Restore this chat's unsent draft (text + @/image spans + reply target), if any. The draft is

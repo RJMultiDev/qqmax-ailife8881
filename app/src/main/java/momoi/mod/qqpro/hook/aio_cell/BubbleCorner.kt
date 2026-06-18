@@ -11,6 +11,7 @@ import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.lib.dpf
 import momoi.mod.qqpro.util.Utils
+import momoi.mod.qqpro.util.parseHexColor
 
 /**
  * Replace the native chat-bubble background (a stretched nine-patch set via
@@ -44,7 +45,7 @@ object BubbleCorner {
         }
         // Optional per-side color override from settings; blank/invalid keeps the sampled color.
         val override = if (loc == 0) Settings.bubbleColorOther else Settings.bubbleColorSelf
-        val color = parseColor(override.value) ?: style.color
+        val color = parseHexColor(override.value) ?: style.color
         val r = Settings.bubbleCornerRadius.value.dpf
         wrapper.background = roundCornerDrawable(color, r)
         // Keep the original text inset and add ~half the radius horizontally so glyphs near
@@ -54,20 +55,6 @@ object BubbleCorner {
             style.pad.left + extra, style.pad.top,
             style.pad.right + extra, style.pad.bottom
         )
-    }
-
-    /** Parse a hex color string (#RRGGBB / #AARRGGBB, leading # optional). Null if blank/invalid. */
-    private fun parseColor(s: String): Int? {
-        val t = s.trim().removePrefix("#")
-        if (t.isEmpty()) return null
-        return runCatching {
-            val v = t.toLong(16)
-            when (t.length) {
-                6 -> (0xFF000000L or v).toInt()
-                8 -> v.toInt()
-                else -> null
-            }
-        }.getOrNull()
     }
 
     /** Sample the fill color by rendering the drawable to a small bitmap and reading its center. */

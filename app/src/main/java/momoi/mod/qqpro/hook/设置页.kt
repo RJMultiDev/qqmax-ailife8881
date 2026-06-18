@@ -209,6 +209,8 @@ class 设置页 : SettingsActivity() {
             slider("气泡圆角半径", "聊天气泡、合并转发/聊天记录块与回复块的圆角半径(dp)", Settings.bubbleCornerRadius, min = 0f, max = 24f)
             textInput("我的气泡颜色", "16进制如 #2B6CF6，留空为默认", Settings.bubbleColorSelf)
             textInput("对方气泡颜色", "16进制如 #2B6CF6，留空为默认", Settings.bubbleColorOther)
+            textInput("文字颜色", "聊天消息文字颜色，16进制如 #FFFFFF，留空为默认", Settings.textColor)
+            slider("文字大小", "聊天消息文字大小倍率，默认 1.0", Settings.textSizeScale, min = 0.5f, max = 2.5f)
             chatBackgroundPicker()
             slider("背景变暗程度", "调暗背景图以便看清文字，重进聊天页生效", Settings.chatBgDarken, min = 0f, max = 0.9f)
         },
@@ -262,6 +264,7 @@ class 设置页 : SettingsActivity() {
             switch("识别号码", "把消息中的 6-15 位数字(QQ号/群号)变为可点击，点击可搜索好友/群", Settings.parseNumber)
             switch("识别@成员", "群聊中把 @成员 及灰条提示中的成员名变为可点击，点击打开其资料卡(同点头像/昵称)", Settings.parseAtMember)
             switch("链接预览", "消息含链接时尝试解析网站图标、标题与简介，显示在消息下方", Settings.enableLinkPreview)
+            textInput("链接颜色", "可点击链接/号码/@成员的文字颜色，16进制如 #4FC3F7，留空为默认", Settings.linkColor)
         },
         SettingsCategory("关于与更新", "版本更新") {
             switch("自动检查更新", "启动时检查 QQ Max 新版本，可在关于页手动检查", Settings.autoUpdateCheck)

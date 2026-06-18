@@ -124,6 +124,15 @@ object Settings {
     // without the leading #). Blank keeps the original bubble color (sampled per side).
     val bubbleColorSelf = StringPref("bubbleColorSelf", "")
     val bubbleColorOther = StringPref("bubbleColorOther", "")
+    // Override the chat message text color, as a hex string (#RRGGBB or #AARRGGBB / with or
+    // without the leading #). Blank keeps the original (native) text color.
+    val textColor = StringPref("textColor", "")
+    // Override the color of tappable links/numbers/@mentions in chat text. Blank keeps the
+    // platform default link color.
+    val linkColor = StringPref("linkColor", "")
+    // Multiplier applied to chat message text size (1.0 = original). Applies to all message text
+    // (plain, text+image and special cells), independent of the overall 缩放/聊天文本缩放 settings.
+    val textSizeScale = FloatPref("textSizeScale", 1.0f)
     // Contacts page (2nd main page): show "好友"/"群聊" section headers, split the single
     // "我的通知" entry into separate friend/group notification entries (each with its own
     // count and direct navigation), and drop the trailing group icon on every group row.
@@ -185,7 +194,7 @@ object Settings {
         hideVoiceButton, backToFirstPage, attachmentOverlay, enableTitlebar, titlebarShowUnread,
         floatUnreadInChat, titlebarHeight, bottomMainNav, replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
-        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, contactSections,
+        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
         doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,
         notifyVibrateMode, voiceBtnText, watchdogEnabled, enableLog,

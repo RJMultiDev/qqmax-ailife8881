@@ -9,6 +9,7 @@ import com.tencent.qqnt.graytips.span.HighlightClickableSpan
 import momoi.anno.mixin.ConstructorHook
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.util.linkColorOverride
 import mqq.app.AppRuntime
 
 /**
@@ -78,7 +79,7 @@ class HighlightClickableSpanHook(
     override fun updateDrawState(ds: TextPaint) {
         super.updateDrawState(ds)
         if (Settings.parseAtMember.value && !memberUid().isNullOrEmpty()) {
-            ds.color = AT_LINK_COLOR
+            ds.color = linkColorOverride() ?: AT_LINK_COLOR
             ds.isUnderlineText = false
         }
     }

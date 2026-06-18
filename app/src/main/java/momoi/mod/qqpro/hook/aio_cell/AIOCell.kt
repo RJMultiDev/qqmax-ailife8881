@@ -23,6 +23,7 @@ import momoi.mod.qqpro.hook.action.isGroup
 import momoi.mod.qqpro.lib.create
 import momoi.mod.qqpro.hook.parseAtMembers
 import momoi.mod.qqpro.util.linkify
+import momoi.mod.qqpro.util.parseHexColor
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.warpOnce
 import android.widget.LinearLayout
@@ -39,6 +40,33 @@ private fun lpName(v: Int?) = when (v) {
 object AIOCell {
     val AIOCellGroupWidget.contentWidget get() = this.getContentWidget<View>()!!
     val hooks = mutableListOf<Hook<*>>()
+
+    // Per-TextView native (pre-scale) text size in px, captured once so the size multiplier is
+    // applied against the original size and never compounds across rebinds.
+    private val baseTextSize = WeakHashMap<TextView, Float>()
+
+    /**
+     * Apply the user's chat text color / size overrides to every TextView under [view]
+     * (recursively). Used for all message bodies — plain text, text+image and the special-cell
+     * views (reply/forward/card/struct/file) — so the style is consistent everywhere.
+     */
+    fun applyMsgTextStyle(view: View?) {
+        view ?: return
+        val color = parseHexColor(Settings.textColor.value)
+        val scale = Settings.textSizeScale.value
+        if (color == null && scale == 1.0f) return
+        fun walk(v: View) {
+            if (v is TextView) {
+                color?.let { v.setTextColor(it) }
+                if (scale != 1.0f) {
+                    val base = baseTextSize.getOrPut(v) { v.textSize }
+                    v.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, base * scale)
+                }
+            }
+            if (v is ViewGroup) for (i in 0 until v.childCount) walk(v.getChildAt(i))
+        }
+        walk(view)
+    }
 
     init {
         addHook<ReplyView>(
@@ -221,8 +249,10 @@ object AIOCell {
             // of e.g. the ark card. Binding last guarantees contentWidget ends hidden.
             val matched = hooks.firstOrNull { item.d.msgType == it.type }
             hooks.forEach { if (it !== matched) it.recover(widget) }
+            var matchedView: View? = null
             matched?.let {
                 val view = it.getOrCreate(widget)
+                matchedView = view
                 it.bind(widget, view, item.d as MsgRecordEx)
                 (item as? WatchToQQViewMsgItem)?.o = ""
             }
@@ -277,6 +307,12 @@ object AIOCell {
                     }
                 }
             }
+            // Apply the user's message text color / size override to ALL message text, not just
+            // plain-text bubbles: recurse the content body (covers text+image and other mixed
+            // cells) and the matched special-cell view (reply/forward/card/struct/file). The
+            // nick/time header lives outside contentWidget, so it's left untouched.
+            applyMsgTextStyle(runCatching { widget.contentWidget }.getOrNull())
+            applyMsgTextStyle(matchedView)
             BubbleCorner.apply(widget)
             // Same guard as linkify: don't run link preview off a special message's
             // hidden contentWidget text (e.g. a file extension matched as a URL).

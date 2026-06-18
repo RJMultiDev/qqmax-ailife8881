@@ -46,6 +46,39 @@ fun firstUrl(text: CharSequence): String? {
 fun String.withScheme(): String =
     if (contains("://")) this else "https://$this"
 
+/** Parse a hex color string (#RRGGBB / #AARRGGBB, leading # optional). Null if blank/invalid. */
+fun parseHexColor(s: String): Int? {
+    val t = s.trim().removePrefix("#")
+    if (t.isEmpty()) return null
+    return runCatching {
+        val v = t.toLong(16)
+        when (t.length) {
+            6 -> (0xFF000000L or v).toInt()
+            8 -> v.toInt()
+            else -> null
+        }
+    }.getOrNull()
+}
+
+/**
+ * The user's link color override, or null when unset/invalid. All clickable spans in chat text
+ * (URLs, numbers, @mentions, grey-tip names) route their color through this so a single setting
+ * controls every tappable run — see [parseAtMembers] / GrayTipMention.
+ */
+fun linkColorOverride(): Int? = parseHexColor(Settings.linkColor.value)
+
+/**
+ * A clickable span that, when [linkColorOverride] is set, draws in that color (and keeps the
+ * underline). The default [ClickableSpan.updateDrawState] uses the TextView's linkTextColor, which
+ * on some of QQ's custom text widgets is ignored — coloring the span directly is reliable.
+ */
+private abstract class ColoredClickableSpan : ClickableSpan() {
+    override fun updateDrawState(ds: android.text.TextPaint) {
+        super.updateDrawState(ds)
+        linkColorOverride()?.let { ds.color = it }
+    }
+}
+
 fun TextView.linkify() {
     val spannable = SpannableStringBuilder(text)
     val existingSpans = spannable.getSpans(0, spannable.length, URLSpan::class.java)
@@ -59,7 +92,7 @@ fun TextView.linkify() {
         val url = spannable.substring(start, end)
 
         spannable.setSpan(
-            object : ClickableSpan() {
+            object : ColoredClickableSpan() {
                 override fun onClick(widget: View) {
                     if (Settings.confirmOpenLink.value) {
                         widget.confirmOpenUrl(url)
@@ -89,7 +122,7 @@ fun TextView.linkify() {
         numbers.reversed().forEach { (start, end) ->
             val number = spannable.substring(start, end)
             spannable.setSpan(
-                object : ClickableSpan() {
+                object : ColoredClickableSpan() {
                     override fun onClick(widget: View) {
                         widget.confirmSearchNumber(number)
                     }
@@ -100,6 +133,9 @@ fun TextView.linkify() {
             )
         }
     }
+    // Apply the user's link color override (covers ClickableSpan, which by default draws with
+    // the TextView's linkTextColor). Blank/invalid keeps the platform default.
+    parseHexColor(Settings.linkColor.value)?.let { setLinkTextColor(it) }
     text = spannable
     movementMethod = LinkMovementMethod.getInstance()
 }

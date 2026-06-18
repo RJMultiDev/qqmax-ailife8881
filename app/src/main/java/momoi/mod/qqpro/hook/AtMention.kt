@@ -17,6 +17,7 @@ import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.action.CurrentGroupMembers
 import momoi.mod.qqpro.hook.action.isGroup
 import momoi.mod.qqpro.util.Utils
+import momoi.mod.qqpro.util.linkColorOverride
 import mqq.app.MobileQQ
 
 // Link color for tappable @member spans (matches the bright nick-tag blue). Also reused
@@ -106,11 +107,12 @@ private fun View.navigateToProfile(profileData: ProfileData) {
 private fun MemberInfo.showName(): String =
     cardName.ifEmpty { remark.ifEmpty { nick.ifEmpty { uin.toString() } } }
 
-/** A ClickableSpan that opens [member]'s profile card, in the nick-tag link color. */
+/** A ClickableSpan that opens [member]'s profile card. Uses the user's link color override when
+ *  set (so links/numbers/mentions share one color), else the default nick-tag blue. */
 private fun memberSpan(member: MemberInfo): ClickableSpan = object : ClickableSpan() {
     override fun onClick(widget: View) = widget.openMemberProfile(member)
     override fun updateDrawState(ds: TextPaint) {
-        ds.color = AT_LINK_COLOR
+        ds.color = linkColorOverride() ?: AT_LINK_COLOR
         ds.isUnderlineText = false
     }
 }
