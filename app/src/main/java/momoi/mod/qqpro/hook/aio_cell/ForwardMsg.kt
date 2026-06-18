@@ -38,6 +38,7 @@ import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.child
 import momoi.mod.qqpro.safeCacheDir
 import momoi.mod.qqpro.drawable.roundCornerDrawable
+import momoi.mod.qqpro.util.parseHexColor
 import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.forwardText
 import momoi.mod.qqpro.hook.forwardToFriends
@@ -256,6 +257,14 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
         }
     }
 
+    // Honor the user's chat appearance settings inside the chat-history viewer, the same way the
+    // live chat does: bubble fill follows 气泡颜色(对方), text color follows 文字颜色, and the body
+    // size follows both chatScale and 字体大小. Blank/invalid overrides fall back to the defaults.
+    private val bubbleColor: Int
+        get() = parseHexColor(Settings.bubbleColorOther.value) ?: 0xFF_515151.toInt()
+    private val msgTextColor: Int
+        get() = parseHexColor(Settings.textColor.value) ?: 0xFF_FFFFFF.toInt()
+
     @SuppressLint("NotifyDataSetChanged")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         data.getDetail {
@@ -309,10 +318,11 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                     add<LinearLayout>()
                                         .vertical()
                                         .padding(3.dp)
-                                        // Inset horizontally by ~half the corner radius so the
-                                        // text clears the rounded corners, like the chat bubble.
+                                        // Inset horizontally by half the corner radius on top of
+                                        // the base padding, matching BubbleCorner's chat-bubble
+                                        // formula (native pad + radius*0.5) so the shape lines up.
                                         .paddingHorizontal(
-                                            maxOf(3.dp, (Settings.bubbleCornerRadius.value * 0.6f).dpf.toInt())
+                                            3.dp + (Settings.bubbleCornerRadius.value * 0.5f).dpf.toInt()
                                         )
                                         .margin(bottom = 2.dp)
                                         .id(1)
@@ -328,11 +338,11 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                     val textElements = mutableListOf<MsgElement>()
                                     val applyTexts = {
                                         if (textElements.isNotEmpty()) {
-                                            group.background(roundCornerDrawable(0xFF_515151.toInt(), Settings.bubbleCornerRadius.value.dpf))
+                                            group.background(roundCornerDrawable(bubbleColor, Settings.bubbleCornerRadius.value.dpf))
                                             val summary = MsgUtil.summary(textElements)
                                             add<TextView>()
-                                                .textSize(14f * Settings.chatScale.value)
-                                                .textColor(0xFF_FFFFFF.toInt())
+                                                .textSize(14f * Settings.textSizeScale.value)
+                                                .textColor(msgTextColor)
                                                 .text(summary)
                                                 .longClickable {
                                                     showHistoryMenu(
@@ -357,14 +367,14 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                     }
                                     msg.elements.forEach { ele ->
                                         ele.replyElement?.let { reply ->
-                                            group.background(roundCornerDrawable(0xFF_515151.toInt(), Settings.bubbleCornerRadius.value.dpf))
+                                            group.background(roundCornerDrawable(bubbleColor, Settings.bubbleCornerRadius.value.dpf))
                                             add<ReplyView>()
                                                 .clickable { jumpToReply(reply.replayMsgSeq) }
                                                 .loadData(contact, reply)
                                             return@forEach
                                         }
                                         ele.multiForwardMsgElement?.let {
-                                            group.background(roundCornerDrawable(0xFF_515151.toInt(), Settings.bubbleCornerRadius.value.dpf))
+                                            group.background(roundCornerDrawable(bubbleColor, Settings.bubbleCornerRadius.value.dpf))
                                             add<ForwardMsgView>()
                                                 .loadData(
                                                     contact,
