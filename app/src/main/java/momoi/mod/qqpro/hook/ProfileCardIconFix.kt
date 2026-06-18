@@ -10,6 +10,8 @@ import android.widget.TextView
 import com.google.android.material.button.MaterialButton
 import com.tencent.qqnt.kernel.api.IKernelService
 import com.tencent.qqnt.watch.profile.ProfileData
+import moye.wearqq.AtElementArg
+import moye.wearqq.IMEOperation
 import com.tencent.qqnt.watch.profile.ui.ProfileCardFragment
 import com.tencent.widget.SingleLineTextView
 import momoi.anno.mixin.Mixin
@@ -29,6 +31,35 @@ import mqq.app.MobileQQ
 class ProfileCardIconFix : ProfileCardFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        if (Settings.useRichProfile.value) {
+            // Full Material rebuild: re-parents the native views into a new tree (own scroll + info card).
+            try {
+                val ctx = requireContext()
+                val profile = arguments?.getParcelable<ProfileData>("profile_data")
+                val uid = profile?.e.orEmpty()
+                val name = profile?.f
+                    ?: view.findViewById<SingleLineTextView>(
+                        resources.getIdentifier("nickname", "id", ctx.packageName)
+                    )?.text?.toString().orEmpty()
+                val uin = profile?.d.orEmpty()
+                // @-mention action: stage the @ and pop back to the chat (framework onBackPressed, not
+                // the obfuscated NavController), letting the chat's onResume fire openIME → inline @.
+                val atAction = {
+                    runCatching {
+                        IMEOperation.INSTANCE.clearExtra()
+                        IMEOperation.INSTANCE.setExtra(AtElementArg(uid, name, ""))
+                        RichProfilePage.pendingAt = true
+                        requireActivity().onBackPressed()
+                    }.onFailure { Utils.log("profile @ action failed: $it") }
+                    Unit
+                }
+                RichProfilePage.build(view, ctx, uid, name, uin, atAction)
+            } catch (e: Exception) {
+                Utils.log("ProfileCardIconFix rich build error: ${e.message}")
+            }
+            return
+        }
+        // Legacy path: keep the original page with only the minor enrich tweaks.
         fixGotoChatIcon(view)
         enrichProfile(view)
         if (Settings.profileNameMultiline.value) makeNameMultiline(view)

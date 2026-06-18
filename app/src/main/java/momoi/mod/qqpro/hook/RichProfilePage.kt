@@ -1,0 +1,237 @@
+package momoi.mod.qqpro.hook
+
+import android.content.Context
+import android.graphics.drawable.GradientDrawable
+import android.text.TextUtils
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import com.google.android.material.button.MaterialButton
+import com.tencent.mobileqq.text.QQText
+import momoi.mod.qqpro.Colors
+import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.dpf
+import momoi.mod.qqpro.util.Utils
+
+/**
+ * Fully rebuilds the profile-card page ([com.tencent.qqnt.watch.profile.ui.ProfileCardFragment]) into
+ * a Material-style layout, gated by [momoi.mod.qqpro.Settings.useRichProfile].
+ *
+ * Instead of inflating fresh widgets, it **re-parents** the fragment's already-wired native views
+ * (avatar with its async image load, the nickname QQText, the QQ-number line, and the 艾特/去聊天/加好友
+ * buttons with their click handlers) into a brand-new view tree. That preserves all native behaviour
+ * while giving us full control over layout (fixing the scroll issue) and styling, plus an extended-info
+ * card fetched via [ProfileDetailCard].
+ *
+ * Top-level object (public) so the @Mixin hook in another package can call it; no anonymous classes are
+ * declared inside the @Mixin body (see [ProfileDetailCard] doc).
+ */
+object RichProfilePage {
+    private const val TAG = "qqpro_rich_profile"
+
+    /**
+     * Set true when the 艾特Ta button stages an @-mention and pops the profile. The chat's
+     * WatchAIOFragment.onResume (see [WatchAIOPageReset]) consumes it by firing openIME, which the
+     * inline route turns into an inline @ insert — the native handler's immediate openIME is lost
+     * because the chat isn't resumed yet when the profile is still on top.
+     */
+    @JvmField var pendingAt = false
+
+    /** [root] is the fragment's content view (a ConstraintLayout). [uid]/[displayName]/[uin] come from the args. */
+    fun build(root: View, ctx: Context, uid: String, displayName: String, uin: String, atAction: () -> Unit) {
+        if (root !is ViewGroup || root.findViewWithTag<View>(TAG) != null) return
+        runCatching {
+            val pkg = ctx.packageName
+            fun vid(name: String) = ctx.resources.getIdentifier(name, "id", pkg)
+            val avatar = root.findViewById<View>(vid("avatar"))
+            val selfQq = root.findViewById<View>(vid("self_qq"))
+            val atBtn = root.findViewById<View>(vid("at_btn"))
+            val gotoChat = root.findViewById<View>(vid("goto_chat"))
+            Utils.log("RichProfilePage.build uid=$uid avatar=${avatar != null} qq=${selfQq != null} at=${atBtn != null} goto=${gotoChat != null}")
+
+            // Detach the original ScrollView so we can install our own scroll container.
+            root.removeAllViews()
+            // Match the app's dark theme (the native page uses a light blue→white gradient).
+            root.setBackgroundColor(0xFF_000000.toInt())
+
+            val content = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(14.dp, 30.dp, 14.dp, 34.dp)
+                layoutParams = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                )
+            }
+
+            // --- Header card: avatar + name + qq + extended info rows ---
+            val card = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                background = GradientDrawable().apply {
+                    cornerRadius = 18.dpf
+                    setColor(0xFF_1E1E1E.toInt())
+                }
+                elevation = 3.dpf
+                setPadding(16.dp, 18.dp, 16.dp, 14.dp)
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                )
+            }
+
+            avatar?.let {
+                reparent(it)
+                it.layoutParams = LinearLayout.LayoutParams(64.dp, 64.dp).apply {
+                    gravity = Gravity.CENTER_HORIZONTAL
+                }
+                card.addView(it)
+            }
+            // Primary name — our own multiline TextView (the native one is single-line). Uses QQText so
+            // QQ sysface emoji in the name still render. This is the displayed name (= group card name
+            // 群名片 in a group context).
+            val nameView = TextView(ctx).apply {
+                text = runCatching { QQText(displayName, 19, 13, null) as CharSequence }.getOrDefault(displayName)
+                textSize = 15f
+                setTextColor(0xFF_FFFFFF.toInt())
+                gravity = Gravity.CENTER
+                maxLines = 4
+                ellipsize = TextUtils.TruncateAt.END
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { topMargin = 10.dp }
+                isLongClickable = true
+                setOnLongClickListener { Utils.copyToClipboard(ctx, displayName, "已复制昵称"); true }
+            }
+            card.addView(nameView)
+
+            // Secondary line: the real QQ nickname, shown only when it differs from the displayed name
+            // (i.e. when the displayed name is a group card). Filled from the async fetch below.
+            val realNickView = TextView(ctx).apply {
+                textSize = 11f
+                setTextColor(0xB3_FFFFFF.toInt())
+                gravity = Gravity.CENTER
+                maxLines = 3
+                ellipsize = TextUtils.TruncateAt.END
+                visibility = View.GONE
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { topMargin = 2.dp }
+                isLongClickable = true
+            }
+            card.addView(realNickView)
+            selfQq?.let {
+                reparent(it)
+                (it as? TextView)?.setTextIsSelectable(false)
+                it.layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = 3.dp }
+                setTextColorCompat(it, 0xB3_FFFFFF.toInt())
+                it.isLongClickable = true
+                it.setOnLongClickListener { Utils.copyToClipboard(ctx, uin, "已复制账号"); true }
+                card.addView(it)
+            }
+
+            // Extended-info rows (filled async). Hidden until data arrives.
+            val rows = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                visibility = View.GONE
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { topMargin = 6.dp }
+            }
+            val divider = View(ctx).apply {
+                setBackgroundColor(0x22_FFFFFF)
+                visibility = View.GONE
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
+                    .apply { topMargin = 8.dp }
+            }
+            card.addView(divider)
+            card.addView(rows)
+            content.addView(card)
+
+            if (uid.isNotEmpty()) {
+                ProfileDetailCard.fetch(uid) { info ->
+                    rows.post {
+                        if (info == null) return@post
+                        // Real nickname line (group card vs real nick).
+                        val real = info.coreNick.trim()
+                        if (real.isNotEmpty() && real != displayName.trim()) {
+                            realNickView.text = runCatching { QQText(real, 19, 11, null) as CharSequence }.getOrDefault(real)
+                            realNickView.setOnLongClickListener { Utils.copyToClipboard(ctx, real, "已复制昵称"); true }
+                            realNickView.visibility = View.VISIBLE
+                        }
+                        if (ProfileDetailCard.bindInto(ctx, rows, info) > 0) {
+                            divider.visibility = View.VISIBLE
+                            rows.visibility = View.VISIBLE
+                        }
+                    }
+                }
+            }
+
+            // --- Action buttons (re-parented, restyled into full-width pills) ---
+            // 3 button kinds: 去聊天 (message), 艾特Ta (@), 加好友 (add friend). Only message shipped an
+            // icon. To avoid the MaterialButton fixed-size-icon problem we drop the drawable icon and use
+            // a leading glyph rendered as TEXT — an emoji 💬 for message, a text symbol for the others.
+            val H = 40.dp
+            fun styleButton(btn: View?) {
+                btn ?: return
+                reparent(btn)
+                val label = (btn as? android.widget.TextView)?.text?.toString().orEmpty()
+                val glyph = when {
+                    label.contains("加好友") -> "＋ "
+                    label.contains("艾特") || label.contains("@") -> "@ "
+                    else -> "💬 " // 去聊天
+                }
+                (btn as? MaterialButton)?.apply { icon = null; transformationMethod = null }
+                (btn as? android.widget.TextView)?.apply {
+                    // Strip any glyph we may have added on a previous pass before re-prefixing.
+                    val base = label.removePrefix("💬 ").removePrefix("＋ ").removePrefix("@ ").trim()
+                    text = "$glyph$base"
+                    setTextColor(0xFF_FFFFFF.toInt())
+                }
+                // The native 艾特Ta handler's openIME is lost from the profile page (chat not resumed);
+                // replace it with our stage-and-pop action that defers openIME to the chat's onResume.
+                if (glyph == "@ ") btn.setOnClickListener { atAction() }
+                btn.background = pill()
+                btn.layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, H,
+                ).apply { topMargin = 10.dp }
+                content.addView(btn)
+            }
+            styleButton(gotoChat)
+            styleButton(atBtn)
+
+            val scroll = ScrollView(ctx).apply {
+                tag = TAG
+                isFillViewport = false
+                overScrollMode = View.OVER_SCROLL_NEVER
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+                addView(content)
+            }
+            root.addView(scroll)
+        }.onFailure { Utils.log("RichProfilePage.build error: $it") }
+    }
+
+    private fun reparent(v: View) {
+        (v.parent as? ViewGroup)?.removeView(v)
+    }
+
+    /** A full-width pill (rounded-end) button background in the app's blue. */
+    private fun pill(): GradientDrawable = GradientDrawable().apply {
+        cornerRadius = 20.dpf
+        setColor(Colors.btn)
+    }
+
+    /** Set text color on a TextView, or on a custom widget (e.g. SingleLineTextView) via reflection. */
+    private fun setTextColorCompat(v: View, color: Int) {
+        if (v is TextView) { v.setTextColor(color); return }
+        runCatching {
+            v.javaClass.getMethod("setTextColor", Int::class.javaPrimitiveType).invoke(v, color)
+        }
+    }
+}

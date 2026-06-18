@@ -147,6 +147,10 @@ object Settings {
     // single-line nick view with a multiline TextView that mirrors the original's (async) text.
     // Opt-in escape hatch since it swaps a custom widget; takes effect next time the panel opens.
     val profileNameMultiline = BooleanPref("profileNameMultiline", true)
+    // Fully replace QQ's simple profile-card page with a rebuilt Material-style page that also shows
+    // the contact's age / birthday / zodiac / location / signature (fetched from the kernel). When
+    // off, the original page is kept (with only the minor enrich tweaks). Takes effect next open.
+    val useRichProfile = BooleanPref("useRichProfile", true)
     // How much to darken the chat background image for readability.
     // 0 = original image, 0.9 = almost black. Applied as a black overlay on top
     // of the picked image. Takes effect the next time a chat is opened.

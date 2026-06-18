@@ -112,6 +112,16 @@ class WatchAIOPageReset : WatchAIOFragment() {
             // the two-arg smoothScroll overload was stripped, so calling it crashes with NoSuchMethodError.
             f?.setCurrentItem(0)
         }
+        if (RichProfilePage.pendingAt) {
+            RichProfilePage.pendingAt = false
+            Utils.log("RichProfile @ pending -> openIME on chat resume")
+            // Defer to next frame so the profile pop + page state settle before the inline route runs
+            // consumePending (which reads the staged AtElementArg and inserts the @ inline).
+            view?.post {
+                runCatching { IMEOperation.INSTANCE.openIME() }
+                    .onFailure { Utils.log("RichProfile @ openIME failed: $it") }
+            }
+        }
         if (GalleryMultiSelectState.pendingOpenIme) {
             GalleryMultiSelectState.pendingOpenIme = false
             Utils.log("Gallery WatchAIOFragment.onResume opening IME preview for attached images")
