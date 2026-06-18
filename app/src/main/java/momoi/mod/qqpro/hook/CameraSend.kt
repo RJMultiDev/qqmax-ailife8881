@@ -332,8 +332,14 @@ private fun sendAudio(uri: Uri) {
     }.onFailure { Utils.log("audio: sendAudio failed: $it") }
 }
 
-/** Replicates AudioTouchViewNTProcessor's PTT-element build sequence for a local audio file. */
-internal fun buildPttElement(origPath: String): MsgElement {
+/**
+ * Replicates AudioTouchViewNTProcessor's PTT-element build sequence for a local audio file.
+ *
+ * [knownDurationMs] lets the caller pass an accurate duration (e.g. the recorder's totalTime). When
+ * it is negative the duration is probed with [MediaMetadataRetriever], which works for amr/mp3/m4a
+ * but NOT for SILK (the watch's native recording format), so recorded SILK voices must pass it in.
+ */
+internal fun buildPttElement(origPath: String, knownDurationMs: Long = -1L): MsgElement {
     val md5 = QQNTWrapperUtil.CppProxy.genFileMd5Hex(origPath)
     val svc = KernelServiceUtil.c()
     val sendPath = svc?.getRichMediaFilePathForMobileQQSend(
@@ -343,7 +349,7 @@ internal fun buildPttElement(origPath: String): MsgElement {
         com.tencent.qqnt.util.file.FileUtils.b(origPath, sendPath)
     }
 
-    val durationMs = runCatching {
+    val durationMs = if (knownDurationMs >= 0) knownDurationMs else runCatching {
         val r = MediaMetadataRetriever()
         r.setDataSource(origPath)
         r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L

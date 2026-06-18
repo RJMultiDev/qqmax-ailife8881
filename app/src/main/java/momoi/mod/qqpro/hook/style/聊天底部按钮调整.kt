@@ -30,6 +30,7 @@ import momoi.mod.qqpro.drawable.sendIconDrawable
 import momoi.mod.qqpro.hook.AttachmentOverlay
 import momoi.mod.qqpro.hook.InlineEmojiPanel
 import momoi.mod.qqpro.hook.InlineInput
+import momoi.mod.qqpro.hook.VoiceRecord
 import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.ImeEditText
@@ -95,8 +96,14 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                             .adjustViewBounds()
                             .bitmapDecodeAssets("pro/ic_voice.png").padding(6.dp)
                             .scaleType(ImageView.ScaleType.FIT_CENTER)
-                    ThreadManagerV2.getUIHandlerV2().post {
-                        b.e.invoke(voice)
+                    if (Settings.fullInlineInput.value) {
+                        // 完全行内输入: hold-to-record inline (timer + slide-to-cancel / slide-to-STT
+                        // overlay) instead of opening the native VoiceInputFragment page.
+                        VoiceRecord.attach(voice)
+                    } else {
+                        ThreadManagerV2.getUIHandlerV2().post {
+                            b.e.invoke(voice)
+                        }
                     }
 
                     if (Settings.inlineChatInput.value) {
