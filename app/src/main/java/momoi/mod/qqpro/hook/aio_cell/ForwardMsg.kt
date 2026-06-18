@@ -39,6 +39,8 @@ import momoi.mod.qqpro.child
 import momoi.mod.qqpro.safeCacheDir
 import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.util.parseHexColor
+import android.text.Spanned
+import com.tencent.mobileqq.text.style.EmoticonSpan
 import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.forwardText
 import momoi.mod.qqpro.hook.forwardToFriends
@@ -123,6 +125,21 @@ private fun View.showHistoryMenu(
         putStringArrayList("key_item_list", ArrayList(items.map { it.name }))
     }
     showFragment(fragment)
+}
+
+/**
+ * QQ builds inline face emoji as fixed-size [EmoticonSpan]s (sized to QQ's default chat text
+ * size via EmoConstants), so they don't follow our 字体大小 setting when the surrounding text is
+ * scaled. Re-size each emoji span by the same [scale] so they grow/shrink with the text.
+ * Runs on a freshly-built summary every bind, so the size never compounds.
+ */
+private fun scaleEmojiSpans(cs: CharSequence, scale: Float): CharSequence {
+    if (scale == 1.0f || cs !is Spanned) return cs
+    cs.getSpans(0, cs.length, EmoticonSpan::class.java).forEach { span ->
+        val newSize = (span.c * scale).toInt()
+        if (newSize > 0) span.h(newSize)
+    }
+    return cs
 }
 
 private fun copyText(context: Context, text: CharSequence) {
@@ -339,7 +356,10 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                     val applyTexts = {
                                         if (textElements.isNotEmpty()) {
                                             group.background(roundCornerDrawable(bubbleColor, Settings.bubbleCornerRadius.value.dpf))
-                                            val summary = MsgUtil.summary(textElements)
+                                            val summary = scaleEmojiSpans(
+                                                MsgUtil.summary(textElements),
+                                                Settings.textSizeScale.value
+                                            )
                                             add<TextView>()
                                                 .textSize(14f * Settings.textSizeScale.value)
                                                 .textColor(msgTextColor)

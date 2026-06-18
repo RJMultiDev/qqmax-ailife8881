@@ -2,8 +2,10 @@ package momoi.mod.qqpro.hook.aio_cell
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.text.Spanned
 import android.text.method.LinkMovementMethod
 import android.view.View
+import com.tencent.mobileqq.text.style.EmoticonSpan
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.lifecycle.Lifecycle
@@ -45,6 +47,10 @@ object AIOCell {
     // applied against the original size and never compounds across rebinds.
     private val baseTextSize = WeakHashMap<TextView, Float>()
 
+    // Per-EmoticonSpan native (pre-scale) emoji size in px, captured once so the multiplier is
+    // applied against the original size and never compounds if applyMsgTextStyle runs twice.
+    private val baseEmojiSize = WeakHashMap<EmoticonSpan, Int>()
+
     /**
      * Apply the user's chat text color / size overrides to every TextView under [view]
      * (recursively). Used for all message bodies — plain text, text+image and the special-cell
@@ -61,6 +67,16 @@ object AIOCell {
                 if (scale != 1.0f) {
                     val base = baseTextSize.getOrPut(v) { v.textSize }
                     v.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, base * scale)
+                    // QQ builds inline face emoji as fixed-size EmoticonSpans (QQ's default chat
+                    // text size), so they stay small while the text scales up. Re-size each emoji
+                    // span by the same multiplier so it matches the surrounding text.
+                    (v.text as? Spanned)
+                        ?.getSpans(0, v.text.length, EmoticonSpan::class.java)
+                        ?.forEach { span ->
+                            val emBase = baseEmojiSize.getOrPut(span) { span.c }
+                            val newSize = (emBase * scale).toInt()
+                            if (newSize > 0) span.h(newSize)
+                        }
                 }
             }
             if (v is ViewGroup) for (i in 0 until v.childCount) walk(v.getChildAt(i))
