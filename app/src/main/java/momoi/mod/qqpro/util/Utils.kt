@@ -105,4 +105,15 @@ object Utils {
             application.startActivity(intent)
         }
     }
+
+    /** Open the system dialer prefilled with [number] (does not place the call automatically). */
+    fun dialNumber(number: String) {
+        val intent = Intent(Intent.ACTION_DIAL, "tel:$number".toUri())
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (intent.resolveActivity(application.packageManager) != null) {
+            application.startActivity(intent)
+        } else {
+            toast(application, "无法拨号")
+        }
+    }
 }

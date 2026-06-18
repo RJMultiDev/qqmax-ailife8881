@@ -7,8 +7,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import momoi.mod.qqpro.lib.FILL
+import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.lib.clickable
 import momoi.mod.qqpro.lib.content
 import momoi.mod.qqpro.lib.dp
@@ -39,11 +41,16 @@ class SearchNumberFragment(
         savedInstanceState: Bundle?
     ): View {
         val ctx = inflater.context
+        // Whole page scrolls: number + four action buttons can exceed the round watch screen.
+        val scroll = ScrollView(ctx).apply {
+            isFillViewport = true
+            setBackgroundColor(0xF0_121212.toInt())
+        }
         val root = LinearLayout(ctx)
             .vertical()
             .padding(20.dp)
         root.gravity = Gravity.CENTER
-        root.setBackgroundColor(0xF0_121212.toInt())
+        scroll.addView(root, ViewGroup.LayoutParams(FILL, WRAP))
 
         root.content {
             add<TextView>()
@@ -63,11 +70,19 @@ class SearchNumberFragment(
                 onConfirm()
                 dismiss()
             }
+            button("拨打号码", 0xFF_4CAF50.toInt(), 0xFF_000000.toInt()) {
+                momoi.mod.qqpro.util.Utils.dialNumber(number)
+                dismiss()
+            }
+            button("复制号码", 0xFF_3A3A3A.toInt(), 0xFF_FFFFFF.toInt()) {
+                momoi.mod.qqpro.util.Utils.copyToClipboard(ctx, number, "已复制号码")
+                dismiss()
+            }
             button("取消", 0xFF_2A2A2A.toInt(), 0xFF_FFFFFF.toInt()) {
                 dismiss()
             }
         }
-        return root
+        return scroll
     }
 
     private fun momoi.mod.qqpro.lib.LinearScope.button(
