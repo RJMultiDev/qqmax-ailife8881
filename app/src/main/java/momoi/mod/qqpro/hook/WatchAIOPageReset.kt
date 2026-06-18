@@ -119,6 +119,17 @@ class WatchAIOPageReset : WatchAIOFragment() {
             // Note: we deliberately do NOT switch to the chat page here — staying on the current
             // (+ panel) page means cancelling the preview leaves the user where they can pick again.
             view?.post {
+                // Copy the picked images into IMEOperation.extraMsg HERE — the last write before
+                // openIME — so QQ's WatchAIOListVB.n (which reassigns extraMsg = new ArrayList() on
+                // each list re-render and already fired during this resume) can't wipe them. For the
+                // inline path, openIME -> consumePending reads extraMsg synchronously on this same UI
+                // message, so nothing can interleave between this write and the read.
+                val imgs = GalleryMultiSelectState.consumePendingImages()
+                if (imgs.isNotEmpty()) {
+                    IMEOperation.extraMsg.clear()
+                    IMEOperation.extraMsg.addAll(imgs)
+                    Utils.log("Gallery onResume staged ${imgs.size} image(s) into extraMsg before openIME")
+                }
                 runCatching { IMEOperation.INSTANCE.openIME() }
                     .onFailure { Utils.log("Gallery openIME failed: $it") }
             }

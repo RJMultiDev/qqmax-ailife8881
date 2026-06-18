@@ -123,8 +123,11 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
             fragment.pop()
             return
         }
-        IMEOperation.extraMsg.clear()
-        IMEOperation.extraMsg.addAll(elements)
+        // Stage in our own state, NOT IMEOperation.extraMsg: QQ's WatchAIOListVB.n reassigns
+        // extraMsg = new ArrayList() on the list re-render that fires when the chat resumes after
+        // the pop, which would wipe these before openIME consumes them. WatchAIOPageReset copies
+        // pendingImages into extraMsg synchronously right before openIME instead.
+        GalleryMultiSelectState.pendingImages = ArrayList(elements)
         GalleryMultiSelectState.pendingOpenIme = true
         Utils.log("Gallery attached ${elements.size} image(s) to IME, popping gallery")
         Log.e(HTAG, "GalleryMultiSelect: attached ${elements.size} image(s), calling pop()")

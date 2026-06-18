@@ -1,5 +1,7 @@
 package momoi.mod.qqpro.hook.action
 
+import com.tencent.qqnt.kernel.nativeinterface.MsgElement
+
 /**
  * Cross-activity signal: the multi-select gallery (separate activity) sets this true after
  * sending images, so when the chat activity's WatchAIOFragment resumes it switches its
@@ -16,6 +18,25 @@ object GalleryMultiSelectState {
      */
     @Volatile
     var pendingOpenIme = false
+
+    /**
+     * Images picked in the gallery, staged HERE (not in [moye.wearqq.IMEOperation.extraMsg])
+     * because QQ's [com.tencent.watch.aio_impl.coreImpl.vb.WatchAIOListVB.n] reassigns
+     * `IMEOperation.extraMsg = new ArrayList()` on every msg-list UI-state render — which fires
+     * when the chat resumes after the gallery pops, wiping anything we added before the pop. We
+     * keep our own list QQ never touches and copy it into `extraMsg` at the last moment, right
+     * before [moye.wearqq.IMEOperation.openIME], so that wipe can't race away the picked images.
+     * Read-and-cleared by [consumePendingImages].
+     */
+    @Volatile
+    var pendingImages: List<MsgElement> = emptyList()
+
+    /** Read-and-clear [pendingImages]. */
+    fun consumePendingImages(): List<MsgElement> {
+        val v = pendingImages
+        pendingImages = emptyList()
+        return v
+    }
 
     /**
      * Set true immediately before the chat "+" panel opens QQ's native gallery (相册). QQ's
