@@ -114,9 +114,15 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                         // (middle) and the mic/send button (right). The emoji button
                         // hides while the keyboard is open; the mic turns into a send
                         // button whenever there is text to send.
+                        // Fixed corner radius (half the single-line height) instead of a 9999 capsule:
+                        // at one line it still looks like a pill, but as the bar grows the radius stays
+                        // put so it becomes a rounded rectangle that expands UPWARD. The side buttons are
+                        // bottom-anchored (Gravity.BOTTOM) so they stay pinned to the bottom while the
+                        // EditText grows above them, instead of riding up with a vertically-centred pill.
                         val pill = create<LinearLayout>().height(FILL).weight(1f)
-                            .background(roundCornerDrawable(0x22_FFFFFF, 9999f))
-                            .gravity(Gravity.CENTER_VERTICAL)
+                            .background(roundCornerDrawable(0x22_FFFFFF,
+                                if (inlineGrow) (lineH / 2f) else 9999f))
+                            .gravity(if (inlineGrow) Gravity.BOTTOM else Gravity.CENTER_VERTICAL)
                         val send = create<ImageView>().height(lineH).adjustViewBounds()
                             .padding(8.dp).scaleType(ImageView.ScaleType.FIT_CENTER).apply {
                                 setImageDrawable(sendIconDrawable())
