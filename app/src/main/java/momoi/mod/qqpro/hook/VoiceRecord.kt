@@ -28,6 +28,7 @@ import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.action.isGroup
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.dpf
 import momoi.mod.qqpro.util.Utils
 import mqq.app.MobileQQ
 import java.io.File
@@ -75,7 +76,7 @@ object VoiceRecord {
     private var sttCircle: TextView? = null
     private var timerView: TextView? = null
     private var hintView: TextView? = null
-    private var pulse: View? = null
+    private var wave: WaveView? = null
     private var anchorContainerRef: WeakReference<ViewGroup>? = null
 
     private val timerTick = object : Runnable {
@@ -117,6 +118,13 @@ object VoiceRecord {
 
     private fun start(anchor: View) {
         if (recording) return
+        // If the soft keyboard is up, drop it so the recording overlay isn't covered and the
+        // slide targets sit at their intended place above the input pill.
+        runCatching {
+            (anchor.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                as? android.view.inputmethod.InputMethodManager)
+                ?.hideSoftInputFromWindow(anchor.windowToken, 0)
+        }
         runCatching {
             val ctx = Utils.application
             val app = MobileQQ.sMobileQQ.peekAppRuntime()
@@ -297,29 +305,26 @@ object VoiceRecord {
 
         val side = 56.dp
         val edge = 36.dp
-        // 取消 (left) and 转文字 (right) targets, around the lower-middle of the screen.
+        // 取消 (left) and 转文字 (right) targets sit low, just above the input pill, so the
+        // finger only has to slide a short distance down-left / down-right to reach them.
         val cancel = makeCircle("✕")
         root.addView(cancel, FrameLayout.LayoutParams(side, side).apply {
             gravity = Gravity.BOTTOM or Gravity.START
-            leftMargin = edge; bottomMargin = 120.dp
+            leftMargin = edge; bottomMargin = 16.dp
         })
         val stt = makeCircle("文")
         root.addView(stt, FrameLayout.LayoutParams(side, side).apply {
             gravity = Gravity.BOTTOM or Gravity.END
-            rightMargin = edge; bottomMargin = 120.dp
+            rightMargin = edge; bottomMargin = 16.dp
         })
 
-        // Center bottom column: volume pulse, timer, hint.
+        // Top column: timer + hint up top, away from the slide targets.
         val column = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             clipChildren = false
             clipToPadding = false
         }
-        val pulseView = View(ctx).apply { background = circleBg(colorRed) }
-        column.addView(pulseView, LinearLayout.LayoutParams(20.dp, 20.dp).apply {
-            gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = 10.dp
-        })
         val timer = TextView(ctx).apply {
             text = "0:00"; setTextColor(Color.WHITE); textSize = 18f; gravity = Gravity.CENTER
         }
@@ -333,8 +338,16 @@ object VoiceRecord {
         })
         root.addView(column, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            bottomMargin = 40.dp
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            topMargin = 28.dp
+        })
+
+        // Center wave indicator: a flat horizontal line when idle, swelling out from the center
+        // like a sine wave while speaking.
+        val waveView = WaveView(ctx)
+        root.addView(waveView, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 80.dp).apply {
+            gravity = Gravity.CENTER
         })
 
         container.addView(root)
@@ -343,7 +356,8 @@ object VoiceRecord {
         sttCircle = stt
         timerView = timer
         hintView = hint
-        pulse = pulseView
+        wave = waveView
+        waveView.start()
         refreshTargetState()
     }
 
@@ -358,18 +372,73 @@ object VoiceRecord {
     }
 
     private fun onVolume(maxAmplitude: Int) {
-        val p = pulse ?: return
-        // Map the raw amplitude (0..~32767) to a gentle 1.0–2.4x pulse on the red dot.
+        // Map the raw amplitude (0..~32767) to a 0..1 level driving the wave swell.
         val lvl = (maxAmplitude / 8000f).coerceIn(0f, 1f)
-        val s = 1f + lvl * 1.4f
-        p.scaleX = s; p.scaleY = s
+        wave?.setLevel(lvl)
     }
 
     private fun hideOverlay() {
+        wave?.stop()
         val root = overlay
         if (root != null) main.post { (root.parent as? ViewGroup)?.removeView(root) }
         overlay = null; cancelCircle = null; sttCircle = null
-        timerView = null; hintView = null; pulse = null
+        timerView = null; hintView = null; wave = null
+    }
+
+    /**
+     * Voice level indicator. Idle: a flat horizontal line. While speaking: a sine wave whose
+     * amplitude is largest at the center and tapers to zero at the edges, so the line appears to
+     * swell outward from the middle. The phase animates continuously; the level smooths toward
+     * the latest amplitude and decays back to a line when quiet.
+     */
+    @SuppressLint("ViewConstructor")
+    private class WaveView(ctx: android.content.Context) : View(ctx) {
+        private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 3f.dpf
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            color = 0xFF_1B9AF7.toInt()
+        }
+        private val path = android.graphics.Path()
+        private var phase = 0f
+        private var level = 0f        // smoothed current level
+        private var target = 0f       // latest amplitude target
+        private var animating = false
+
+        private val frame = object : Runnable {
+            override fun run() {
+                if (!animating) return
+                phase += 0.35f
+                // ease level toward target, then decay the target so it settles back to a line
+                level += (target - level) * 0.3f
+                target *= 0.85f
+                invalidate()
+                postOnAnimation(this)
+            }
+        }
+
+        fun start() { if (!animating) { animating = true; postOnAnimation(frame) } }
+        fun stop() { animating = false; removeCallbacks(frame) }
+        fun setLevel(l: Float) { if (l > target) target = l }
+
+        override fun onDraw(canvas: android.graphics.Canvas) {
+            val w = width.toFloat(); val h = height.toFloat()
+            if (w <= 0f) return
+            val midY = h / 2f
+            val maxAmp = h * 0.42f
+            path.reset()
+            val steps = 64
+            for (i in 0..steps) {
+                val x = w * i / steps
+                val t = i.toFloat() / steps           // 0..1
+                // window peaks at center (sin over 0..pi), tapers to 0 at both ends
+                val window = kotlin.math.sin(t * Math.PI).toFloat()
+                val y = midY + (kotlin.math.sin(t * Math.PI * 6 + phase).toFloat()
+                    * maxAmp * level * window)
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            canvas.drawPath(path, paint)
+        }
     }
 
     private fun formatMs(ms: Long): String {
