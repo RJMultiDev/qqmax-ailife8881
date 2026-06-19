@@ -136,6 +136,43 @@ object GroupAvatarHook {
     private val avatarBitmaps = HashMap<Long, Bitmap>()
     private val pendingCallbacks = HashMap<Long, ArrayDeque<() -> Unit>>()
     private val widgetCurrentUin = WeakHashMap<AIOCellGroupWidget, Long>()
+    private val nickViewCurrentUin = WeakHashMap<TextView, Long>()
+
+    /**
+     * Bind (or clear) an avatar drawable on an arbitrary nick [TextView] keyed purely by [uin] —
+     * used outside the live group cell (e.g. the merged-forward history viewer), where there is no
+     * [AIOCellGroupWidget]. Reuses the same in-memory + on-disk cache and download path as the group
+     * cell. [placeEnd] puts the drawable on the trailing edge (self/right-aligned); the default keeps
+     * it on the leading edge. The view is tracked so a recycled row never keeps a previous sender's
+     * avatar while the new one downloads.
+     */
+    fun bindAvatarToNick(nickView: TextView, uin: Long, placeEnd: Boolean = false) {
+        nickViewCurrentUin[nickView] = uin
+        val bitmap = avatarBitmaps[uin]
+        if (bitmap != null) {
+            applyAvatar(nickView, bitmap, placeEnd)
+        } else {
+            nickView.setCompoundDrawables(null, null, null, null)
+            val needsDownload = !pendingCallbacks.containsKey(uin)
+            pendingCallbacks.getOrPut(uin) { ArrayDeque() }.addLast {
+                if (nickViewCurrentUin[nickView] == uin) {
+                    applyAvatar(nickView, avatarBitmaps[uin]!!, placeEnd)
+                }
+            }
+            if (needsDownload) {
+                loadAvatarBitmap(uin) { bmp ->
+                    avatarBitmaps[uin] = bmp
+                    pendingCallbacks.remove(uin)?.forEach { it() }
+                }
+            }
+        }
+    }
+
+    /** Clear any avatar drawable previously bound by [bindAvatarToNick] and stop tracking the view. */
+    fun clearNickAvatar(nickView: TextView) {
+        nickViewCurrentUin.remove(nickView)
+        nickView.setCompoundDrawables(null, null, null, null)
+    }
 
     /**
      * Apply (or clear) the avatar drawable on a cell's nick view. Depends ONLY on the message

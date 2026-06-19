@@ -42,6 +42,7 @@ import momoi.mod.qqpro.util.parseHexColor
 import android.text.Spanned
 import com.tencent.mobileqq.text.style.EmoticonSpan
 import momoi.mod.qqpro.hook.action.CurrentContact
+import momoi.mod.qqpro.hook.action.SelfContact
 import momoi.mod.qqpro.hook.forwardText
 import momoi.mod.qqpro.hook.forwardToFriends
 import momoi.mod.qqpro.hook.style.MyImageView
@@ -329,7 +330,10 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                 .width(FILL)
                                 .content {
                                     add<TextView>()
-                                        .textSize(12f)
+                                        // Scale the nick with chatScale (like the group cell's nick)
+                                        // so the avatar — sized off this view's textSize in
+                                        // applyAvatar — also tracks 头像大小/聊天缩放 settings.
+                                        .textSize(12f * Settings.chatScale.value)
                                         .textColor(0xFF_999999.toInt())
                                         .id(0)
                                     add<LinearLayout>()
@@ -346,7 +350,35 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                 }
                         },
                         update = { msg ->
-                            find<TextView>(0).text(msg.sendNickName)
+                            Utils.log("forward item nick=${msg.sendNickName} senderUin=${msg.senderUin} senderUid=${msg.senderUid} fromUid=${msg.fromUid} memberName=${msg.sendMemberName} remark=${msg.sendRemarkName} nameType=${msg.nameType} peerName=${msg.peerName} fromAppid=${msg.fromAppid}")
+                            val nickView = find<TextView>(0)
+                            val isSelf = msg.senderUid == SelfContact.peerUid
+                            // "只显示一次发送者" — collapse the nick header (and its avatar) when the
+                            // previous forwarded message is from the same sender, mirroring the live
+                            // chat's hideRepeatedSender behaviour. Match on sendNickName, NOT senderUid:
+                            // forwarded records of unresolvable senders all share one placeholder uid,
+                            // so a uid match would wrongly merge distinct people. sendNickName is the
+                            // reliable per-sender field (and is what's actually displayed).
+                            val idx = mMsgList.indexOf(msg)
+                            val prev = mMsgList.getOrNull(idx - 1)
+                            val hideHeader = Settings.hideRepeatedSender.value &&
+                                prev != null && prev.sendNickName == msg.sendNickName
+                            if (hideHeader) {
+                                nickView.visibility = View.GONE
+                                GroupAvatarHook.clearNickAvatar(nickView)
+                            } else {
+                                nickView.visibility = View.VISIBLE
+                                nickView.text = msg.sendNickName
+                                // Same toggle as the group cell: 群成员头像 gated by showGroupAvatar,
+                                // self gated additionally by showSelfAvatar. Avatar is keyed on the
+                                // (correct, for resolvable senders) senderUin; unresolvable senders get
+                                // the server's QQ-logo placeholder, exactly as on phone.
+                                if (Settings.showGroupAvatar.value && (!isSelf || Settings.showSelfAvatar.value)) {
+                                    GroupAvatarHook.bindAvatarToNick(nickView, msg.senderUin)
+                                } else {
+                                    GroupAvatarHook.clearNickAvatar(nickView)
+                                }
+                            }
                             find<LinearLayout>(1)
                                 .apply {
                                     removeAllViews()
@@ -475,6 +507,7 @@ class ForwardMsgData(val contact: Contact, val rootMsg: MsgRecord, val rawMsg: M
         val split = content?.split("</title>")?.map {
             it.split(">").last()
         }
+        Utils.log("forward xmlContent dump >>>${content}<<<")
         title = split?.getOrNull(0) ?: ""
         previewLines = split?.drop(1) ?: listOf()
         summary = content?.removeAfter("</summary>")?.split(">")?.last() ?: ""
