@@ -24,6 +24,8 @@ import com.tencent.qqnt.kernel.nativeinterface.IOperateCallback
 import com.tencent.qqnt.watch.ptt.AudioFileWriterNT
 import com.tencent.qqnt.watch.ptt.PttRecordCallback
 import com.tencent.qqnt.watch.ptt.api.ITranslateTextService
+import com.tencent.qqnt.watch.ui.componet.permission.PermissionUtils
+import androidx.core.content.ContextCompat
 import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.action.isGroup
@@ -98,6 +100,11 @@ object VoiceRecord {
         button.setOnTouchListener { v, e ->
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    // The custom recorder talks to the mic directly (no native VoiceInputFragment),
+                    // so RECORD_AUDIO must be granted first. If it isn't, kick off the same
+                    // permission request the native PTT button uses and abort this gesture — the
+                    // user presses again once granted.
+                    if (!hasRecordPermission(v)) { requestRecordPermission(v); return@setOnTouchListener true }
                     // Stop the chat RecyclerView (and any other ancestor) from intercepting the
                     // gesture for scroll/overscroll — otherwise MOVE/UP get stolen the moment the
                     // finger slides toward the 取消/STT targets and we never see them.
@@ -111,6 +118,39 @@ object VoiceRecord {
                 }
                 else -> false
             }
+        }
+    }
+
+    // ---- permission ----
+
+    private fun hasRecordPermission(anchor: View): Boolean =
+        ContextCompat.checkSelfPermission(anchor.context, android.Manifest.permission.RECORD_AUDIO) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    /**
+     * Request RECORD_AUDIO via the host AIO fragment, mirroring AudioTouchViewNTProcessor — it
+     * navigates to QQ's permissionFragment and reports the result. We can't start recording in the
+     * same gesture (the request is async), so just toast guidance; the next press records.
+     */
+    private fun requestRecordPermission(anchor: View) {
+        val fragment = AttachmentOverlay.aioFragment(anchor)
+        if (fragment == null) {
+            Utils.log("VoiceRecord: no AIO fragment for permission request")
+            Utils.toast(Utils.application, "无法请求录音权限")
+            return
+        }
+        runCatching {
+            PermissionUtils.a.a(
+                "发送语音消息", fragment,
+                arrayListOf(android.Manifest.permission.RECORD_AUDIO)
+            ) { granted ->
+                Utils.log("VoiceRecord: RECORD_AUDIO granted=$granted")
+                if (granted) Utils.toast(Utils.application, "已授权，请再次按住录音")
+                else Utils.toast(Utils.application, "未授予录音权限")
+            }
+        }.onFailure {
+            Utils.log("VoiceRecord: permission request failed: $it")
+            Utils.toast(Utils.application, "无法请求录音权限")
         }
     }
 

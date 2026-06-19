@@ -150,6 +150,10 @@ object AttachmentOverlay {
     fun aioContainer(view: View): ViewGroup? =
         runCatching { findAioFragment(view)?.view as? ViewGroup }.getOrNull()
 
+    /** The [WatchAIOFragment] hosting [anchor], or null. Public so other hooks (e.g. voice
+     *  recording permission requests) can reach the fragment that owns the chat view. */
+    fun aioFragment(anchor: View): WatchAIOFragment? = findAioFragment(anchor)
+
     private fun findAioFragment(anchor: View): WatchAIOFragment? {
         var f: Fragment? = runCatching { FragmentManager.findFragment<Fragment>(anchor) }.getOrNull()
         while (f != null) {
