@@ -271,6 +271,7 @@ class 设置页 : SettingsActivity() {
         },
         SettingsCategory("联系人", "联系人页面") {
             switch("联系人分组", "联系人页用「好友」「群聊」标题分组，通知拆成好友/群两项各带数量，去掉群行末尾图标", Settings.contactSections)
+            switch("Material 联系人页", "联系人页应用 Material 风格：顶栏含搜索/加好友/通知按钮，需同时开启「联系人分组」", Settings.materialContactsList)
             switch("资料页姓名多行可复制", "好友/群资料设置页及成员资料卡的名称过长时换行显示，长按名称可复制；设置页内QQ号与昵称分两行、可分别长按复制(重进资料页生效)", Settings.profileNameMultiline)
             switch("使用增强资料卡", "用全新 Material 风格资料卡替换原资料页，额外显示年龄/生日/星座/地区/签名(从内核获取)，关闭则保留原页面(重进资料页生效)", Settings.useRichProfile)
         },

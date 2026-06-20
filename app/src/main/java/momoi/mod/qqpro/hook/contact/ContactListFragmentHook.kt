@@ -74,9 +74,11 @@ class ContactListFragmentHook : ContactListFragment() {
             // Y() returns a bare RecyclerView; wrap it with the Material top bar and return the
             // WRAPPER as the fragment's view, so ViewPager2's FragmentStateAdapter keeps the bar on
             // every rebind (a post-hoc reparent gets orphaned — the bar vanished on page switch).
-            return runCatching { ContactTopBar.wrap(this, v) }
-                .onFailure { Utils.log("ContactListFragmentHook wrap bar: $it") }
-                .getOrDefault(v)
+            if (Settings.materialContactsList.value) {
+                return runCatching { ContactTopBar.wrap(this, v) }
+                    .onFailure { Utils.log("ContactListFragmentHook wrap bar: $it") }
+                    .getOrDefault(v)
+            }
         }
         return v
     }
@@ -96,7 +98,13 @@ class ContactListFragmentHook : ContactListFragment() {
         momoi.mod.qqpro.hook.MainNav.contactUnread = friendCount + groupCount
         momoi.mod.qqpro.hook.MainNav.refresh()
 
-        val out = ArrayList<ContactBaseItem>(friends.size + groups.size + 2)
+        val out = ArrayList<ContactBaseItem>(friends.size + groups.size + 5)
+        if (!Settings.materialContactsList.value) {
+            // Action rows live in the top bar when Material mode is on; restore them inline when off.
+            out.add(AddFriendItem())
+            out.add(FriendNotifyItem(friendCount))
+            out.add(GroupNotifyItem(groupCount))
+        }
         if (friends.isNotEmpty()) {
             out.add(SectionHeaderItem("好友"))
             out.addAll(friends)
@@ -105,7 +113,11 @@ class ContactListFragmentHook : ContactListFragment() {
             out.add(SectionHeaderItem("群聊"))
             out.addAll(groups)
         }
-        ContactTopBar.updateList(adapter, out, friendCount, groupCount)
+        if (Settings.materialContactsList.value) {
+            ContactTopBar.updateList(adapter, out, friendCount, groupCount)
+        } else {
+            adapter.javaClass.getMethod("submitList", List::class.java).invoke(adapter, out)
+        }
     }
 
     /** Top-bar 加好友/群聊 button — reuse the stock dispatch (it opens the add-friend option selector). */
