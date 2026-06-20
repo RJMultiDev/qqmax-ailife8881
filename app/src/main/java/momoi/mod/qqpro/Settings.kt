@@ -170,6 +170,9 @@ object Settings {
     // QZone top bar button layout: spread evenly across the full bar width (true), or group
     // the three buttons close together in the center (false, better for round screens).
     val qzoneBarSpread = BooleanPref("qzoneBarSpread", false)
+    // QZone single-video posts: play inline in the feed cell (tap to start/pause) instead of
+    // opening the fullscreen viewer. Default off.
+    val qzoneInlineVideo = BooleanPref("qzoneInlineVideo", false)
     // Chat-settings panel (好友/群资料页 header name): show the contact/group name on multiple
     // lines instead of truncating to one, and allow long-pressing it to copy. Replaces the
     // single-line nick view with a multiline TextView that mirrors the original's (async) text.
@@ -232,7 +235,7 @@ object Settings {
         floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread,
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
-        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialQZoneBar, qzoneBarSpread,
+        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
         doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,
         notifyVibrateMode, voiceBtnText, watchdogEnabled, enableLog,
