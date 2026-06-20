@@ -85,9 +85,24 @@ object Settings {
     val titlebarHeight = FloatPref("titlebarHeight", 16f)
     // When the titlebar name is too long, scroll it as marquee instead of truncating with "…".
     val titlebarMarquee = BooleanPref("titlebarMarquee", false)
-    // Move the home/main page's page-indicator dots to the bottom and scale their size by
-    // titlebarHeight (relative to the default 16dp).
+    // Master switch for the custom main-page navigation. On = replace the native page-indicator
+    // strip with our rebuilt nav (all the options below apply). Off = leave the native nav as-is.
+    val mainNavCustom = BooleanPref("mainNavCustom", true)
+    // Move the home/main page's page-indicator navigation to the bottom of the screen.
     val bottomMainNav = BooleanPref("bottomMainNav", true)
+    // Main-page (home) navigation height in dp. Controls the icon/bar size of the page-indicator
+    // navigation independently of 标题栏高度. Default 16 (matches the original strip height).
+    val mainNavHeight = FloatPref("mainNavHeight", 16f)
+    // Square/spread mode: distribute the navigation icons evenly across the full width instead of
+    // grouping them close together in the center. Default off.
+    val mainNavSquare = BooleanPref("mainNavSquare", false)
+    // Show an icon for EVERY page (not just the current one), with the currently selected page
+    // tinted blue and the others a muted white. Off = native style (only the current page's icon,
+    // dots for the rest). Default on.
+    val mainNavAllIcons = BooleanPref("mainNavAllIcons", true)
+    // Show each page's unread count as a red badge in the navigation (except the last/settings page).
+    // Messages page shows total unread; contacts page shows friend+group notification counts.
+    val mainNavUnread = BooleanPref("mainNavUnread", true)
     // Use the in-app camera for 拍照. When off, launch the system camera app (third-party)
     // via an intent for photos. Video recording always uses the system app (the in-app
     // camera can't record video).
@@ -201,7 +216,8 @@ object Settings {
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
         screenCornerDiameter, titlebarSideMargin,
         hideVoiceButton, backToFirstPage, attachmentOverlay, enableTitlebar, titlebarShowUnread,
-        floatUnreadInChat, titlebarHeight, bottomMainNav, replyFullSearch, useInAppCamera, gallerySortByDateTaken,
+        floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread,
+        replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
         picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,

@@ -81,6 +81,9 @@ class ContactListFragmentHook : ContactListFragment() {
         @Suppress("UNCHECKED_CAST")
         val groups = state.field("b") as List<ContactBaseItem>
         val (friendCount, groupCount) = readNotifyCounts(state, viewModel)
+        // Publish to the main-page navigation so the contacts tab can show an unread badge.
+        momoi.mod.qqpro.hook.MainNav.contactUnread = friendCount + groupCount
+        momoi.mod.qqpro.hook.MainNav.refresh()
 
         val out = ArrayList<ContactBaseItem>(friends.size + groups.size + 5)
         out.add(AddFriendItem())                       // 加好友/群聊

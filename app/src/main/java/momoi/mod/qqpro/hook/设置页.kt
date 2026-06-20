@@ -236,8 +236,15 @@ class 设置页 : SettingsActivity() {
             slider("标题栏高度", "富标题栏高度(dp)，默认 16", Settings.titlebarHeight, min = 16f, max = 32f)
             slider("标题栏左右边距", "富标题栏与未读红标左右留出的空白(dp)，避免圆屏圆角裁切", Settings.titlebarSideMargin, min = 0f, max = 48f)
         },
+        SettingsCategory("主页导航", "主页底部翻页导航栏") {
+            switch("自定义导航栏", "用重绘的导航栏替换原生翻页指示器；关闭则保留原生样式，以下选项不生效", Settings.mainNavCustom)
+            switch("导航在底部", "主页(会话列表)翻页导航移到屏幕底部", Settings.bottomMainNav)
+            slider("导航高度", "主页导航图标/栏高度(dp)，默认 16", Settings.mainNavHeight, min = 12f, max = 40f)
+            switch("方形铺开", "导航图标在整行均匀铺开，而非聚在中间", Settings.mainNavSquare)
+            switch("显示所有页面图标", "每个页面都显示图标，当前页蓝色高亮；关闭则只显示当前页图标、其余为圆点", Settings.mainNavAllIcons)
+            switch("显示未读数", "在导航各页面图标上显示未读数红标(设置页除外)：消息页为总未读，联系人页为好友+群通知数", Settings.mainNavUnread)
+        },
         SettingsCategory("导航与滚动", "翻页、返回与表冠") {
-            switch("主页导航在底部", "主页(会话列表)翻页指示器移到底部，并随标题栏高度放大", Settings.bottomMainNav)
             switch("返回先回首页", "不在首页时按返回先滑回第一页，已在首页才退出", Settings.backToFirstPage)
             switch("回复跳转加载全部", "点击回复跳转到源消息时不限制翻页次数，一直向上加载直到找到或到达历史顶端(较旧的源消息也能定位，可能较慢)", Settings.replyFullSearch)
             switch("屏蔽返回键", "用于把右滑当作返回的手表（如米兔）", Settings.blockBack)
