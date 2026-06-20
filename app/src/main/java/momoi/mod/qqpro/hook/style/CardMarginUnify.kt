@@ -4,8 +4,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import momoi.mod.qqpro.lib.material.M3
 import com.tencent.qqnt.watch.selftab.ui.SelfFragment
 import com.tencent.qqnt.watch.setting.FriendSettingFragment
 import com.tencent.qqnt.watch.troop.ui.member.ui.GroupMemberFragment
@@ -88,6 +91,53 @@ fun ViewGroup.fixGenderBirthdayGap() {
     (inner.getChildAt(1).layoutParams as? ViewGroup.MarginLayoutParams)?.marginStart = CARD_MARGIN_DP.dp
 }
 
+/** Walk up to the nearest clickable ancestor (the chip "card" wrapping an inner view). */
+fun View.nearestClickableAncestor(): View? {
+    var v: View? = this
+    while (v != null) { if (v.isClickable) return v; v = v.parent as? View }
+    return null
+}
+
+/**
+ * Theme + tighten the native 性别/生日 (gender/birthday) chips, found by their stable resource ids
+ * (`gender_icon`, `birthday_date`) so it works regardless of the page's wrapper structure (the older
+ * [fixGenderBirthdayGap] assumed a CustomInfoView layout that the self page doesn't share). Recolors
+ * the native-blue gender glyph + birthday number to the M3 accent, and shrinks the over-wide gap
+ * between the two side-by-side cards to the unified card margin. Safe to call repeatedly. Returns
+ * true once it found and styled the chips (so callers can stop retrying).
+ */
+fun ViewGroup.styleGenderBirthdayChips(): Boolean {
+    val pkg = context.packageName
+    fun byName(name: String): View? {
+        val id = resources.getIdentifier(name, "id", pkg)
+        return if (id != 0) findViewById(id) else null
+    }
+    val gIcon = byName("gender_icon")
+    val bDate = byName("birthday_date")
+    if (gIcon == null && bDate == null) return false
+    (gIcon as? ImageView)?.setColorFilter(M3.primary)
+    (bDate as? TextView)?.setTextColor(M3.primary)
+
+    val gCard = gIcon?.nearestClickableAncestor()
+    val bCard = bDate?.nearestClickableAncestor()
+    if (gCard != null && bCard != null && gCard !== bCard && gCard.parent === bCard.parent) {
+        (gCard.layoutParams as? ViewGroup.MarginLayoutParams)?.apply {
+            rightMargin = CARD_MARGIN_DP.dp; marginEnd = CARD_MARGIN_DP.dp
+        }
+        (bCard.layoutParams as? ViewGroup.MarginLayoutParams)?.apply {
+            leftMargin = CARD_MARGIN_DP.dp; marginStart = CARD_MARGIN_DP.dp
+        }
+        gCard.requestLayout(); bCard.requestLayout()
+    }
+    return true
+}
+
+/** Run [styleGenderBirthdayChips] now and, since some pages fill the chips asynchronously, on a few retries. */
+fun ViewGroup.styleGenderBirthdayChipsWithRetry(tries: Int = 0) {
+    if (styleGenderBirthdayChips() || tries >= 8) return
+    postDelayed({ styleGenderBirthdayChipsWithRetry(tries + 1) }, 150)
+}
+
 /**
  * Chat settings panel (friend/group info: avatar + gender/birthday + 群成员/群聊设置/退出群 cards).
  * Unify the entry-card margins and the gender/birthday gap.
@@ -99,6 +149,7 @@ class SettingFrameMargins : SettingFrame() {
         (root as? ViewGroup)?.let {
             it.normalizeListCards()
             it.fixGenderBirthdayGap()
+            it.styleGenderBirthdayChipsWithRetry()
         }
         Utils.log("CardMarginUnify: chat settings panel normalized")
         return root
@@ -122,6 +173,7 @@ class SelfInfoMargins : SelfFragment() {
         (root as? ViewGroup)?.let {
             it.normalizeListCards()
             it.fixGenderBirthdayGap()
+            it.styleGenderBirthdayChipsWithRetry()
         }
         Utils.log("CardMarginUnify: self page normalized")
         return root

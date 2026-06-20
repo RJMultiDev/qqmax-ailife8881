@@ -10,7 +10,10 @@ import com.tencent.qqnt.kernel.api.IKernelService
 import com.tencent.qqnt.kernel.nativeinterface.ProfileBizType
 import com.tencent.qqnt.kernel.nativeinterface.Source
 import momoi.mod.qqpro.lib.dp
+import android.widget.ImageView
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
 import momoi.mod.qqpro.util.Utils
 import mqq.app.MobileQQ
 
@@ -56,23 +59,23 @@ object ProfileDetailCard {
             if (info.age > 0) add("${info.age}岁")
             sexLabel(info.sex)?.let { add(it) }
         }
-        if (summary.isNotEmpty()) addRow(ctx, rows, "🎂", summary.joinToString("  ·  "))
+        if (summary.isNotEmpty()) addRow(ctx, rows, MaterialSymbols.cake, summary.joinToString("  ·  "))
 
         // 星座 · 生肖 — kept together on one row.
         val signs = buildList {
             zodiac(info)?.let { add(it) }
             shengXiao(info.birthYear)?.let { add("属$it") }
         }
-        if (signs.isNotEmpty()) addRow(ctx, rows, "✨", signs.joinToString("  ·  "))
+        if (signs.isNotEmpty()) addRow(ctx, rows, MaterialSymbols.star, signs.joinToString("  ·  "))
 
-        birthday(info)?.let { addRow(ctx, rows, "📅", it) }
-        location(info)?.let { addRow(ctx, rows, "📍", it) }
+        birthday(info)?.let { addRow(ctx, rows, MaterialSymbols.calendar_month, it) }
+        location(info)?.let { addRow(ctx, rows, MaterialSymbols.location_on, it) }
         // Signature/bio: no leading icon, free-flowing text.
-        info.bio.trim().takeIf { it.isNotEmpty() }?.let { addRow(ctx, rows, "", it) }
+        info.bio.trim().takeIf { it.isNotEmpty() }?.let { addRow(ctx, rows, null, it) }
         return rows.childCount
     }
 
-    private fun addRow(ctx: Context, rows: LinearLayout, icon: String, value: String) {
+    private fun addRow(ctx: Context, rows: LinearLayout, iconPath: String?, value: String) {
         if (rows.childCount > 0) {
             // 1px Material divider (light, for the dark card surface)
             rows.addView(View(ctx).apply {
@@ -88,11 +91,10 @@ object ProfileDetailCard {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             )
         }
-        if (icon.isNotEmpty()) {
-            row.addView(TextView(ctx).apply {
-                text = icon
-                textSize = 13f
-                setPadding(0, 0, 8.dp, 0)
+        if (iconPath != null) {
+            row.addView(ImageView(ctx).apply {
+                setImageDrawable(MaterialSymbol(iconPath, M3.onSurfaceVariant))
+                layoutParams = LinearLayout.LayoutParams(15.dp, 15.dp).apply { rightMargin = 8.dp }
             })
         }
         row.addView(TextView(ctx).apply {
