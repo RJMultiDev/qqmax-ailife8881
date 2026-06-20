@@ -3,7 +3,9 @@ package momoi.mod.qqpro.hook
 import android.view.View
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import com.tencent.qqnt.kernel.nativeinterface.FileTransNotifyInfo
 import com.tencent.qqnt.kernel.nativeinterface.VideoElement
+import com.tencent.watch.aio_impl.coreImpl.payLoad.AIOMsgItemPayload
 import com.tencent.watch.aio_impl.data.WatchAIOMsgItem
 import com.tencent.watch.aio_impl.ui.cell.base.BaseWatchItemCell
 import com.tencent.watch.aio_impl.ui.cell.video.WatchVideoGroupWidget
@@ -37,6 +39,7 @@ abstract class VideoPlay : BaseWatchItemCell<WatchAIOMsgItem, View>() {
     ) {
         super.i(view, item, p2, p3, p4, p5)
         if (item !is WatchVideoMsgItem) return
+        captureVideoProgress(item, p3)
         val cover: View = when {
             view is WatchVideoGroupWidget -> view.m
             view is AIOCellGroupWidget ->
@@ -51,6 +54,15 @@ abstract class VideoPlay : BaseWatchItemCell<WatchAIOMsgItem, View>() {
 
 private fun attachVideoClick(cover: View, item: WatchVideoMsgItem) {
     cover.setOnClickListener { v -> handleVideoClick(item, v) }
+}
+
+/**
+ * On each cell rebind, pull the kernel's download progress (FileTransNotifyInfo, carried by a
+ * RichMediaPayload) out of the bind payloads and publish it to [VideoDownloadProgress] so the open
+ * player can show a determinate circle. Plain for-loop (no lambda — avoids the @Mixin lambda clash).
+ */
+private fun captureVideoProgress(item: WatchVideoMsgItem, payloads: List<Any>) {
+    MediaDownloadProgress.capture(runCatching { item.d.msgId }.getOrDefault(0L), payloads)
 }
 
 // 非 @Mixin 普通函数:内部创建的匿名类(Fragment 回调 / lambda / OnClickListener)生成在本包,不会被
@@ -70,14 +82,25 @@ private fun handleVideoClick(item: WatchVideoMsgItem, v: View) {
     val localPath = localVideoPath(item)
     Utils.log("VideoPlay: open player local=$localPath")
 
+    val msgId = runCatching { item.d.msgId }.getOrDefault(0L)
     val fragment = VideoPlayerFragment(
         initialPath = localPath,
         needDownload = { runOnUi { runCatching { item.t(true) }.onFailure { Utils.log("VideoPlay: t() failed: $it") } } },
         resolvePath = { localVideoPath(item) },
+        progressProvider = { videoProgress(item, msgId) },
     )
     runCatching { fragment.show(host.parentFragmentManager, "qqpro_video") }
         .onFailure { Utils.log("VideoPlay: show failed: $it") }
 }
+
+/**
+ * Live download progress (0..1) for the video, from two sources (whichever has data):
+ *  - the cell item's own [FileTransNotifyInfo] field `j` (updated by the kernel as it downloads), and
+ *  - the [VideoDownloadProgress] map populated from RichMedia bind payloads.
+ * Logs what each source reports so we can see which (if any) actually carries bytes.
+ */
+private fun videoProgress(item: WatchVideoMsgItem, msgId: Long): Float? =
+    MediaDownloadProgress.get(msgId)
 
 /** Resolve the on-disk video file path (subType 1, the real video, not the thumbnail), or null. */
 private fun localVideoPath(item: WatchVideoMsgItem): String? {

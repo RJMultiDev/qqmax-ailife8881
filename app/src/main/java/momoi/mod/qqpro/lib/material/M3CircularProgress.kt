@@ -36,9 +36,26 @@ class M3CircularProgress(ctx: Context) : View(ctx) {
     /** Determinate progress 0..1 (ignored while [indeterminate]). */
     var progress: Float = 0f
         set(value) {
-            field = value.coerceIn(0f, 1f)
-            if (!indeterminate) invalidate()
+            val v = value.coerceIn(0f, 1f)
+            field = v
+            if (!indeterminate) animateProgressTo(v)
         }
+
+    // The smoothly-animated value actually drawn, so progress steps glide instead of jumping.
+    private var shownProgress = 0f
+    private var progressAnim: ValueAnimator? = null
+
+    private fun animateProgressTo(target: Float) {
+        if (target == shownProgress) return
+        progressAnim?.cancel()
+        // Only animate forward jumps; snap backwards (e.g. reset to 0) instantly.
+        if (target < shownProgress) { shownProgress = target; invalidate(); return }
+        progressAnim = ValueAnimator.ofFloat(shownProgress, target).apply {
+            duration = 250
+            addUpdateListener { shownProgress = it.animatedValue as Float; invalidate() }
+            start()
+        }
+    }
 
     var indicatorColor: Int = M3.primary
         set(value) { field = value; arcPaint.color = value; invalidate() }
@@ -82,7 +99,7 @@ class M3CircularProgress(ctx: Context) : View(ctx) {
             canvas.drawArc(oval, start, sweep, false, arcPaint)
         } else {
             if (trackColor != 0) canvas.drawArc(oval, 0f, 360f, false, trackPaint)
-            canvas.drawArc(oval, -90f, progress * 360f, false, arcPaint)
+            canvas.drawArc(oval, -90f, shownProgress * 360f, false, arcPaint)
         }
     }
 
@@ -112,6 +129,7 @@ class M3CircularProgress(ctx: Context) : View(ctx) {
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         stopAnim()
+        progressAnim?.cancel()
     }
 
     override fun onVisibilityChanged(changedView: View, visibility: Int) {

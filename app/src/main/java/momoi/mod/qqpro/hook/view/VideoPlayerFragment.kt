@@ -47,10 +47,12 @@ class VideoPlayerFragment(
     private val initialPath: String? = null,
     private val needDownload: (() -> Unit)? = null,
     private val resolvePath: (() -> String?)? = null,
+    // Returns the kernel download progress (0..1) while downloading, or null if unknown. When it
+    // yields a value the spinner flips to determinate; otherwise it stays an indeterminate spinner.
+    private val progressProvider: (() -> Float?)? = null,
 ) : MyDialogFragment() {
 
     private var textureView: TextureView? = null
-    // Indeterminate: the QQ kernel auto-downloads the video without exposing a byte progress.
     private var spinner: M3CircularProgress? = null
     private var controls: View? = null
     private var playButton: ImageView? = null
@@ -79,6 +81,10 @@ class VideoPlayerFragment(
     private val pollTick = object : Runnable {
         override fun run() {
             if (started || view == null) return
+            // Show real download progress while we wait (determinate when the kernel reports bytes).
+            runCatching { progressProvider?.invoke() }.getOrNull()?.let { pr ->
+                spinner?.let { it.indeterminate = false; it.progress = pr }
+            }
             val p = runCatching { resolvePath?.invoke() }.getOrNull()
             if (p != null) {
                 Utils.log("player: download resolved -> $p")
@@ -89,7 +95,7 @@ class VideoPlayerFragment(
                 runCatching { Utils.toast(requireContext(), "视频下载失败") }
                 dismissAllowingStateLoss()
             } else {
-                ui.postDelayed(this, 700)
+                ui.postDelayed(this, 120)
             }
         }
     }

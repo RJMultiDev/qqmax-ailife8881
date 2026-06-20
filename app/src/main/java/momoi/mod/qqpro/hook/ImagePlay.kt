@@ -43,6 +43,9 @@ abstract class ImagePlay : BaseWatchItemCell<WatchAIOMsgItem, View>() {
         p5: LifecycleOwner?
     ) {
         super.i(view, item, p2, p3, p4, p5)
+        // Publish kernel download progress (RICH_MEDIA bind payload) so the open viewer can show a
+        // determinate circle — same mechanism as VideoPlay.
+        runCatching { MediaDownloadProgress.capture(item.d.msgId, p3) }
         bindPicClicks(view, item)
     }
 }
@@ -142,13 +145,18 @@ private fun kernelLoadPic(
     readyPath()?.let { Utils.log("ImagePlay: kernel local path ready"); onDone(it); return }
 
     runCatching {
-        val seq = AIOPicDownloader.b.getAndIncrement()
-        val provider = AIOPicDownloader.DefaultDownPicParamsProvider(cellItem, seq, 0)
-        Utils.log("ImagePlay: kernel download start seq=$seq")
-        dl.a(element, size, provider, 0, 0) { info: FileTransNotifyInfo ->
+        // Match the native WatchPicItemCell download call exactly: provider(item, 0, 2),
+        // downloadSourceType=1, triggerType=0. (My earlier 0/0/0 guess returned a failed status.)
+        val provider = AIOPicDownloader.DefaultDownPicParamsProvider(cellItem, 0, 2)
+        Utils.log("ImagePlay: kernel download start")
+        dl.a(element, size, provider, 1, 0) { info: FileTransNotifyInfo ->
             runOnUi {
                 val total = info.totalSize
-                if (total > 0) onProgress((info.fileProgress.toFloat() / total).coerceIn(0f, 1f))
+                if (total > 0) {
+                    val p = (info.fileProgress.toFloat() / total).coerceIn(0f, 1f)
+                    onProgress(p)
+                    Utils.log("ImagePlay: progress ${(p * 100).toInt()}% status=${info.trasferStatus}")
+                }
             }
         }
     }.onFailure { Utils.log("ImagePlay: trigger failed: $it") }
@@ -159,13 +167,15 @@ private fun kernelLoadPic(
     val start = android.os.SystemClock.uptimeMillis()
     handler.postDelayed(object : Runnable {
         override fun run() {
+            // Determinate progress from the cell's RICH_MEDIA bind payload (captured in ImagePlay.i).
+            MediaDownloadProgress.get(runCatching { cellItem.d.msgId }.getOrDefault(0L))?.let { onProgress(it) }
             val p = readyPath()
             when {
                 p != null -> { Utils.log("ImagePlay: kernel path landed via poll"); onDone(p) }
                 android.os.SystemClock.uptimeMillis() - start > 30_000L -> {
                     Utils.log("ImagePlay: kernel download timed out"); onDone(null)
                 }
-                else -> handler.postDelayed(this, 500)
+                else -> handler.postDelayed(this, 120)
             }
         }
     }, 500)
