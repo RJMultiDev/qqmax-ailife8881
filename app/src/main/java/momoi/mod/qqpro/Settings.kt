@@ -164,6 +164,12 @@ object Settings {
     // Apply the Material redesign to the contacts page (top bar with search/add/notify buttons,
     // M3-styled section headers and list rows). Requires contactSections. Default on.
     val materialContactsList = BooleanPref("materialContactsList", true)
+    // Apply the Material top bar to the QZone feed page (动态, 3rd tab): replaces the three
+    // header rows (发布/通知/我的空间) with compact icon buttons above the feed. Default on.
+    val materialQZoneBar = BooleanPref("materialQZoneBar", true)
+    // QZone top bar button layout: spread evenly across the full bar width (true), or group
+    // the three buttons close together in the center (false, better for round screens).
+    val qzoneBarSpread = BooleanPref("qzoneBarSpread", false)
     // Chat-settings panel (好友/群资料页 header name): show the contact/group name on multiple
     // lines instead of truncating to one, and allow long-pressing it to copy. Replaces the
     // single-line nick view with a multiline TextView that mirrors the original's (async) text.
@@ -226,7 +232,7 @@ object Settings {
         floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread,
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
-        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList,
+        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialQZoneBar, qzoneBarSpread,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
         doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,
         notifyVibrateMode, voiceBtnText, watchdogEnabled, enableLog,
