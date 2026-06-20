@@ -21,6 +21,8 @@ import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.hook.action.RecentContacts
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -59,7 +61,7 @@ object MainNav {
     class NavState(
         val nav: LinearLayout,
         val pager: PagerCtl,
-        val iconMap: Map<Int, Int>,
+        val iconMap: Map<Int, String>,
         val pageCount: Int,
     ) {
         val cells = ArrayList<Cell>()
@@ -137,7 +139,7 @@ object MainNav {
             val pager = PagerCtl(pagerView)
             val pageCount = pager.count()
             if (pageCount <= 0) { Utils.log("MainNav: empty pager"); return }
-            val iconMap = iconMapOf(indicator)
+            val iconMap = materialIconMapOf(pageCount)
 
             // Remove a nav we built on a previous onViewCreated (returning to the home page).
             (parent.findAll { it.tag == NAV_TAG } as? ViewGroup)?.let { parent.removeView(it) }
@@ -228,7 +230,7 @@ object MainNav {
             }
             val icon = ImageView(ctx).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                state.iconMap[i]?.let { runCatching { setImageResource(it) } }
+                state.iconMap[i]?.let { setImageDrawable(MaterialSymbol(it, IDLE_ICON)) }
             }
             val dot = View(ctx).apply {
                 background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(DOT_COLOR) }
@@ -327,22 +329,16 @@ object MainNav {
         }
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun iconMapOf(ind: View): Map<Int, Int> {
-        var c: Class<*>? = ind.javaClass
-        while (c != null) {
-            for (f in c.declaredFields) {
-                if (Map::class.java.isAssignableFrom(f.type)) {
-                    f.isAccessible = true
-                    val m = f.get(ind) as? Map<*, *> ?: continue
-                    val out = HashMap<Int, Int>()
-                    m.forEach { (k, v) -> if (k is Int && v is Int) out[k] = v }
-                    if (out.isNotEmpty()) return out
-                }
-            }
-            c = c.superclass
-        }
-        return emptyMap()
+    // Fixed page order: 0=chat, 1=contacts(person), 2=qzone(star), 3=self(settings)
+    private val PAGE_ICONS = listOf(
+        MaterialSymbols.chat_bubble,
+        MaterialSymbols.person,
+        MaterialSymbols.star,
+        MaterialSymbols.settings,
+    )
+
+    private fun materialIconMapOf(pageCount: Int): Map<Int, String> = buildMap {
+        for (i in 0 until minOf(pageCount, PAGE_ICONS.size)) put(i, PAGE_ICONS[i])
     }
 
     /**

@@ -6,6 +6,7 @@ import android.graphics.drawable.Drawable
 import android.view.View
 import com.tencent.watch.qzone_impl.frame.IAdapterHost
 import com.tencent.watch.qzone_impl.frame.contentViewHolder.FeedCommentViewHolder
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 import momoi.anno.mixin.Mixin
 
@@ -25,14 +26,9 @@ class FeedLikeBlue(p0: View, p1: Int, p2: IAdapterHost) : FeedCommentViewHolder(
             )
             if (resId == likedId) {
                 Utils.log("FeedLikeBlue: tint liked icon blue")
-                drawable.mutate().setColorFilter(LIKED_BLUE, PorterDuff.Mode.SRC_IN)
+                drawable.mutate().setColorFilter(M3.primary, PorterDuff.Mode.SRC_IN)
             }
         }
         return drawable
-    }
-
-    companion object {
-        // 醒目的蓝色,区分已赞/未赞
-        private const val LIKED_BLUE = 0xFF0A8DFF.toInt()
     }
 }
