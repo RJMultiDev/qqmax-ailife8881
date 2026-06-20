@@ -24,6 +24,8 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import momoi.mod.qqpro.lib.material.M3CircularProgress
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
 import android.widget.SeekBar
 import android.widget.TextView
 import momoi.mod.qqpro.lib.dp
@@ -222,7 +224,7 @@ class VideoPlayerFragment(
             gravity = Gravity.CENTER_VERTICAL
         }
         val play = ImageView(ctx).apply {
-            setImageResource(android.R.drawable.ic_media_pause)
+            setImageDrawable(MaterialSymbol(MaterialSymbols.pause, Color.WHITE))
             setColorFilter(Color.WHITE)
             setOnClickListener { togglePlay() }
         }
@@ -286,7 +288,7 @@ class VideoPlayerFragment(
                 resizeTexture()
                 it.start()
                 playing = true
-                playButton?.setImageResource(android.R.drawable.ic_media_pause)
+                playButton?.setImageDrawable(MaterialSymbol(MaterialSymbols.pause, Color.WHITE))
                 ui.post(progressTick)
                 showControls()
                 Utils.log("player: playback started $path")
@@ -313,11 +315,11 @@ class VideoPlayerFragment(
             if (player.isPlaying) {
                 player.pause()
                 playing = false
-                playButton?.setImageResource(android.R.drawable.ic_media_play)
+                playButton?.setImageDrawable(MaterialSymbol(MaterialSymbols.play_arrow, Color.WHITE))
             } else {
                 player.start()
                 playing = true
-                playButton?.setImageResource(android.R.drawable.ic_media_pause)
+                playButton?.setImageDrawable(MaterialSymbol(MaterialSymbols.pause, Color.WHITE))
             }
         }
         showControls()
