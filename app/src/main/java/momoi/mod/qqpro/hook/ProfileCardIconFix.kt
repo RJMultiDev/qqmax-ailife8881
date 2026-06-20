@@ -17,6 +17,9 @@ import com.tencent.widget.SingleLineTextView
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.hook.contact.ProfileNameView
+import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
 import momoi.mod.qqpro.util.Utils
 import mqq.app.MobileQQ
 
@@ -91,11 +94,15 @@ class ProfileCardIconFix : ProfileCardFragment() {
             val btn = (if (id != 0) view.findViewById<View>(id) else null) as? MaterialButton ?: return
             // Only the friend ("去聊天") state ships the chat icon; the "加好友" state has none.
             if (btn.icon == null) return
-            val label = btn.text?.toString().orEmpty()
-            btn.icon = null
-            // MaterialButton defaults to an all-caps transformation that can mangle the prefix; clear it.
             btn.transformationMethod = null
-            btn.text = "💬 $label" // 💬 + space + original label
+            // Real Material chat icon in the MaterialButton icon slot, hugging the centered label
+            // (was the 💬 emoji text prefix). ICON_GRAVITY_TEXT_START keeps it next to the text.
+            val tint = btn.currentTextColor
+            btn.icon = MaterialSymbol(MaterialSymbols.chat_bubble, tint).apply { setBounds(0, 0, 18.dp, 18.dp) }
+            btn.setIconGravity(2)   // ICON_GRAVITY_TEXT_START (constant not in the compile stub)
+            btn.iconSize = 18.dp
+            btn.iconPadding = 6.dp
+            btn.setIconTint(android.content.res.ColorStateList.valueOf(tint))
         } catch (e: Exception) {
             Utils.log("ProfileCardIconFix icon error: ${e.message}")
         }

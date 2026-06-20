@@ -36,6 +36,8 @@ import mqq.app.MobileQQ
 import java.io.File
 import java.lang.ref.WeakReference
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
 
 /**
  * 完全行内输入 voice messaging. Holding the voice button in the inline input bar records a PTT
@@ -75,8 +77,8 @@ object VoiceRecord {
 
     // overlay views
     private var overlay: FrameLayout? = null
-    private var cancelCircle: TextView? = null
-    private var sttCircle: TextView? = null
+    private var cancelCircle: ImageView? = null
+    private var sttCircle: ImageView? = null
     private var timerView: TextView? = null
     private var hintView: TextView? = null
     private var wave: WaveView? = null
@@ -317,12 +319,12 @@ object VoiceRecord {
         setColor(color)
     }
 
-    private fun makeCircle(label: String): TextView =
-        TextView(Utils.application).apply {
-            text = label
-            setTextColor(Color.WHITE)
-            textSize = 20f
-            gravity = Gravity.CENTER
+    private fun makeCircle(symbolPath: String): ImageView =
+        ImageView(Utils.application).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            val pad = 17.dp
+            setPadding(pad, pad, pad, pad)
+            setImageDrawable(MaterialSymbol(symbolPath, Color.WHITE))
             background = circleBg(colorIdle)
         }
 
@@ -348,12 +350,12 @@ object VoiceRecord {
         val edge = 36.dp
         // 取消 (left) and 转文字 (right) targets sit low, just above the input pill, so the
         // finger only has to slide a short distance down-left / down-right to reach them.
-        val cancel = makeCircle("✕")
+        val cancel = makeCircle(MaterialSymbols.close)
         root.addView(cancel, FrameLayout.LayoutParams(side, side).apply {
             gravity = Gravity.BOTTOM or Gravity.START
             leftMargin = edge; bottomMargin = 16.dp
         })
-        val stt = makeCircle("文")
+        val stt = makeCircle(MaterialSymbols.record_voice_over)
         root.addView(stt, FrameLayout.LayoutParams(side, side).apply {
             gravity = Gravity.BOTTOM or Gravity.END
             rightMargin = edge; bottomMargin = 16.dp

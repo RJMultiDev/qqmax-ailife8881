@@ -1,10 +1,5 @@
 package momoi.mod.qqpro.lib
 
-import android.graphics.Canvas
-import android.graphics.ColorFilter
-import android.graphics.Paint
-import android.graphics.PixelFormat
-import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
@@ -16,6 +11,9 @@ import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
+import momoi.mod.qqpro.lib.material.leadingSymbol
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -115,7 +113,7 @@ object ListSearchBar {
             setSingleLine()
             setPadding(10.dp, 5.dp, 10.dp, 5.dp)
             compoundDrawablePadding = 7.dp
-            val ic = OutlineSearchIcon().apply { setBounds(0, 0, 16.dp, 16.dp) }
+            val ic = MaterialSymbol(MaterialSymbols.search, M3.onSurface).apply { setBounds(0, 0, 16.dp, 16.dp) }
             setCompoundDrawables(ic, null, null, null)
             background = GradientDrawable().apply {
                 setColor(M3.surfaceContainer)
@@ -123,9 +121,7 @@ object ListSearchBar {
             }
         }
         val clear = TextView(ctx).apply {
-            text = "✕"
-            textSize = 15f
-            setTextColor(M3.onSurfaceVariant)
+            leadingSymbol(MaterialSymbols.close, M3.onSurfaceVariant, sizeDp = 14, gap = 0)
             setPadding(10.dp, 4.dp, 4.dp, 4.dp)
             visibility = View.GONE
             setOnClickListener { et.setText("") }
@@ -182,35 +178,4 @@ object ListSearchBar {
         if (id == 0) return null
         return root.findViewById(id)
     }
-}
-
-/** A white-outline-only magnifying-glass icon drawn with strokes (no app resources). */
-private class OutlineSearchIcon : Drawable() {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        color = M3.onSurface
-        strokeWidth = 2f.dpf
-        strokeCap = Paint.Cap.ROUND
-        strokeJoin = Paint.Join.ROUND
-    }
-
-    override fun draw(canvas: Canvas) {
-        val b = bounds
-        val pad = 3f.dpf
-        val l = b.left + pad; val t = b.top + pad
-        val r = b.right - pad; val bottom = b.bottom - pad
-        val cx = (l + r) / 2f; val cy = (t + bottom) / 2f
-        val w = r - l
-        val rad = w * 0.30f
-        val ccx = cx - w * 0.08f; val ccy = cy - w * 0.08f
-        canvas.drawCircle(ccx, ccy, rad, paint)
-        val k = rad * 0.707f
-        canvas.drawLine(ccx + k, ccy + k, ccx + k + w * 0.22f, ccy + k + w * 0.22f, paint)
-    }
-
-    override fun getIntrinsicWidth(): Int = 22.dp
-    override fun getIntrinsicHeight(): Int = 22.dp
-    override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-    override fun setColorFilter(colorFilter: ColorFilter?) { paint.colorFilter = colorFilter }
-    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 }

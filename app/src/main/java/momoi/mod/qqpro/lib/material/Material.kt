@@ -34,8 +34,12 @@ object M3 {
     val DEFAULT_PRIMARY = 0xFF_4FC3F7.toInt()
 
     val primary: Int get() = parseColor(momoi.mod.qqpro.Settings.themeColor.value, DEFAULT_PRIMARY)
-    /** Dark, on-accent label color: the accent heavily darkened so text/icons read on a filled button. */
-    val onPrimary: Int get() = darken(primary, 0.80f)
+    /**
+     * Label/icon color on a filled primary surface. White on a normal accent (the right look for a
+     * dark UI); only a very LIGHT accent (e.g. pale yellow) flips to a dark tone for contrast. Avoids
+     * the near-black text a blanket darken() produced on mid-bright accents.
+     */
+    val onPrimary: Int get() = if (luminance(primary) > 0.72f) darken(primary, 0.78f) else 0xFF_FFFFFF.toInt()
     /** Translucent tonal container built from the accent (0x33 alpha). */
     val primaryContainer: Int get() = (primary and 0x00FFFFFF) or 0x33_000000
     val onPrimaryContainer: Int get() = primary
@@ -95,6 +99,14 @@ object M3 {
         if (s.length != 6 && s.length != 8) return fallback
         val v = s.toLongOrNull(16) ?: return fallback
         return if (s.length == 6) (0xFF000000.toInt() or v.toInt()) else v.toInt()
+    }
+
+    /** Perceived luminance of [color] in 0..1 (ignores alpha). */
+    fun luminance(color: Int): Float {
+        val r = (color shr 16 and 0xFF) / 255f
+        val g = (color shr 8 and 0xFF) / 255f
+        val b = (color and 0xFF) / 255f
+        return 0.299f * r + 0.587f * g + 0.114f * b
     }
 
     /** Blend a color toward black by [amount] (0 = unchanged, 1 = black); alpha preserved. */

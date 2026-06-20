@@ -13,6 +13,8 @@ import momoi.mod.qqpro.hook.action.CurrentMsgList
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.MaterialSymbols
+import momoi.mod.qqpro.lib.material.leadingSymbol
 
 /**
  * The native chat unread bubble ([com.tencent.watch.aio_impl.reserve1.unreadbubble.UnreadBubbleVB])
@@ -64,12 +66,13 @@ class BubbleTextView(context: Context) : TextView(context) {
         isCountMode = t.isNotEmpty()
         if (isCountMode) {
             background = blueBg
-            super.setText("↓ $t", type)
+            super.setText(t, type)            // "N" new messages; the ↓ is a real Material icon
         } else {
-            // Empty text means the back-to-bottom state: grey down-arrow pill.
+            // Empty text means the back-to-bottom state: grey down-arrow pill (icon only).
             background = greyBg
-            super.setText("↓", type)
+            super.setText("", type)
         }
+        leadingSymbol(MaterialSymbols.arrow_downward, currentTextColor, sizeDp = 14, gap = if (isCountMode) 3 else 0)
         applyVisibility()
     }
 

@@ -13,7 +13,11 @@ import android.widget.TextView
 import com.google.android.material.button.MaterialButton
 import com.tencent.mobileqq.text.QQText
 import momoi.mod.qqpro.lib.dp
+import android.widget.ImageView
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
+import momoi.mod.qqpro.lib.material.leadingSymbol
 import momoi.mod.qqpro.lib.dpf
 import momoi.mod.qqpro.util.Utils
 
@@ -180,21 +184,33 @@ object RichProfilePage {
                 btn ?: return
                 reparent(btn)
                 val label = (btn as? android.widget.TextView)?.text?.toString().orEmpty()
-                val glyph = when {
-                    label.contains("加好友") -> "＋ "
-                    label.contains("艾特") || label.contains("@") -> "@ "
-                    else -> "💬 " // 去聊天
+                val isAt = label.contains("艾特") || label.contains("@")
+                val symbol = when {
+                    label.contains("加好友") -> MaterialSymbols.person_add
+                    isAt -> MaterialSymbols.alternate_email
+                    else -> MaterialSymbols.chat_bubble // 去聊天
                 }
-                (btn as? MaterialButton)?.apply { icon = null; transformationMethod = null }
-                (btn as? android.widget.TextView)?.apply {
-                    // Strip any glyph we may have added on a previous pass before re-prefixing.
-                    val base = label.removePrefix("💬 ").removePrefix("＋ ").removePrefix("@ ").trim()
-                    text = "$glyph$base"
+                val base = label.removePrefix("💬 ").removePrefix("＋ ").removePrefix("@ ").trim()
+                val mb = btn as? MaterialButton
+                if (mb != null) {
+                    // Use MaterialButton's own icon slot with ICON_GRAVITY_TEXT_START so the icon hugs
+                    // the centered label (a plain compound drawable would pin it to the far edge).
+                    mb.transformationMethod = null
+                    mb.text = base
+                    mb.setTextColor(M3.onPrimary)
+                    mb.icon = MaterialSymbol(symbol, M3.onPrimary).apply { setBounds(0, 0, 18.dp, 18.dp) }
+                    mb.setIconGravity(2)   // ICON_GRAVITY_TEXT_START (constant not in the compile stub)
+                    mb.iconSize = 18.dp
+                    mb.iconPadding = 6.dp
+                    mb.setIconTint(android.content.res.ColorStateList.valueOf(M3.onPrimary))
+                } else (btn as? android.widget.TextView)?.apply {
+                    text = base
                     setTextColor(M3.onPrimary)
+                    leadingSymbol(symbol, M3.onPrimary, sizeDp = 18)
                 }
                 // The native 艾特Ta handler's openIME is lost from the profile page (chat not resumed);
                 // replace it with our stage-and-pop action that defers openIME to the chat's onResume.
-                if (glyph == "@ ") btn.setOnClickListener { atAction() }
+                if (isAt) btn.setOnClickListener { atAction() }
                 btn.background = pill()
                 btn.layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, H,
@@ -207,16 +223,25 @@ object RichProfilePage {
             // TA的空间 — open the user's QZone home feed (reuses the chat-settings QZone shortcut).
             val uinLong = uin.trim().toLongOrNull()
             if (uinLong != null && uinLong > 0) {
-                val qzone = TextView(ctx).apply {
-                    text = "🌟 TA的空间"
-                    textSize = 14f
-                    setTextColor(M3.onPrimary)
+                // Centered icon + label row (a plain TextView compound drawable would pin the star
+                // to the far edge instead of next to the centered text).
+                val qzone = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER
                     background = pill()
                     isClickable = true
                     layoutParams = LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, H,
                     ).apply { topMargin = 10.dp }
+                    addView(ImageView(ctx).apply {
+                        setImageDrawable(MaterialSymbol(MaterialSymbols.star, M3.onPrimary))
+                        layoutParams = LinearLayout.LayoutParams(18.dp, 18.dp).apply { rightMargin = 6.dp }
+                    })
+                    addView(TextView(ctx).apply {
+                        text = "TA的空间"
+                        textSize = 14f
+                        setTextColor(M3.onPrimary)
+                    })
                 }
                 qzone.setOnClickListener { openUserQzone(qzone, uinLong) }
                 content.addView(qzone)

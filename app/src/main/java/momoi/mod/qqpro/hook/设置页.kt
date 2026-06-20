@@ -34,6 +34,9 @@ import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.material.M3Switch
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
+import momoi.mod.qqpro.lib.material.leadingSymbol
 import momoi.mod.qqpro.lib.height
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.onCheckedChange
@@ -167,10 +170,9 @@ class 设置页 : SettingsActivity() {
         row.onClick { onBack() }
         row.content {
             add<TextView>()
-                .text("‹")
-                .textSize(26f)
                 .textColor(ACCENT)
                 .padding(left = 2.dp, right = 12.dp)
+                .leadingSymbol(MaterialSymbols.chevron_left, ACCENT, sizeDp = 24, gap = 0)
             add<LinearLayout>()
                 .vertical()
                 .content {
@@ -357,10 +359,9 @@ class 设置页 : SettingsActivity() {
         card.content {
             titleColumn(title, desc).weight(1f)
             add<TextView>()
-                .text("›")
-                .textSize(18f)
                 .textColor(ACCENT)
                 .gravity(Gravity.CENTER_VERTICAL)
+                .leadingSymbol(MaterialSymbols.chevron_right, ACCENT, sizeDp = 18, gap = 0)
         }
         card.onClick { onTap() }
     }
@@ -385,6 +386,13 @@ class 设置页 : SettingsActivity() {
                 .textSize(14f)
                 .textColor(ACCENT)
                 .gravity(Gravity.CENTER_VERTICAL)
+            // Trailing ▾ affordance as a real Material drop-down icon (persists across text updates).
+            valueLabel.setCompoundDrawables(
+                null, null,
+                MaterialSymbol(MaterialSymbols.arrow_drop_down, ACCENT).apply { setBounds(0, 0, 18.dp, 18.dp) },
+                null,
+            )
+            valueLabel.compoundDrawablePadding = 2.dp
         }
         card.onClick {
             showOptionPicker(title, options, pref.value) { which ->
@@ -395,7 +403,7 @@ class 设置页 : SettingsActivity() {
     }
 
     private fun selectorLabel(options: List<String>, index: Int) =
-        options.getOrElse(index) { options.first() } + "  ▾"
+        options.getOrElse(index) { options.first() }
 
     /** A hand-drawn dark single-choice popup styled like the rest of the settings cards. */
     private fun showOptionPicker(

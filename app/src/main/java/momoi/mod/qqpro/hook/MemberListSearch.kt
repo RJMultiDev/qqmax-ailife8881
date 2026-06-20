@@ -1,11 +1,6 @@
 package momoi.mod.qqpro.hook
 
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.ColorFilter
-import android.graphics.Paint
-import android.graphics.PixelFormat
-import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
@@ -28,6 +23,9 @@ import com.tencent.qqnt.watch.troop.ui.member.ui.rv.GroupMemberAdapter
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
+import momoi.mod.qqpro.lib.material.leadingSymbol
 import momoi.mod.qqpro.util.Utils
 import java.lang.ref.WeakReference
 
@@ -77,8 +75,8 @@ object MemberListSearch {
             setPadding(10.dp, 10.dp, 10.dp, 6.dp)
         }
 
-        val addIcon = icon(ctx, OutlineIcon.ADD)
-        val searchIcon = icon(ctx, OutlineIcon.SEARCH)
+        val addIcon = icon(ctx, MaterialSymbols.person_add)
+        val searchIcon = icon(ctx, MaterialSymbols.search)
         val et = EditText(ctx).apply {
             visibility = View.GONE
             hint = "搜索成员"
@@ -94,9 +92,7 @@ object MemberListSearch {
         }
         val exit = TextView(ctx).apply {
             visibility = View.GONE
-            text = "✕"
-            textSize = 15f
-            setTextColor(M3.onSurfaceVariant)
+            leadingSymbol(MaterialSymbols.close, M3.onSurfaceVariant, sizeDp = 15, gap = 0)
             setPadding(12.dp, 4.dp, 6.dp, 4.dp)
         }
 
@@ -184,9 +180,10 @@ object MemberListSearch {
         runCatching { adapter.submitList(result) }.onFailure { Utils.log("MemberSearch apply: $it") }
     }
 
-    private fun icon(ctx: Context, kind: Int): ImageView = ImageView(ctx).apply {
+    private fun icon(ctx: Context, path: String): ImageView = ImageView(ctx).apply {
         layoutParams = LinearLayout.LayoutParams(22.dp, 22.dp)
-        setImageDrawable(OutlineIcon(kind))
+        scaleType = ImageView.ScaleType.FIT_CENTER
+        setImageDrawable(MaterialSymbol(path, M3.onSurface))
     }
 
     private fun infoOf(item: GroupMemberItem): MemberInfo? = runCatching {
@@ -213,54 +210,6 @@ object MemberListSearch {
 
     private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 }
-
-/** A white-outline-only icon drawn with strokes (no fill, no app resources). */
-private class OutlineIcon(private val kind: Int) : Drawable() {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        color = M3.onSurface
-        strokeWidth = 2f.dp
-        strokeCap = Paint.Cap.ROUND
-        strokeJoin = Paint.Join.ROUND
-    }
-
-    override fun draw(canvas: Canvas) {
-        val b = bounds
-        val pad = 3f.dp
-        val l = b.left + pad; val t = b.top + pad
-        val r = b.right - pad; val bottom = b.bottom - pad
-        val cx = (l + r) / 2f; val cy = (t + bottom) / 2f
-        val w = r - l
-        when (kind) {
-            ADD -> {
-                val h = w * 0.45f
-                canvas.drawLine(cx - h, cy, cx + h, cy, paint)
-                canvas.drawLine(cx, cy - h, cx, cy + h, paint)
-            }
-            SEARCH -> {
-                val rad = w * 0.30f
-                val ccx = cx - w * 0.08f; val ccy = cy - w * 0.08f
-                canvas.drawCircle(ccx, ccy, rad, paint)
-                // handle, from the circle's lower-right edge outward
-                val k = rad * 0.707f
-                canvas.drawLine(ccx + k, ccy + k, ccx + k + w * 0.22f, ccy + k + w * 0.22f, paint)
-            }
-        }
-    }
-
-    override fun getIntrinsicWidth(): Int = (22f.dp).toInt()
-    override fun getIntrinsicHeight(): Int = (22f.dp).toInt()
-    override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-    override fun setColorFilter(colorFilter: ColorFilter?) { paint.colorFilter = colorFilter }
-    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
-
-    companion object {
-        const val ADD = 0
-        const val SEARCH = 1
-    }
-}
-
-private val Float.dp: Float get() = this * android.content.res.Resources.getSystem().displayMetrics.density
 
 @Mixin
 class GroupMemberListSearch : GroupMemberFragment() {
