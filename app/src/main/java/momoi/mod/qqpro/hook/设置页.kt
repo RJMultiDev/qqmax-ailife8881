@@ -32,6 +32,7 @@ import momoi.mod.qqpro.lib.background
 import momoi.mod.qqpro.lib.content
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.gravity
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.height
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.onCheckedChange
@@ -55,8 +56,9 @@ import momoi.mod.qqpro.watchdog.WatchdogTestActivity
 import moye.wearqq.SettingsActivity
 import kotlin.math.roundToInt
 
-private val ACCENT = 0xFF_4FC3F7.toInt()
-private val TRACK_INACTIVE = 0xFF_3A3A3A.toInt()
+// Routed through the single M3 token source so a retheme flows from lib/material/Material.kt.
+private val ACCENT = M3.primary
+private val TRACK_INACTIVE = M3.outline
 private const val REQ_PICK_CHAT_BG = 0x9B01
 private const val REQ_IMPORT_SETTINGS = 0x9B02
 
@@ -91,7 +93,7 @@ class 设置页 : SettingsActivity() {
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
-            setBackgroundColor(0xFF_121212.toInt())
+            setBackgroundColor(M3.surface)
         }
         val root = LinearLayout(this)
             .vertical()
@@ -107,7 +109,7 @@ class 设置页 : SettingsActivity() {
             ignoreDisableSetting = true
             // Opaque background so the strip revealed while the content slides right
             // doesn't flash the window background.
-            setBackgroundColor(0xFF_121212.toInt())
+            setBackgroundColor(M3.surface)
             addView(scroll, FILL, FILL)
             // In a detail page the swipe pops back to the category list; on the list it leaves.
             onSwipeBack = { if (inSettingsDetail) showCategoryList() else finish() }
@@ -174,12 +176,12 @@ class 设置页 : SettingsActivity() {
                     add<TextView>()
                         .text(title)
                         .textSize(17f)
-                        .textColor(0xFF_FFFFFF)
+                        .textColor(M3.onSurface)
                     if (subtitle.isNotEmpty()) {
                         add<TextView>()
                             .text(subtitle)
                             .textSize(10f)
-                            .textColor(0xFF_888888)
+                            .textColor(M3.hint)
                     }
                 }
         }
@@ -321,7 +323,7 @@ class 设置页 : SettingsActivity() {
         add<TextView>()
             .text(subtitle)
             .textSize(10f)
-            .textColor(0xFF_888888)
+            .textColor(M3.hint)
             .padding(left = 4.dp, top = 0.dp, right = 4.dp, bottom = 6.dp)
     }
 
@@ -403,7 +405,7 @@ class 设置页 : SettingsActivity() {
             .vertical()
             .padding(top = 16.dp, bottom = 8.dp)
         panel.background(GradientDrawable().apply {
-            setColor(0xFF_1E1E1E.toInt())
+            setColor(M3.surfaceContainerHigh)
             cornerRadius = 22.dp.toFloat()
         })
 
@@ -411,7 +413,7 @@ class 设置页 : SettingsActivity() {
             add<TextView>()
                 .text(title)
                 .textSize(15f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
                 .gravity(Gravity.CENTER)
                 .padding(left = 16.dp, right = 16.dp, bottom = 12.dp)
 
@@ -424,7 +426,7 @@ class 设置页 : SettingsActivity() {
                 row.margin(left = 8.dp, right = 8.dp, top = 2.dp, bottom = 2.dp)
                 if (isSel) {
                     row.background(GradientDrawable().apply {
-                        setColor(0x33_4FC3F7)
+                        setColor(M3.primaryContainer)
                         cornerRadius = 14.dp.toFloat()
                     })
                 }
@@ -438,13 +440,13 @@ class 设置页 : SettingsActivity() {
                                 setColor(ACCENT)
                             } else {
                                 setColor(0x00_000000)
-                                setStroke(2.dp, 0xFF_5A5A5A.toInt())
+                                setStroke(2.dp, M3.outline)
                             }
                         })
                     add<TextView>()
                         .text(label)
                         .textSize(14f)
-                        .textColor(if (isSel) ACCENT else 0xFF_FFFFFF.toInt())
+                        .textColor(if (isSel) ACCENT else M3.onSurface)
                         .margin(left = 14.dp)
                 }
                 row.onClick {
@@ -473,7 +475,7 @@ class 设置页 : SettingsActivity() {
             titleColumn("聊天背景图片", "选择一张图片作为聊天页背景").width(FILL)
             bgStatusLabel = add<TextView>()
                 .textSize(11f)
-                .textColor(0xFF_A1A1A1)
+                .textColor(M3.onSurfaceVariant)
                 .padding(top = 4.dp)
             updateBgStatus()
             add<LinearLayout>()
@@ -483,7 +485,7 @@ class 设置页 : SettingsActivity() {
                     pillButton("选择图片", ACCENT) { pickChatBackground() }
                         .weight(1f)
                         .margin(right = 4.dp)
-                    pillButton("清除", 0xFF_E57373.toInt()) {
+                    pillButton("清除", M3.error) {
                         ChatBackground.clear()
                         updateBgStatus()
                         Utils.toast(this@设置页, "已清除聊天背景")
@@ -500,7 +502,7 @@ class 设置页 : SettingsActivity() {
         val btn = add<TextView>()
             .text(label)
             .textSize(13f)
-            .textColor(0xFF_FFFFFF)
+            .textColor(M3.onSurface)
             .gravity(Gravity.CENTER)
             .padding(top = 8.dp, bottom = 8.dp)
         btn.background(GradientDrawable().apply {
@@ -594,7 +596,7 @@ class 设置页 : SettingsActivity() {
             add<EditText>()
                 .text(pref.value)
                 .textSize(13f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
                 .width(FILL)
                 .doAfterTextChanged { pref.value = it?.toString() ?: "" }
         }
@@ -680,12 +682,12 @@ class 设置页 : SettingsActivity() {
             add<TextView>()
                 .text(title)
                 .textSize(13f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
             if (desc.isNotEmpty()) {
                 add<TextView>()
                     .text(desc)
                     .textSize(10f)
-                    .textColor(0xFF_A1A1A1)
+                    .textColor(M3.onSurfaceVariant)
             }
         }
         return column
@@ -697,7 +699,7 @@ class 设置页 : SettingsActivity() {
             .width(FILL)
             .padding(12.dp)
         card.background(GradientDrawable().apply {
-            setColor(0xFF_242424.toInt())
+            setColor(M3.surfaceContainer)
             cornerRadius = 14.dp.toFloat()
         })
         card.margin(top = CARD_MARGIN_DP.dp, bottom = CARD_MARGIN_DP.dp)

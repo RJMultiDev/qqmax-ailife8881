@@ -18,9 +18,10 @@ import com.tencent.qqnt.watch.gallery.GalleryFragment
 import com.tencent.watch.aio_impl.ext.MsgUtil as WatchMsgUtil
 import moye.wearqq.IMEOperation
 import momoi.mod.qqpro.util.Utils
-import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.hook.action.GalleryMultiSelectState
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.M3Button
 
 private const val HTAG = "QQPro"
 
@@ -39,16 +40,14 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
     // (which pops/sends twice and crashes). Sticky for the lifetime of this helper instance.
     private var actionConsumed = false
 
-    private val overlayPaint = Paint().apply { color = Color.parseColor("#661B9AF7") }
+    // Selection tint over picked thumbnails: translucent M3 primary so it rethemes with the accent.
+    private val overlayPaint = Paint().apply { color = (M3.primary and 0x00FFFFFF) or 0x66_000000 }
 
     // ---- public API called from the mixin hook --------------------------------
 
     fun buildSendButton(ctx: Context): TextView {
-        return TextView(ctx).apply {
-            gravity = Gravity.CENTER
+        return M3Button(ctx).variant(M3Button.Variant.FILLED).apply {
             textSize = 15f
-            setTextColor(Color.WHITE)
-            background = roundCornerDrawable(Color.parseColor("#1B9AF7"), 9999f)
             setPadding(24.dp, 0, 24.dp, 0)
             text = "发送"
         }
@@ -270,7 +269,7 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
     private fun makeItemDecoration(rv: RecyclerView) = object : RecyclerView.ItemDecoration() {
         private val radius = 10.dp.toFloat()
         private val margin = 6.dp.toFloat()
-        private val circleFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#1B9AF7") }
+        private val circleFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = M3.primary }
         private val circleBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 2f
         }

@@ -1,6 +1,5 @@
 package momoi.mod.qqpro.hook.view
 
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -8,34 +7,28 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import momoi.mod.qqpro.hook.versionName
 import momoi.mod.qqpro.lib.FILL
-import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.lib.SwipeBackLayout
-import momoi.mod.qqpro.lib.clickable
-import momoi.mod.qqpro.lib.content
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.gravity
-import momoi.mod.qqpro.lib.margin
+import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.M3Button
+import momoi.mod.qqpro.lib.material.M3Dialog
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.text
 import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
-import momoi.mod.qqpro.lib.vertical
-import momoi.mod.qqpro.lib.width
 import momoi.mod.qqpro.ota.OTAManager2
 import momoi.mod.qqpro.util.Utils
-
-private val ACCENT = 0xFF_4FC3F7.toInt()
 
 /**
  * About dialog for QQ Max. A full-screen [MyDialogFragment] rather than the native TipsUtils
  * dialog, which renders with oversized margins on the round watch screen (the app forces a tiny
  * compile SDK and overrides display DPI — see [LinkOpenFragment]). Shows the app icon, version
- * and credits (scrollable) plus a 检查更新 button that force-checks via [OTAManager2]. A
- * left-to-right swipe dismisses it (for watches without a back button).
+ * and credits (scrollable) plus a 检查更新 button that force-checks via [OTAManager2]. Built on the
+ * shared [M3Dialog] scaffold, wrapped in [SwipeBackLayout] so a left-to-right swipe dismisses it.
  */
 class AboutFragment : MyDialogFragment() {
     override fun onCreateView(
@@ -44,87 +37,55 @@ class AboutFragment : MyDialogFragment() {
         savedInstanceState: Bundle?
     ): View {
         val ctx = inflater.context
-        val root = LinearLayout(ctx)
-            .vertical()
-            .padding(left = 20.dp, top = 16.dp, right = 20.dp, bottom = 16.dp)
-        root.setBackgroundColor(0xF0_121212.toInt())
+        val dialog = M3Dialog(ctx)
+            .body {
+                val icon = add<ImageView>().apply {
+                    runCatching {
+                        setImageDrawable(ctx.packageManager.getApplicationIcon(ctx.packageName))
+                    }.onFailure { Utils.log("AboutFragment: icon load failed: $it") }
+                }
+                (icon.layoutParams as LinearLayout.LayoutParams).apply {
+                    width = 56.dp
+                    height = 56.dp
+                    bottomMargin = 8.dp
+                }
 
-        // Icon + version + credits scroll together so they never push the buttons off-screen.
-        val scroll = ScrollView(ctx).apply { isFillViewport = false }
-        val column = LinearLayout(ctx).vertical()
-        column.gravity = Gravity.CENTER_HORIZONTAL
-        column.content {
-            val icon = add<ImageView>().apply {
-                runCatching {
-                    setImageDrawable(ctx.packageManager.getApplicationIcon(ctx.packageName))
-                }.onFailure { Utils.log("AboutFragment: icon load failed: $it") }
+                add<TextView>()
+                    .text("QQ Max")
+                    .textSize(18f)
+                    .textColor(M3.onSurface)
+                    .gravity(Gravity.CENTER)
+                add<TextView>()
+                    .text(versionName)
+                    .textSize(12f)
+                    .textColor(M3.onSurfaceVariant)
+                    .gravity(Gravity.CENTER)
+                    .padding(bottom = 12.dp)
+
+                add<TextView>()
+                    .text("构建于 ${momoi.mod.qqpro.BuildConfig.BUILD_TIME}")
+                    .textSize(11f)
+                    .textColor(M3.hint)
+                    .gravity(Gravity.CENTER)
+                    .padding(bottom = 12.dp)
+
+                add<TextView>()
+                    .text("NWear QQ · 爅峫\nQQ Pro · java30433\nQQ Max · AILIFE")
+                    .textSize(13f)
+                    .textColor(M3.replyText)
+                    .gravity(Gravity.CENTER)
+                    .padding(bottom = 12.dp)
             }
-            (icon.layoutParams as LinearLayout.LayoutParams).apply {
-                width = 56.dp
-                height = 56.dp
-                bottomMargin = 8.dp
-            }
-
-            add<TextView>()
-                .text("QQ Max")
-                .textSize(18f)
-                .textColor(0xFF_FFFFFF)
-                .gravity(Gravity.CENTER)
-            add<TextView>()
-                .text(versionName)
-                .textSize(12f)
-                .textColor(0xFF_BBBBBB)
-                .gravity(Gravity.CENTER)
-                .padding(bottom = 12.dp)
-
-            add<TextView>()
-                .text("构建于 ${momoi.mod.qqpro.BuildConfig.BUILD_TIME}")
-                .textSize(11f)
-                .textColor(0xFF_888888)
-                .gravity(Gravity.CENTER)
-                .padding(bottom = 12.dp)
-
-            add<TextView>()
-                .text("NWear QQ · 爅峫\nQQ Pro · java30433\nQQ Max · AILIFE")
-                .textSize(13f)
-                .textColor(0xFF_DDDDDD)
-                .gravity(Gravity.CENTER)
-                .padding(bottom = 12.dp)
-
-            button("检查更新", ACCENT, 0xFF_000000.toInt()) {
-                OTAManager2(ctx).checkUpdate(true)
-                dismiss()
-            }
-        }
-        scroll.addView(column, ViewGroup.LayoutParams(FILL, WRAP))
-        root.addView(scroll, LinearLayout.LayoutParams(FILL, FILL))
-
-        return SwipeBackLayout(ctx).apply {
-            addView(root, FILL, FILL)
-            onSwipeBack = { dismiss() }
-        }
-    }
-
-    private fun momoi.mod.qqpro.lib.LinearScope.button(
-        label: String,
-        bg: Int,
-        fg: Int,
-        onClick: () -> Unit
-    ) {
-        add<TextView>()
-            .text(label)
-            .textSize(14f)
-            .textColor(fg)
-            .gravity(Gravity.CENTER)
-            .width(FILL)
-            .padding(top = 10.dp, bottom = 10.dp)
-            .apply {
-                background = GradientDrawable().apply {
-                    setColor(bg)
-                    cornerRadius = 22.dp.toFloat()
+            .actions {
+                action("检查更新", M3Button.Variant.FILLED) {
+                    OTAManager2(ctx).checkUpdate(true)
+                    dismiss()
                 }
             }
-            .margin(top = 6.dp)
-            .clickable(onClick)
+
+        return SwipeBackLayout(ctx).apply {
+            addView(dialog, FILL, FILL)
+            onSwipeBack = { dismiss() }
+        }
     }
 }

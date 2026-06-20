@@ -27,6 +27,7 @@ import com.tencent.qqnt.watch.troop.ui.member.ui.item.GroupMemberItem
 import com.tencent.qqnt.watch.troop.ui.member.ui.rv.GroupMemberAdapter
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 import java.lang.ref.WeakReference
 
@@ -81,13 +82,13 @@ object MemberListSearch {
         val et = EditText(ctx).apply {
             visibility = View.GONE
             hint = "搜索成员"
-            setHintTextColor(0xFF_777777.toInt())
-            setTextColor(0xFF_FFFFFF.toInt())
+            setHintTextColor(M3.hint)
+            setTextColor(M3.onSurface)
             textSize = 13f
             setSingleLine()
             setPadding(10.dp, 5.dp, 10.dp, 5.dp)
             background = GradientDrawable().apply {
-                setColor(0xFF_222222.toInt())
+                setColor(M3.surfaceContainer)
                 cornerRadius = 10.dp.toFloat()
             }
         }
@@ -95,7 +96,7 @@ object MemberListSearch {
             visibility = View.GONE
             text = "✕"
             textSize = 15f
-            setTextColor(0xFF_BBBBBB.toInt())
+            setTextColor(M3.onSurfaceVariant)
             setPadding(12.dp, 4.dp, 6.dp, 4.dp)
         }
 
@@ -217,7 +218,7 @@ object MemberListSearch {
 private class OutlineIcon(private val kind: Int) : Drawable() {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = 0xFF_FFFFFF.toInt()
+        color = M3.onSurface
         strokeWidth = 2f.dp
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND

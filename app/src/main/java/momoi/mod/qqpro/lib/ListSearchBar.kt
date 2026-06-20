@@ -15,6 +15,7 @@ import android.widget.TextView
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -108,8 +109,8 @@ object ListSearchBar {
         // drawable inside the pill so the whole field reads as one search box.
         val et = EditText(ctx).apply {
             this.hint = hint
-            setHintTextColor(0xFF_777777.toInt())
-            setTextColor(0xFF_FFFFFF.toInt())
+            setHintTextColor(M3.hint)
+            setTextColor(M3.onSurface)
             textSize = 13f
             setSingleLine()
             setPadding(10.dp, 5.dp, 10.dp, 5.dp)
@@ -117,14 +118,14 @@ object ListSearchBar {
             val ic = OutlineSearchIcon().apply { setBounds(0, 0, 16.dp, 16.dp) }
             setCompoundDrawables(ic, null, null, null)
             background = GradientDrawable().apply {
-                setColor(0xFF_222222.toInt())
+                setColor(M3.surfaceContainer)
                 cornerRadius = 10.dp.toFloat()
             }
         }
         val clear = TextView(ctx).apply {
             text = "✕"
             textSize = 15f
-            setTextColor(0xFF_BBBBBB.toInt())
+            setTextColor(M3.onSurfaceVariant)
             setPadding(10.dp, 4.dp, 4.dp, 4.dp)
             visibility = View.GONE
             setOnClickListener { et.setText("") }
@@ -187,7 +188,7 @@ object ListSearchBar {
 private class OutlineSearchIcon : Drawable() {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = 0xFF_FFFFFF.toInt()
+        color = M3.onSurface
         strokeWidth = 2f.dpf
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND

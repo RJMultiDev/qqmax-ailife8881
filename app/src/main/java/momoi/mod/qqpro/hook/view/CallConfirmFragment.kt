@@ -20,9 +20,10 @@ import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
 import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.width
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
-private val ACCENT = 0xFF_4FC3F7.toInt()
+private val ACCENT = M3.primary
 
 /**
  * Full-screen confirmation shown before starting a voice / video call, to avoid accidental
@@ -45,22 +46,22 @@ class CallConfirmFragment(
             .vertical()
             .padding(20.dp)
         root.gravity = Gravity.CENTER
-        root.setBackgroundColor(0xF0_121212.toInt())
+        root.setBackgroundColor(M3.surface)
 
         root.content {
             add<TextView>()
                 .text(title)
                 .textSize(16f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
                 .gravity(Gravity.CENTER)
                 .padding(bottom = 16.dp)
 
-            button("确定", ACCENT, 0xFF_000000.toInt()) {
+            button("确定", ACCENT, M3.onPrimary) {
                 Utils.log("call confirm: confirmed")
                 dismiss()
                 action.performClick()
             }
-            button("取消", 0xFF_2A2A2A.toInt(), 0xFF_FFFFFF.toInt()) {
+            button("取消", M3.surfaceContainerHigh, M3.onSurface) {
                 dismiss()
             }
         }

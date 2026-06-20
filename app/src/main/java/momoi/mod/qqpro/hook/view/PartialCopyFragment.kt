@@ -15,10 +15,11 @@ import android.widget.TextView
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.SwipeBackLayout
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
-private val ACCENT = 0xFF_4FC3F7.toInt()
-private val BG = 0xF0_121212.toInt()
+private val ACCENT = M3.primary
+private val BG = M3.surface
 
 /**
  * "部分复制" — full-screen viewer that shows a single message's text in a selectable [TextView]
@@ -51,7 +52,7 @@ class PartialCopyFragment(private val content: String) : MyDialogFragment() {
         val title = TextView(ctx).apply {
             text = "长按选择要复制"
             textSize = 10f
-            setTextColor(0xFF_999999.toInt())
+            setTextColor(M3.hint)
             gravity = Gravity.CENTER
             setPadding(0, 2.dp, 0, 4.dp)
         }
@@ -63,14 +64,14 @@ class PartialCopyFragment(private val content: String) : MyDialogFragment() {
         val body = TextView(ctx).apply {
             text = content
             textSize = 13f
-            setTextColor(0xFF_EEEEEE.toInt())
+            setTextColor(M3.onSurface)
             setPadding(8.dp, 6.dp, 8.dp, 6.dp)
             setTextIsSelectable(true)
             // setTextIsSelectable already wires this, but set it explicitly so selection handles
             // work reliably under the watch ROM's stripped-down theme.
             movementMethod = ArrowKeyMovementMethod.getInstance()
             background = GradientDrawable().apply {
-                setColor(0xFF_1C1C1C.toInt())
+                setColor(M3.surfaceContainer)
                 cornerRadius = 8.dp.toFloat()
             }
         }
@@ -83,13 +84,13 @@ class PartialCopyFragment(private val content: String) : MyDialogFragment() {
         root.addView(bar, LinearLayout.LayoutParams(FILL, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = 4.dp
         })
-        button(bar, "全选", 0xFF_2A2A2A.toInt(), 0xFF_FFFFFF.toInt()) {
+        button(bar, "全选", M3.surfaceContainerHigh, M3.onSurface) {
             body.requestFocus()
             runCatching {
                 (body.text as? Spannable)?.let { Selection.setSelection(it, 0, it.length) }
             }.onFailure { Utils.log("PartialCopy: selectAll failed: $it") }
         }
-        button(bar, "关闭", 0xFF_1A1A1A.toInt(), 0xFF_999999.toInt()) { dismiss() }
+        button(bar, "关闭", M3.surface, M3.hint) { dismiss() }
 
         return SwipeBackLayout(ctx).apply {
             addView(root, FILL, FILL)

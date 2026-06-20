@@ -23,6 +23,7 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import momoi.mod.qqpro.hook.sendInAppVideo
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 import java.io.File
 
@@ -118,8 +119,8 @@ class VideoRecordFragment(private val host: Fragment? = null) : MyDialogFragment
             gravity = Gravity.CENTER
             visibility = View.GONE
         }
-        bar.addView(pillButton(ctx, "重拍", 0xFF_2A2A2A.toInt(), Color.WHITE) { retake() })
-        bar.addView(pillButton(ctx, "发送", 0xFF_4FC3F7.toInt(), Color.BLACK) { sendRecorded() })
+        bar.addView(pillButton(ctx, "重拍", M3.surfaceContainerHigh, M3.onSurface) { retake() })
+        bar.addView(pillButton(ctx, "发送", M3.primary, M3.onPrimary) { sendRecorded() })
         confirmBar = bar
         root.addView(bar, FrameLayout.LayoutParams(-1, -2).apply {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL

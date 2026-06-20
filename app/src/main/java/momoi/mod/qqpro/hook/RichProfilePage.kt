@@ -12,8 +12,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.google.android.material.button.MaterialButton
 import com.tencent.mobileqq.text.QQText
-import momoi.mod.qqpro.Colors
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.dpf
 import momoi.mod.qqpro.util.Utils
 
@@ -73,7 +73,7 @@ object RichProfilePage {
                 gravity = Gravity.CENTER_HORIZONTAL
                 background = GradientDrawable().apply {
                     cornerRadius = 18.dpf
-                    setColor(0xFF_1E1E1E.toInt())
+                    setColor(M3.surfaceContainer)
                 }
                 elevation = 3.dpf
                 setPadding(16.dp, 18.dp, 16.dp, 14.dp)
@@ -95,7 +95,7 @@ object RichProfilePage {
             val nameView = TextView(ctx).apply {
                 text = runCatching { QQText(displayName, 19, 13, null) as CharSequence }.getOrDefault(displayName)
                 textSize = 15f
-                setTextColor(0xFF_FFFFFF.toInt())
+                setTextColor(M3.onSurface)
                 gravity = Gravity.CENTER
                 maxLines = 4
                 ellipsize = TextUtils.TruncateAt.END
@@ -111,7 +111,7 @@ object RichProfilePage {
             // (i.e. when the displayed name is a group card). Filled from the async fetch below.
             val realNickView = TextView(ctx).apply {
                 textSize = 11f
-                setTextColor(0xB3_FFFFFF.toInt())
+                setTextColor(M3.onSurfaceVariant)
                 gravity = Gravity.CENTER
                 maxLines = 3
                 ellipsize = TextUtils.TruncateAt.END
@@ -128,7 +128,7 @@ object RichProfilePage {
                 it.layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
                 ).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = 3.dp }
-                setTextColorCompat(it, 0xB3_FFFFFF.toInt())
+                setTextColorCompat(it, M3.onSurfaceVariant)
                 it.isLongClickable = true
                 it.setOnLongClickListener { Utils.copyToClipboard(ctx, uin, "已复制账号"); true }
                 card.addView(it)
@@ -190,7 +190,7 @@ object RichProfilePage {
                     // Strip any glyph we may have added on a previous pass before re-prefixing.
                     val base = label.removePrefix("💬 ").removePrefix("＋ ").removePrefix("@ ").trim()
                     text = "$glyph$base"
-                    setTextColor(0xFF_FFFFFF.toInt())
+                    setTextColor(M3.onPrimary)
                 }
                 // The native 艾特Ta handler's openIME is lost from the profile page (chat not resumed);
                 // replace it with our stage-and-pop action that defers openIME to the chat's onResume.
@@ -210,7 +210,7 @@ object RichProfilePage {
                 val qzone = TextView(ctx).apply {
                     text = "🌟 TA的空间"
                     textSize = 14f
-                    setTextColor(0xFF_FFFFFF.toInt())
+                    setTextColor(M3.onPrimary)
                     gravity = Gravity.CENTER
                     background = pill()
                     isClickable = true
@@ -242,7 +242,7 @@ object RichProfilePage {
     /** A full-width pill (rounded-end) button background in the app's blue. */
     private fun pill(): GradientDrawable = GradientDrawable().apply {
         cornerRadius = 20.dpf
-        setColor(Colors.btn)
+        setColor(M3.primary)
     }
 
     /** Set text color on a TextView, or on a custom widget (e.g. SingleLineTextView) via reflection. */

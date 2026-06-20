@@ -31,6 +31,7 @@ import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.linearLayout
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.marginHorizontal
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.text
 import momoi.mod.qqpro.lib.textColor
@@ -42,7 +43,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val ACCENT = 0xFF_4FC3F7.toInt()
+private val ACCENT = M3.primary
 private val BG = 0xF0_121212.toInt()
 private const val ICON_SEARCH = 0x7e0805ca // R.drawable.icon_search
 
@@ -167,7 +168,7 @@ class ChatSearchFragment : MyDialogFragment() {
         scrollColumn {
             title("搜索聊天记录")
             for (type in SearchType.values()) {
-                button(type.label, 0xFF_2A2A2A.toInt(), 0xFF_FFFFFF.toInt()) {
+                button(type.label, M3.surfaceContainerHigh, M3.onSurface) {
                     when (type) {
                         SearchType.TEXT -> showTextInput()
                         SearchType.DATE -> startDateFlow()
@@ -176,7 +177,7 @@ class ChatSearchFragment : MyDialogFragment() {
                     }
                 }
             }
-            button("取消", 0xFF_1A1A1A.toInt(), 0xFF_999999.toInt()) { dismiss() }
+            button("取消", M3.surface, M3.onSurfaceTip) { dismiss() }
         }
     }
 
@@ -189,15 +190,15 @@ class ChatSearchFragment : MyDialogFragment() {
             title("搜索文本")
             input = add<EditText>()
                 .textSize(14f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
                 .width(FILL)
                 .padding(10.dp)
                 .apply {
                     hint = "关键词(可留空)"
-                    setHintTextColor(0xFF_777777.toInt())
+                    setHintTextColor(M3.hint)
                     setSingleLine()
                     background = GradientDrawable().apply {
-                        setColor(0xFF_222222.toInt())
+                        setColor(M3.surfaceContainer)
                         cornerRadius = 12.dp.toFloat()
                     }
                 }
@@ -206,7 +207,7 @@ class ChatSearchFragment : MyDialogFragment() {
                 hideKeyboard(input)
                 startSearch(SearchType.TEXT, input.text?.toString()?.trim().orEmpty(), null)
             }
-            button("返回", 0xFF_1A1A1A.toInt(), 0xFF_999999.toInt()) {
+            button("返回", M3.surface, M3.onSurfaceTip) {
                 hideKeyboard(input)
                 showMenu()
             }
@@ -335,15 +336,15 @@ class ChatSearchFragment : MyDialogFragment() {
             // Type-to-filter the sender list by name (handy when a group has many members).
             filter = add<EditText>()
                 .textSize(13f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
                 .width(FILL)
                 .padding(10.dp)
                 .apply {
                     hint = "筛选发送者"
-                    setHintTextColor(0xFF_777777.toInt())
+                    setHintTextColor(M3.hint)
                     setSingleLine()
                     background = GradientDrawable().apply {
-                        setColor(0xFF_222222.toInt())
+                        setColor(M3.surfaceContainer)
                         cornerRadius = 12.dp.toFloat()
                     }
                 }
@@ -400,7 +401,7 @@ class ChatSearchFragment : MyDialogFragment() {
     /** Load the first image thumbnail of [rec] into [iv] (video / unresolvable → dark placeholder). */
     private fun bindPreview(iv: ImageView, rec: MsgRecord) {
         iv.setImageDrawable(null)
-        iv.setBackgroundColor(0xFF_222222.toInt())
+        iv.setBackgroundColor(M3.surfaceContainer)
         val pic = rec.elements.firstOrNull { it.elementType == ElementType.PIC }?.picElement
         // getImageUrl() throws if originImageUrl is null (Kotlin non-null intrinsic), so guard it.
         val url = pic?.let { runCatching { it.getImageUrl() }.getOrNull() }
@@ -419,7 +420,7 @@ class ChatSearchFragment : MyDialogFragment() {
             add<TextView>()
                 .text("加载聊天记录…")
                 .textSize(14f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
                 .gravity(Gravity.CENTER)
                 .apply { tag = "loading" }
             // Skip the rest of the (slow) full-history load and search what's loaded so far.
@@ -452,7 +453,7 @@ class ChatSearchFragment : MyDialogFragment() {
         root.gravity = Gravity.NO_GRAVITY
         scrollColumn {
             title(msg)
-            button("返回", 0xFF_2A2A2A.toInt(), 0xFF_FFFFFF.toInt()) { showMenu() }
+            button("返回", M3.surfaceContainerHigh, M3.onSurface) { showMenu() }
         }
     }
 
@@ -495,7 +496,7 @@ class ChatSearchFragment : MyDialogFragment() {
         add<TextView>()
             .text(label)
             .textSize(15f)
-            .textColor(0xFF_FFFFFF)
+            .textColor(M3.onSurface)
             .gravity(Gravity.CENTER)
             .width(FILL)
             .padding(top = 14.dp, bottom = 12.dp)
@@ -532,7 +533,7 @@ class ChatSearchFragment : MyDialogFragment() {
         row.setPadding(18.dp, 12.dp, 18.dp, 12.dp)
         val tv = TextView(ctx)
         tv.textSize = 14f
-        tv.setTextColor(0xFF_FFFFFF.toInt())
+        tv.setTextColor(M3.onSurface)
         row.addView(tv)
         return row
     }

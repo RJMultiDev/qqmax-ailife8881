@@ -32,6 +32,7 @@ import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
 import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.width
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 import moye.wearqq.AtElementArg
 import moye.wearqq.IMEOperation
@@ -61,7 +62,7 @@ class MemberPickerFragment : MyDialogFragment() {
     ): View {
         val ctx = inflater.context
         val root = LinearLayout(ctx).vertical()
-        root.setBackgroundColor(0xF0_121212.toInt())
+        root.setBackgroundColor(M3.surface)
 
         allEntries = buildEntries()
         Utils.log("MemberPicker: ${allEntries.size} entries")
@@ -70,24 +71,24 @@ class MemberPickerFragment : MyDialogFragment() {
             add<TextView>()
                 .text("选择要@的成员")
                 .textSize(15f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
                 .gravity(Gravity.CENTER)
                 .width(FILL)
                 .padding(top = 14.dp, bottom = 10.dp)
 
             add<EditText>()
                 .textSize(14f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
                 .width(FILL)
                 .padding(left = 12.dp, top = 8.dp, right = 12.dp, bottom = 8.dp)
                 .marginHorizontal(16.dp)
                 .margin(bottom = 8.dp)
                 .apply {
                     hint = "搜索成员（昵称或 QQ 号）"
-                    setHintTextColor(0xFF_777777.toInt())
+                    setHintTextColor(M3.hint)
                     setSingleLine()
                     background = GradientDrawable().apply {
-                        setColor(0xFF_222222.toInt())
+                        setColor(M3.surfaceContainer)
                         cornerRadius = 12.dp.toFloat()
                     }
                     addTextChangedListener(object : TextWatcher {
@@ -129,9 +130,9 @@ class MemberPickerFragment : MyDialogFragment() {
                 name.text = entry.name
                 if (entry.uid == "all") {
                     avatar.setImageDrawable(null)
-                    avatar.setBackgroundColor(0xFF_4FC3F7.toInt())
+                    avatar.setBackgroundColor(M3.primary)
                 } else {
-                    avatar.setBackgroundColor(0xFF_333333.toInt())
+                    avatar.setBackgroundColor(M3.outlineVariant)
                     avatar.loadPicUrl("https://q.qlogo.cn/headimg_dl?dst_uin=${entry.uin}&spec=100")
                 }
                 clickable { pick(entry) }
@@ -180,7 +181,7 @@ class MemberPickerFragment : MyDialogFragment() {
 
         val name = TextView(ctx)
         name.textSize = 14f
-        name.setTextColor(0xFF_FFFFFF.toInt())
+        name.setTextColor(M3.onSurface)
         name.gravity = Gravity.CENTER_VERTICAL
         name.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
             marginStart = 12.dp

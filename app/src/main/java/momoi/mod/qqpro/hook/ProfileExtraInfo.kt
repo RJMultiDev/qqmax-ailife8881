@@ -11,6 +11,7 @@ import com.tencent.watch.aio_impl.ui.frames.SettingFrame
 import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.hook.style.CARD_MARGIN_DP
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
 private const val EXTRA_TAG = "qqpro_dm_extra_info"
@@ -90,7 +91,7 @@ private fun chip(ctx: Context, bgRes: Int, label: String, value: String): Linear
             text = value
             textSize = 12f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(0xFF_0099FF.toInt())
+            setTextColor(M3.primary)
             gravity = Gravity.CENTER
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
@@ -98,7 +99,7 @@ private fun chip(ctx: Context, bgRes: Int, label: String, value: String): Linear
         addView(TextView(ctx).apply {
             text = label
             textSize = 10f
-            setTextColor(0xFF_FFFFFF.toInt())
+            setTextColor(M3.onSurface)
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -148,12 +149,12 @@ private fun bioCard(ctx: Context, bgRes: Int, bio: String): LinearLayout =
         addView(TextView(ctx).apply {
             text = "签名"
             textSize = 10f
-            setTextColor(0xB3_FFFFFF.toInt())
+            setTextColor(M3.onSurfaceVariant)
         })
         addView(TextView(ctx).apply {
             text = bio
             textSize = 12f
-            setTextColor(0xFF_FFFFFF.toInt())
+            setTextColor(M3.onSurface)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             ).apply { topMargin = 3.dp }

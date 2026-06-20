@@ -1,21 +1,27 @@
 package momoi.mod.qqpro
 
+import momoi.mod.qqpro.lib.material.M3
+
+/**
+ * Legacy color names, kept so existing (incl. chat-screen) call sites keep compiling unchanged.
+ * These are now thin aliases over [M3] — the single source of truth. To retheme, edit [M3], not here.
+ */
 object Colors {
-    const val replyText = 0xFF_dddddd.toInt()
-    const val replyBackground = 0x22_ffffff
-    const val onSurface = 0xff_ffffff.toInt()
-    const val onSurfaceTip = 0xff_999999.toInt()
-    const val btn = 0xff_1B9AF7.toInt()
-    const val atMe = 0xff_F74C30.toInt()
+    val replyText get() = M3.replyText
+    val replyBackground get() = M3.replyBackground
+    val onSurface get() = M3.onSurface
+    val onSurfaceTip get() = M3.onSurfaceTip
+    val btn get() = M3.legacyBtn
+    val atMe get() = M3.atMe
 
     object NickTag {
-        const val specialBg = 0xff_30263F.toInt()
-        const val specialText = 0xff_BB87F7.toInt()
-        const val normalBg = 0xff_2E2E2E.toInt()
-        const val normalText = 0xff_9E9E9E.toInt()
-        const val adminBg = 0xff_0E2D41.toInt()
-        const val adminText = 0xff_0088EE.toInt()
-        const val ownerBg = 0xff_412917.toInt()
-        const val ownerText = 0xff_FF8D40.toInt()
+        val specialBg get() = M3.NickTag.specialBg
+        val specialText get() = M3.NickTag.specialText
+        val normalBg get() = M3.NickTag.normalBg
+        val normalText get() = M3.NickTag.normalText
+        val adminBg get() = M3.NickTag.adminBg
+        val adminText get() = M3.NickTag.adminText
+        val ownerBg get() = M3.NickTag.ownerBg
+        val ownerText get() = M3.NickTag.ownerText
     }
 }

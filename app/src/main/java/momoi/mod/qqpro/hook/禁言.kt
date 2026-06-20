@@ -32,6 +32,7 @@ import momoi.mod.qqpro.lib.text
 import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
 import momoi.mod.qqpro.lib.width
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
 /* 傻逼腾讯，你妈死了
@@ -104,10 +105,10 @@ class 苦呀嘻嘻 : ProfileCardFragment() {
 private fun GroupScope.Text(label: String) = add<TextView>()
     .text(label)
     .textSize(8f)
-    .textColor(0xff_ffffff.toInt())
+    .textColor(M3.onSurface)
 private fun GroupScope.Edit() = add<EditText>()
     .textSize(8f)
-    .textColor(0xff_ffffff.toInt())
+    .textColor(M3.onSurface)
     .apply {
         inputType = InputType.TYPE_NUMBER_FLAG_DECIMAL
     }

@@ -13,6 +13,7 @@ import android.widget.TextView
 import com.tencent.widget.SingleLineTextView
 import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -106,7 +107,7 @@ object ProfileNameView {
         val ml = TextView(ctx).apply {
             tag = TAG_NAME
             textSize = 14f
-            setTextColor(0xFF_FFFFFF.toInt())
+            setTextColor(M3.onSurface)
             gravity = Gravity.CENTER
             maxLines = 4
             ellipsize = TextUtils.TruncateAt.END
@@ -144,14 +145,14 @@ object ProfileNameView {
 
         fun line(toast: String) = TextView(ctx).apply {
             textSize = 10f
-            setTextColor(0xFF_FFFFFF.toInt())
+            setTextColor(M3.onSurface)
             gravity = Gravity.CENTER
             maxLines = 3
             ellipsize = TextUtils.TruncateAt.END
             setOnLongClickListener { copyAndToast(ctx, (it as TextView).text, toast); true }
         }
         val uinView = line("QQ号已复制")
-        val nickView = line("昵称已复制").apply { setTextColor(0xFF_CCCCCC.toInt()) }
+        val nickView = line("昵称已复制").apply { setTextColor(M3.onSurfaceVariant) }
 
         val box = LinearLayout(ctx).apply {
             tag = TAG_PEER

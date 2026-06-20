@@ -14,13 +14,14 @@ import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.SwipeBackLayout
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.vertical
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val BG = 0xF0_121212.toInt()
-private val ACCENT = 0xFF_4FC3F7.toInt()
+private val BG = M3.surface
+private val ACCENT = M3.primary
 private val timeFmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
 /**
@@ -67,7 +68,7 @@ class GroupBulletinFragment(private val groupCode: Long) : MyDialogFragment() {
         val tv = TextView(requireContext()).apply {
             text = msg
             textSize = 14f
-            setTextColor(0xFF_BBBBBB.toInt())
+            setTextColor(M3.onSurfaceVariant)
             gravity = Gravity.CENTER
         }
         root.addView(tv, LinearLayout.LayoutParams(FILL, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -90,7 +91,7 @@ class GroupBulletinFragment(private val groupCode: Long) : MyDialogFragment() {
         col.addView(TextView(ctx).apply {
             text = "群公告"
             textSize = 15f
-            setTextColor(0xFF_FFFFFF.toInt())
+            setTextColor(M3.onSurface)
             gravity = Gravity.CENTER
             setPadding(0, 14.dp, 0, 12.dp)
         }, LinearLayout.LayoutParams(FILL, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -105,7 +106,7 @@ class GroupBulletinFragment(private val groupCode: Long) : MyDialogFragment() {
         val card = LinearLayout(ctx).vertical()
         card.setPadding(14.dp, 12.dp, 14.dp, 12.dp)
         card.background = android.graphics.drawable.GradientDrawable().apply {
-            setColor(0xFF_1E1E1E.toInt())
+            setColor(M3.surfaceContainer)
             cornerRadius = 14.dp.toFloat()
         }
         val lp = LinearLayout.LayoutParams(FILL, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -129,7 +130,7 @@ class GroupBulletinFragment(private val groupCode: Long) : MyDialogFragment() {
         card.addView(TextView(ctx).apply {
             text = body
             textSize = 14f
-            setTextColor(0xFF_EEEEEE.toInt())
+            setTextColor(M3.onSurface)
             setTextIsSelectable(true)
         })
 

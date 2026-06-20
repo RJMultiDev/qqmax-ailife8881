@@ -20,6 +20,7 @@ import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.hook.action.RecentContacts
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -39,11 +40,11 @@ import momoi.mod.qqpro.util.Utils
 object MainNav {
     private const val NAV_TAG = "qqpro_main_nav"
     // Material 3 (dark) palette. The selected item sits on a tonal "active indicator" pill.
-    private val ACCENT = 0xFF_4FC3F7.toInt()          // on-secondary-container (selected icon)
-    private val PILL_COLOR = 0x33_4FC3F7              // secondary-container (active indicator pill)
-    private val IDLE_ICON = 0xFF_C9C7CE.toInt()       // on-surface-variant (inactive icon)
+    private val ACCENT = M3.primary                   // on-secondary-container (selected icon)
+    private val PILL_COLOR = M3.primaryContainer      // secondary-container (active indicator pill)
+    private val IDLE_ICON = M3.onSurfaceVariant       // on-surface-variant (inactive icon)
     private val DOT_COLOR = 0xFF_8A888F.toInt()
-    private val BADGE_COLOR = 0xFF_E5443C.toInt()
+    private val BADGE_COLOR = M3.badge
 
     // Live unread, kept in sync by the kernel listener — same source RichTitlebar uses.
     private val unread = HashMap<String, Int>()
@@ -233,7 +234,7 @@ object MainNav {
                 background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(DOT_COLOR) }
             }
             val badge = TextView(ctx).apply {
-                setTextColor(0xFF_FFFFFF.toInt())
+                setTextColor(M3.onSurface)
                 textSize = 8f
                 gravity = Gravity.CENTER
                 background = GradientDrawable().apply {

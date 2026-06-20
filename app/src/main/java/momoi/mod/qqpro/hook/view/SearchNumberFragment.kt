@@ -22,8 +22,9 @@ import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
 import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.width
+import momoi.mod.qqpro.lib.material.M3
 
-private val ACCENT = 0xFF_4FC3F7.toInt()
+private val ACCENT = M3.primary
 
 /**
  * Full-screen confirmation shown when a bare number (6–15 digits) is tapped in a
@@ -44,7 +45,7 @@ class SearchNumberFragment(
         // Whole page scrolls: number + four action buttons can exceed the round watch screen.
         val scroll = ScrollView(ctx).apply {
             isFillViewport = true
-            setBackgroundColor(0xF0_121212.toInt())
+            setBackgroundColor(M3.surface)
         }
         val root = LinearLayout(ctx)
             .vertical()
@@ -56,17 +57,17 @@ class SearchNumberFragment(
             add<TextView>()
                 .text("搜索该号码")
                 .textSize(16f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
                 .gravity(Gravity.CENTER)
                 .padding(bottom = 10.dp)
             add<TextView>()
                 .text(number)
                 .textSize(15f)
-                .textColor(0xFF_BBBBBB.toInt())
+                .textColor(M3.onSurfaceVariant)
                 .gravity(Gravity.CENTER)
                 .padding(bottom = 14.dp)
 
-            button("搜索好友/群", ACCENT, 0xFF_000000.toInt()) {
+            button("搜索好友/群", ACCENT, M3.onPrimary) {
                 onConfirm()
                 dismiss()
             }
@@ -74,11 +75,11 @@ class SearchNumberFragment(
                 momoi.mod.qqpro.util.Utils.dialNumber(number)
                 dismiss()
             }
-            button("复制号码", 0xFF_3A3A3A.toInt(), 0xFF_FFFFFF.toInt()) {
+            button("复制号码", M3.outline, M3.onSurface) {
                 momoi.mod.qqpro.util.Utils.copyToClipboard(ctx, number, "已复制号码")
                 dismiss()
             }
-            button("取消", 0xFF_2A2A2A.toInt(), 0xFF_FFFFFF.toInt()) {
+            button("取消", M3.surfaceContainerHigh, M3.onSurface) {
                 dismiss()
             }
         }

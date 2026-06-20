@@ -10,6 +10,7 @@ import com.tencent.qqnt.kernel.api.IKernelService
 import com.tencent.qqnt.kernel.nativeinterface.ProfileBizType
 import com.tencent.qqnt.kernel.nativeinterface.Source
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 import mqq.app.MobileQQ
 
@@ -97,7 +98,7 @@ object ProfileDetailCard {
         row.addView(TextView(ctx).apply {
             text = value
             textSize = 12.5f
-            setTextColor(0xDE_FFFFFF.toInt())
+            setTextColor(M3.onSurface)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             isLongClickable = true
             setOnLongClickListener { Utils.copyToClipboard(ctx, value, "已复制"); true }

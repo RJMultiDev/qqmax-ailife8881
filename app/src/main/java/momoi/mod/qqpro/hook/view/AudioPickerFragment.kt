@@ -33,6 +33,7 @@ import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
 import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.width
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -56,7 +57,7 @@ class AudioPickerFragment : MyDialogFragment() {
     ): View {
         val ctx = inflater.context
         val root = LinearLayout(ctx).vertical()
-        root.setBackgroundColor(0xF0_121212.toInt())
+        root.setBackgroundColor(M3.surface)
 
         allEntries = queryAudio()
         Utils.log("AudioPicker: ${allEntries.size} entries")
@@ -65,24 +66,24 @@ class AudioPickerFragment : MyDialogFragment() {
             add<TextView>()
                 .text("选择音频文件")
                 .textSize(15f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
                 .gravity(Gravity.CENTER)
                 .width(FILL)
                 .padding(top = 14.dp, bottom = 10.dp)
 
             add<EditText>()
                 .textSize(14f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
                 .width(FILL)
                 .padding(left = 12.dp, top = 8.dp, right = 12.dp, bottom = 8.dp)
                 .marginHorizontal(16.dp)
                 .margin(bottom = 8.dp)
                 .apply {
                     hint = "搜索文件名"
-                    setHintTextColor(0xFF_777777.toInt())
+                    setHintTextColor(M3.hint)
                     setSingleLine()
                     background = GradientDrawable().apply {
-                        setColor(0xFF_222222.toInt())
+                        setColor(M3.surfaceContainer)
                         cornerRadius = 12.dp.toFloat()
                     }
                     addTextChangedListener(object : TextWatcher {
@@ -97,7 +98,7 @@ class AudioPickerFragment : MyDialogFragment() {
             emptyHint = add<TextView>()
                 .text("未找到音频文件\n(可在设置中改用系统音频选择器)")
                 .textSize(13f)
-                .textColor(0xFF_888888)
+                .textColor(M3.hint)
                 .gravity(Gravity.CENTER)
                 .width(FILL)
                 .padding(top = 24.dp, left = 24.dp, right = 24.dp)
@@ -209,14 +210,14 @@ class AudioPickerFragment : MyDialogFragment() {
 
         val title = TextView(ctx)
         title.textSize = 14f
-        title.setTextColor(0xFF_FFFFFF.toInt())
+        title.setTextColor(M3.onSurface)
         title.maxLines = 1
         title.ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
         texts.addView(title)
 
         val sub = TextView(ctx)
         sub.textSize = 11f
-        sub.setTextColor(0xFF_999999.toInt())
+        sub.setTextColor(M3.hint)
         texts.addView(sub)
 
         row.addView(texts)

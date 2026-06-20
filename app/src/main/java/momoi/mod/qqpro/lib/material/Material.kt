@@ -1,8 +1,11 @@
 package momoi.mod.qqpro.lib.material
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.view.Gravity
 import android.view.View
 import android.widget.EditText
@@ -15,31 +18,94 @@ import momoi.mod.qqpro.lib.dp
  * Reusable Material 3 (dark) building blocks for QQPro's Kotlin-DSL UI (the project uses no XML).
  *
  * Centralized here — not inlined per feature — so every redesigned screen shares one palette and one
- * set of widgets ([MaterialIconButton], [searchField]). The palette mirrors [momoi.mod.qqpro.hook.MainNav]
- * so the home nav and any new bars read as one system. All classes are public on purpose (a @Mixin
- * body that references a helper needs it public, or it hits IllegalAccessError at runtime).
+ * set of widgets ([MaterialIconButton], [searchField], [M3Button], [M3Card], [M3ListItem], [M3Dialog]).
+ * The palette mirrors [momoi.mod.qqpro.hook.MainNav] so the home nav and any new bars read as one system.
+ *
+ * This is the SINGLE SOURCE OF TRUTH for app colors: the legacy [momoi.mod.qqpro.Colors] object now
+ * aliases these tokens, so retheming = editing the token values here. Tokens are named by MD3 role.
+ * All classes are public on purpose (a @Mixin body that references a helper needs it public, or it hits
+ * IllegalAccessError at runtime).
  */
 object M3 {
-    val ACCENT = 0xFF_4FC3F7.toInt()              // primary / selected icon
-    val TONAL = 0x33_4FC3F7                        // tonal container (button background)
-    val ON_SURFACE_VARIANT = 0xFF_C9C7CE.toInt()   // inactive icon/text
-    val BADGE = 0xFF_E5443C.toInt()
-    val SURFACE = 0xFF_222222.toInt()              // field / sunken surface
-    val HINT = 0xFF_777777.toInt()
-    val ON_SURFACE = 0xFF_FFFFFF.toInt()
+    // ── Primary ────────────────────────────────────────────────────────────────
+    val primary = 0xFF_4FC3F7.toInt()              // accent / selected
+    val onPrimary = 0xFF_00344A.toInt()            // text/icon on a filled primary surface
+    val primaryContainer = 0x33_4FC3F7             // tonal container (translucent)
+    val onPrimaryContainer = 0xFF_4FC3F7.toInt()   // content on tonal container
+
+    // ── Surfaces ───────────────────────────────────────────────────────────────
+    val surface = 0xFF_1A1A1A.toInt()              // screen background
+    val surfaceContainer = 0xFF_222222.toInt()     // field / sunken surface / card
+    val surfaceContainerHigh = 0xFF_2A2A2A.toInt() // raised card / row pressed
+    val surfaceVariant = 0xFF_2E2E2E.toInt()
+
+    // ── Content ────────────────────────────────────────────────────────────────
+    val onSurface = 0xFF_FFFFFF.toInt()
+    val onSurfaceVariant = 0xFF_C9C7CE.toInt()     // inactive icon/text
+    val onSurfaceTip = 0xFF_999999.toInt()         // secondary/hint text
+    val hint = 0xFF_777777.toInt()
+    val outline = 0xFF_444444.toInt()
+    val outlineVariant = 0xFF_333333.toInt()
+
+    // ── Status ─────────────────────────────────────────────────────────────────
+    val error = 0xFF_E5443C.toInt()
+    val badge = 0xFF_E5443C.toInt()
+    val legacyBtn = 0xFF_1B9AF7.toInt()            // older link/button blue (Colors.btn)
+
+    // ── Chat tokens (referenced by Colors aliases; values must stay exact) ───────
+    val replyText = 0xFF_DDDDDD.toInt()
+    val replyBackground = 0x22_FFFFFF
+    val atMe = 0xFF_F74C30.toInt()
+
+    object NickTag {
+        val specialBg = 0xFF_30263F.toInt(); val specialText = 0xFF_BB87F7.toInt()
+        val normalBg = 0xFF_2E2E2E.toInt();  val normalText = 0xFF_9E9E9E.toInt()
+        val adminBg = 0xFF_0E2D41.toInt();   val adminText = 0xFF_0088EE.toInt()
+        val ownerBg = 0xFF_412917.toInt();   val ownerText = 0xFF_FF8D40.toInt()
+    }
+
+    // ── Shape / dimens ───────────────────────────────────────────────────────────
+    val radiusSm get() = 8.dp.toFloat()
+    val radiusMd get() = 12.dp.toFloat()
+    val radiusLg get() = 16.dp.toFloat()
+    val radiusPill = 9999f
+
+    // ── Deprecated aliases (kept so existing call sites keep compiling) ──────────
+    val ACCENT get() = primary
+    val TONAL get() = primaryContainer
+    val ON_SURFACE_VARIANT get() = onSurfaceVariant
+    val BADGE get() = badge
+    val SURFACE get() = surfaceContainer
+    val HINT get() = hint
+    val ON_SURFACE get() = onSurface
+
+    /** A solid rounded rect drawable. */
+    fun rounded(color: Int, radius: Float = radiusMd): GradientDrawable = GradientDrawable().apply {
+        setColor(color)
+        cornerRadius = radius
+    }
+
+    /** A stroked (outlined) rounded rect drawable. */
+    fun outlined(strokeColor: Int, radius: Float = radiusMd, strokeWidthDp: Int = 1): GradientDrawable =
+        GradientDrawable().apply {
+            setColor(0)
+            cornerRadius = radius
+            setStroke(strokeWidthDp.dp, strokeColor)
+        }
+
+    /** Wrap a content drawable with an M3 ripple (pressed feedback). */
+    fun ripple(content: Drawable?, rippleColor: Int = 0x33_FFFFFF): RippleDrawable =
+        RippleDrawable(ColorStateList.valueOf(rippleColor), content, content)
 
     /** A rounded, sunken M3 search/text field. */
     fun searchField(ctx: Context, hint: String): EditText = EditText(ctx).apply {
         this.hint = hint
-        setHintTextColor(HINT)
-        setTextColor(ON_SURFACE)
+        setHintTextColor(M3.hint)
+        setTextColor(onSurface)
         textSize = 13f
         setSingleLine()
         setPadding(12.dp, 6.dp, 12.dp, 6.dp)
-        background = GradientDrawable().apply {
-            setColor(SURFACE)
-            cornerRadius = 12.dp.toFloat()
-        }
+        background = rounded(surfaceContainer, radiusMd)
     }
 }
 
