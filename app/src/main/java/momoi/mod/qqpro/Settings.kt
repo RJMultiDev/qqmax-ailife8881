@@ -173,6 +173,9 @@ object Settings {
     // QZone single-video posts: play inline in the feed cell (tap to start/pause) instead of
     // opening the fullscreen viewer. Default off.
     val qzoneInlineVideo = BooleanPref("qzoneInlineVideo", false)
+    // QZone mini-app (小程序) shares: instead of the "请在手机QQ查看" placeholder, fetch the share
+    // landing page and render the real app name/icon/description as a card. Default on.
+    val qzoneMiniAppCard = BooleanPref("qzoneMiniAppCard", true)
     // Chat-settings panel (好友/群资料页 header name): show the contact/group name on multiple
     // lines instead of truncating to one, and allow long-pressing it to copy. Replaces the
     // single-line nick view with a multiline TextView that mirrors the original's (async) text.
@@ -235,7 +238,7 @@ object Settings {
         floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread,
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
-        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo,
+        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo, qzoneMiniAppCard,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
         doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,
         notifyVibrateMode, voiceBtnText, watchdogEnabled, enableLog,
