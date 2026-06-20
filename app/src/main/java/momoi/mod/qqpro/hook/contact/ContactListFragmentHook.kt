@@ -60,7 +60,7 @@ class ContactListFragmentHook : ContactListFragment() {
             liveData.observe(this, Observer { state ->
                 state ?: return@Observer
                 runCatching {
-                    submitList(adapter, rebuild(state, viewModel))
+                    rebuild(state, viewModel, adapter)
                 }.onFailure { Utils.log("ContactListFragmentHook: rebuild/submit failed: $it") }
             })
         }.onFailure { Utils.log("ContactListFragmentHook onCreate: $it") }
@@ -71,11 +71,22 @@ class ContactListFragmentHook : ContactListFragment() {
         if (Settings.contactSections.value && v is RecyclerView) {
             runCatching { v.addOnChildAttachStateChangeListener(HeaderStyler(v, field("i")!!)) }
                 .onFailure { Utils.log("ContactListFragmentHook Y: $it") }
+            // Y() returns a bare RecyclerView; wrap it with the Material top bar and return the
+            // WRAPPER as the fragment's view, so ViewPager2's FragmentStateAdapter keeps the bar on
+            // every rebind (a post-hoc reparent gets orphaned — the bar vanished on page switch).
+            return runCatching { ContactTopBar.wrap(this, v) }
+                .onFailure { Utils.log("ContactListFragmentHook wrap bar: $it") }
+                .getOrDefault(v)
         }
         return v
     }
 
-    private fun rebuild(state: Any, viewModel: Any): List<ContactBaseItem> {
+    /**
+     * Rebuild the list (好友/群聊 sections only — the 加好友/通知 action rows now live in
+     * [ContactTopBar]) and hand it, plus the notification counts, to the bar. The bar owns the actual
+     * (search-filtered) submit so a state change and a search keystroke share one submit path.
+     */
+    private fun rebuild(state: Any, viewModel: Any, adapter: Any) {
         @Suppress("UNCHECKED_CAST")
         val friends = state.field("a") as List<ContactBaseItem>
         @Suppress("UNCHECKED_CAST")
@@ -85,10 +96,7 @@ class ContactListFragmentHook : ContactListFragment() {
         momoi.mod.qqpro.hook.MainNav.contactUnread = friendCount + groupCount
         momoi.mod.qqpro.hook.MainNav.refresh()
 
-        val out = ArrayList<ContactBaseItem>(friends.size + groups.size + 5)
-        out.add(AddFriendItem())                       // 加好友/群聊
-        out.add(FriendNotifyItem(friendCount))         // replaces the combined 我的通知 ...
-        out.add(GroupNotifyItem(groupCount))           // ... with two split entries
+        val out = ArrayList<ContactBaseItem>(friends.size + groups.size + 2)
         if (friends.isNotEmpty()) {
             out.add(SectionHeaderItem("好友"))
             out.addAll(friends)
@@ -97,7 +105,23 @@ class ContactListFragmentHook : ContactListFragment() {
             out.add(SectionHeaderItem("群聊"))
             out.addAll(groups)
         }
-        return out
+        ContactTopBar.updateList(adapter, out, friendCount, groupCount)
+    }
+
+    /** Top-bar 加好友/群聊 button — reuse the stock dispatch (it opens the add-friend option selector). */
+    fun topAddFriend() {
+        runCatching { e0(ContactListIntent.OnUseClick(AddFriendItem())) }
+            .onFailure { Utils.log("ContactListFragmentHook topAddFriend: $it") }
+    }
+
+    /** Top-bar 好友通知 button — friend-request notification screen. */
+    fun topFriendNotify() {
+        navigate("select_fragment_to_add_friend", Bundle().apply { putInt("type", 5) })
+    }
+
+    /** Top-bar 群通知 button — group join/notification screen. */
+    fun topGroupNotify() {
+        navigate("aio_fragment_to_troop_nav", Bundle().apply { putInt("NAVIGATE_TYPE", 3) })
     }
 
     /** Friend vs group notification counts. The repo (ContactVM.e) tracks them separately as
@@ -141,10 +165,6 @@ class ContactListFragmentHook : ContactListFragment() {
             } ?: run { Utils.log("ContactListFragmentHook: navigate(int,Bundle,..) not found"); return }
             navigate.invoke(nav, actionId, args, null)
         }.onFailure { Utils.log("ContactListFragmentHook navigate $actionResName: $it") }
-    }
-
-    private fun submitList(adapter: Any, list: List<ContactBaseItem>) {
-        adapter.javaClass.getMethod("submitList", List::class.java).invoke(adapter, list)
     }
 
     /** Read an obfuscated public field by its raw name (searches the class hierarchy). */
