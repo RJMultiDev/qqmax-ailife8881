@@ -11,7 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ProgressBar
+import momoi.mod.qqpro.lib.material.M3CircularProgress
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.tencent.qqnt.kernel.api.impl.MsgService
@@ -31,6 +31,8 @@ import com.tencent.watch.aio_impl.ui.menu.AIOLongClickMenuFragment
 import com.tencent.watch.aio_impl.ui.menu.MenuItemFactory
 import com.tencent.watch.ime.util.ImeTextUtil
 import loadPicElement
+import loadErrorImage
+import momoi.mod.qqpro.lib.bitmapDecodeFile
 import download
 import java.io.File
 import momoi.mod.qqpro.MsgUtil
@@ -78,19 +80,50 @@ import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.util.linkify
 import momoi.mod.qqpro.util.runOnUi
 
-class BigImageFragment(private val pic: PicElement) : MyDialogFragment() {
+/**
+ * Full-screen zoomable image viewer (native [RFWMatrixImageView]) with an M3 loading indicator.
+ *
+ * Two load paths:
+ *  - [pic] only (forward-history images that carry a real URL): download via our HTTP loader.
+ *  - [kernelLoad] provided (live chat images, see [momoi.mod.qqpro.hook.ImagePlay]): the kernel owns
+ *    the file, so we never download manually — the lambda resolves the local path (triggering the
+ *    kernel download with progress if needed) and reports back the file to decode.
+ */
+class BigImageFragment(
+    private val pic: PicElement,
+    private val kernelLoad: ((onProgress: (Float) -> Unit, onDone: (String?) -> Unit) -> Unit)? = null,
+) : MyDialogFragment() {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        return FrameLayout(inflater.context)
+        val ctx = inflater.context
+        // M3 loading indicator: spins until download starts, then shows determinate progress.
+        val spinner = M3CircularProgress(ctx).apply {
+            layoutParams = FrameLayout.LayoutParams(40.dp, 40.dp, Gravity.CENTER)
+        }
+        val image = RFWMatrixImageView(ctx, null)
+            .layoutParams(ViewGroup.LayoutParams(FILL, FILL))
+        val onProgress = { p: Float -> spinner.indeterminate = false; spinner.progress = p }
+        if (kernelLoad != null) {
+            kernelLoad(onProgress) { path ->
+                spinner.visibility = View.GONE
+                val f = path?.let { java.io.File(it) }
+                if (f != null && f.exists() && f.length() > 0) image.bitmapDecodeFile(f)
+                else image.loadErrorImage()
+            }
+        } else {
+            image.loadPicElement(
+                pic,
+                onDone = { spinner.visibility = View.GONE },
+                onProgress = onProgress,
+            )
+        }
+        return FrameLayout(ctx)
             .content {
-                add(
-                    RFWMatrixImageView(inflater.context, null)
-                        .layoutParams(ViewGroup.LayoutParams(FILL, FILL))
-                        .loadPicElement(pic)
-                )
+                add(image)
+                add(spinner)
                 add<View>()
                     .size(FILL, 12.dp)
                     .clickable {
@@ -462,16 +495,24 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                                             }
                                                         }
                                                     }
-                                                // Animated spinner shown until the image finishes loading.
-                                                val progress = add<ProgressBar>()
+                                                // M3 loading indicator: spins until the download starts,
+                                                // then shows real determinate progress (HTTP Content-Length).
+                                                val progress = add<M3CircularProgress>()
                                                 progress.layoutParams =
                                                     FrameLayout.LayoutParams(28.dp, 28.dp, Gravity.CENTER)
-                                                image.loadPicElement(pic) { ok ->
-                                                    progress.visibility = View.GONE
-                                                    if (!ok) Utils.log(
-                                                        "history image load failed md5=${pic.md5HexStr}"
-                                                    )
-                                                }
+                                                image.loadPicElement(
+                                                    pic,
+                                                    onDone = { ok ->
+                                                        progress.visibility = View.GONE
+                                                        if (!ok) Utils.log(
+                                                            "history image load failed md5=${pic.md5HexStr}"
+                                                        )
+                                                    },
+                                                    onProgress = { p ->
+                                                        progress.indeterminate = false
+                                                        progress.progress = p
+                                                    },
+                                                )
                                             }
                                             return@forEach
                                         }

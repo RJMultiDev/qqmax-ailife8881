@@ -15,6 +15,9 @@ import momoi.mod.qqpro.lib.SwipeBackLayout
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.M3Progress
+import momoi.mod.qqpro.lib.material.MaterialSymbols
+import momoi.mod.qqpro.lib.material.leadingSymbol
 import momoi.mod.qqpro.util.Utils
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -53,7 +56,9 @@ class GroupBulletinFragment(private val groupCode: Long) : MyDialogFragment() {
         root.setBackgroundColor(BG)
         swipe.addView(root, FrameLayout.LayoutParams(FILL, FILL))
 
-        showCentered("加载中…")
+        // M3 loading spinner while the bulletin list is fetched; the callback replaces the content
+        // (showList/showCentered call removeAllViews) which clears the overlay.
+        M3Progress.show(root, sizeDp = 36)
         GroupBulletinApi.fetch(groupCode) { items ->
             if (!active) return@fetch
             if (items.isEmpty()) showCentered("暂无群公告")
@@ -114,15 +119,14 @@ class GroupBulletinFragment(private val groupCode: Long) : MyDialogFragment() {
         card.layoutParams = lp
 
         // header: pin tag + time
-        val header = StringBuilder()
-        if (item.pinned) header.append("📌 ")
-        if (item.time > 0) header.append(timeFmt.format(Date(item.time.toLong() * 1000L)))
-        if (header.isNotEmpty()) {
+        val timeStr = if (item.time > 0) timeFmt.format(Date(item.time.toLong() * 1000L)) else ""
+        if (item.pinned || timeStr.isNotEmpty()) {
             card.addView(TextView(ctx).apply {
-                text = header.toString()
+                text = timeStr
                 textSize = 11f
                 setTextColor(ACCENT)
                 setPadding(0, 0, 0, 6.dp)
+                if (item.pinned) leadingSymbol(MaterialSymbols.push_pin, ACCENT, sizeDp = 12, gap = 4)
             })
         }
 
@@ -137,10 +141,11 @@ class GroupBulletinFragment(private val groupCode: Long) : MyDialogFragment() {
         item.images.forEachIndexed { idx, image ->
             val label = if (item.images.size == 1) "查看图片" else "查看图片 ${idx + 1}"
             card.addView(TextView(ctx).apply {
-                text = "🖼 $label"
+                text = label
                 textSize = 13f
                 setTextColor(ACCENT)
                 setPadding(0, 8.dp, 0, 0)
+                leadingSymbol(MaterialSymbols.image, ACCENT, sizeDp = 14, gap = 4)
                 setOnClickListener { openImage(this, image) }
             })
         }
@@ -149,7 +154,7 @@ class GroupBulletinFragment(private val groupCode: Long) : MyDialogFragment() {
 
     private fun openImage(view: TextView, image: GroupBulletinApi.Image) {
         val original = view.text
-        view.text = "⏳ 下载中…"
+        view.text = "下载中…"
         view.isEnabled = false
         GroupBulletinApi.downloadImage(image) { bmp ->
             if (!active) return@downloadImage

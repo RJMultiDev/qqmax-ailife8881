@@ -27,6 +27,7 @@ fun ImageView.loadPicUrl(
     url: String?,
     cacheFileName: String = "${System.currentTimeMillis() / 1000}${url.hashCode()}",
     onDone: ((Boolean) -> Unit)? = null,
+    onProgress: ((Float) -> Unit)? = null,
 ) = apply {
     if (url.isNullOrEmpty()) {
         Utils.log("loadPicUrl: empty url, skip")
@@ -49,7 +50,10 @@ fun ImageView.loadPicUrl(
         finish(true)
     } else {
         Utils.log("Loading image (downloading): $url -> ${cacheFile.path}")
-        download(url, cacheFile) { succeed ->
+        download(
+            url, cacheFile,
+            onProgress = { p -> onProgress?.let { cb -> post { cb(p) } } },
+        ) { succeed ->
             if (succeed) {
                 Utils.log("Downloaded image, decoding ${cacheFile.path}")
                 bitmapDecodeFile(cacheFile)
@@ -63,9 +67,13 @@ fun ImageView.loadPicUrl(
     }
 }
 
-fun ImageView.loadPicElement(pic: PicElement, onDone: ((Boolean) -> Unit)? = null) = apply {
+fun ImageView.loadPicElement(
+    pic: PicElement,
+    onDone: ((Boolean) -> Unit)? = null,
+    onProgress: ((Float) -> Unit)? = null,
+) = apply {
     // 调用抽取的函数
-    loadPicUrl(pic.getImageUrl(), pic.md5HexStr, onDone)
+    loadPicUrl(pic.getImageUrl(), pic.md5HexStr, onDone, onProgress)
 }
 
 /** Show the fallback "broken image" placeholder. */
@@ -80,7 +88,12 @@ fun ImageView.loadErrorImage() {
     }
 }
 
-inline fun download(rawUrl: String, file: File, crossinline callback: (Boolean) -> Unit) {
+inline fun download(
+    rawUrl: String,
+    file: File,
+    crossinline onProgress: (Float) -> Unit = {},
+    crossinline callback: (Boolean) -> Unit,
+) {
     downloadExecutor.execute {
         var connection: HttpURLConnection? = null
         val uri = rawUrl.toUri()
@@ -100,9 +113,19 @@ inline fun download(rawUrl: String, file: File, crossinline callback: (Boolean) 
                 if (!file.exists()) {
                     file.createNewFile()
                 }
+                // Copy in a loop so we can report download progress (Content-Length) for a
+                // determinate indicator; total <= 0 (chunked/unknown) leaves it indeterminate.
+                val total = connection.contentLengthLong
                 connection.inputStream.use { input ->
                     file.outputStream().use { out ->
-                        input.copyTo(out)
+                        val buf = ByteArray(16 * 1024)
+                        var read: Int
+                        var done = 0L
+                        while (input.read(buf).also { read = it } >= 0) {
+                            out.write(buf, 0, read)
+                            done += read
+                            if (total > 0) onProgress((done.toFloat() / total).coerceIn(0f, 1f))
+                        }
                     }
                 }
                 callback(true)

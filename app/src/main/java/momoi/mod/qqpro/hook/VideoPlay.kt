@@ -43,8 +43,14 @@ abstract class VideoPlay : BaseWatchItemCell<WatchAIOMsgItem, View>() {
                 (view.getContentWidget<View>() as? WatchVideoGroupWidget)?.m ?: return
             else -> return
         }
-        cover.setOnClickListener { v -> handleVideoClick(item, v) }
+        // Attach via a top-level helper, not an inline lambda here (see ImagePlay): an inline lambda
+        // in this @Mixin body is merged into BaseWatchItemCell and collides with ImagePlay's.
+        attachVideoClick(cover, item)
     }
+}
+
+private fun attachVideoClick(cover: View, item: WatchVideoMsgItem) {
+    cover.setOnClickListener { v -> handleVideoClick(item, v) }
 }
 
 // 非 @Mixin 普通函数:内部创建的匿名类(Fragment 回调 / lambda / OnClickListener)生成在本包,不会被

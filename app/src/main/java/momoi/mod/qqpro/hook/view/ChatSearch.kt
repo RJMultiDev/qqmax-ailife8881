@@ -32,6 +32,7 @@ import momoi.mod.qqpro.lib.linearLayout
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.marginHorizontal
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.M3CircularProgress
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.text
 import momoi.mod.qqpro.lib.textColor
@@ -417,6 +418,10 @@ class ChatSearchFragment : MyDialogFragment() {
         root.removeAllViews()
         root.gravity = Gravity.CENTER
         root.content {
+            add<M3CircularProgress>().apply {
+                layoutParams = android.widget.LinearLayout.LayoutParams(36.dp, 36.dp)
+                    .apply { bottomMargin = 12.dp }
+            }
             add<TextView>()
                 .text("加载聊天记录…")
                 .textSize(14f)
@@ -427,7 +432,7 @@ class ChatSearchFragment : MyDialogFragment() {
             add<TextView>()
                 .text("立即显示当前结果")
                 .textSize(13f)
-                .textColor(0xFF_000000.toInt())
+                .textColor(M3.onPrimary)
                 .gravity(Gravity.CENTER)
                 .width(FILL)
                 .marginHorizontal(24.dp)

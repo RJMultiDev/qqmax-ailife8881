@@ -23,7 +23,7 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ProgressBar
+import momoi.mod.qqpro.lib.material.M3CircularProgress
 import android.widget.SeekBar
 import android.widget.TextView
 import momoi.mod.qqpro.lib.dp
@@ -50,7 +50,8 @@ class VideoPlayerFragment(
 ) : MyDialogFragment() {
 
     private var textureView: TextureView? = null
-    private var spinner: ProgressBar? = null
+    // Indeterminate: the QQ kernel auto-downloads the video without exposing a byte progress.
+    private var spinner: M3CircularProgress? = null
     private var controls: View? = null
     private var playButton: ImageView? = null
     private var seekBar: SeekBar? = null
@@ -137,9 +138,9 @@ class VideoPlayerFragment(
             override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
         }
 
-        val pb = ProgressBar(ctx)
+        val pb = M3CircularProgress(ctx)
         spinner = pb
-        root.addView(pb, FrameLayout.LayoutParams(-2, -2).apply { gravity = Gravity.CENTER })
+        root.addView(pb, FrameLayout.LayoutParams(40.dp, 40.dp).apply { gravity = Gravity.CENTER })
 
         root.addView(buildControls(ctx), FrameLayout.LayoutParams(-1, -2).apply {
             gravity = Gravity.BOTTOM

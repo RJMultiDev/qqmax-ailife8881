@@ -23,6 +23,7 @@ import com.tencent.qqnt.watch.troop.ui.member.ui.rv.GroupMemberAdapter
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.M3Progress
 import momoi.mod.qqpro.lib.material.MaterialSymbol
 import momoi.mod.qqpro.lib.material.MaterialSymbols
 import momoi.mod.qqpro.lib.material.leadingSymbol
@@ -48,6 +49,7 @@ object MemberListSearch {
     private var lastSubmittedByUs: List<GroupMemberBaseItem>? = null
     private var query = ""
     private var adapterRef: WeakReference<GroupMemberAdapter>? = null
+    private var contentRef: WeakReference<ViewGroup>? = null
 
     /** Wraps [root] with the top bar and returns the new root (or null to keep [root]). */
     fun install(fragment: GroupMemberFragment, root: View): View? {
@@ -146,7 +148,16 @@ object MemberListSearch {
             tag = SEARCH_TAG
         }
         wrap.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, WRAP))
-        wrap.addView(root, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        // Host the list in a FrameLayout so the M3 loading spinner can overlay it (the spinner
+        // can't be a child of the RecyclerView itself, nor centered in the vertical wrap).
+        val listHost = android.widget.FrameLayout(ctx)
+        listHost.addView(root, android.widget.FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        wrap.addView(listHost, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+
+        // M3 loading spinner over the list area until the first members arrive (onAdapterChanged).
+        contentRef = WeakReference(listHost)
+        if (fullList.isEmpty()) M3Progress.show(listHost, sizeDp = 36)
 
         adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
             override fun onChanged() = onAdapterChanged()
@@ -167,6 +178,7 @@ object MemberListSearch {
         val cur = runCatching { adapter.currentList }.getOrNull() ?: return
         if (cur == lastSubmittedByUs) return
         fullList = cur.filterIsInstance<GroupMemberItem>()
+        if (fullList.isNotEmpty()) contentRef?.get()?.let { M3Progress.hide(it) }
         apply()
     }
 

@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
+import com.tencent.richframework.widget.matrix.RFWMatrixImageView
 import momoi.mod.qqpro.hook.view.MyDialogFragment
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.safeCacheDir
@@ -81,21 +82,25 @@ object MarketFaceImage {
     }
 }
 
-/** Fullscreen viewer for an already-rendered bitmap (market-face image). Tap to dismiss. */
+/**
+ * Fullscreen viewer for an already-rendered bitmap (market-face / store sticker image). Uses the same
+ * zoomable [RFWMatrixImageView] as the chat photo viewer ([BigImageFragment]) so stickers pinch/double-
+ * tap zoom too. A thin top strip dismisses (tapping the image itself is reserved for zoom gestures).
+ */
 class BitmapImageFragment(private val bmp: Bitmap) : MyDialogFragment() {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        return FrameLayout(inflater.context).apply {
+        val ctx = inflater.context
+        return FrameLayout(ctx).apply {
             setBackgroundColor(0xCC_000000.toInt())
-            val image = ImageView(inflater.context).apply {
-                setImageBitmap(bmp)
-                scaleType = ImageView.ScaleType.FIT_CENTER
-            }
+            val image = RFWMatrixImageView(ctx, null).apply { setImageBitmap(bmp) }
             addView(image, FrameLayout.LayoutParams(FILL, FILL))
-            setOnClickListener { dismiss() }
+            // Dismiss strip at the top (the image area is used for zoom, not dismiss).
+            val strip = View(ctx).apply { setOnClickListener { dismiss() } }
+            addView(strip, FrameLayout.LayoutParams(FILL, 12 * resources.displayMetrics.density.toInt()))
         }
     }
 }
