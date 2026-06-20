@@ -20,6 +20,7 @@ import momoi.mod.qqpro.drawable.sendIconDrawable
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.dpf
 import momoi.mod.qqpro.util.Utils
+import momoi.mod.qqpro.lib.material.M3
 
 @Mixin
 class 输入页透明 : InputMethodFragment() {
@@ -78,7 +79,7 @@ class 输入页透明 : InputMethodFragment() {
         // Hide the now-duplicated text "发送" button in the bottom row.
         confirm.visibility = View.GONE
 
-        val accentBg = roundCornerDrawable(0xFF_1B9AF7.toInt(), 9999f)
+        val accentBg = roundCornerDrawable(M3.primary, 9999f)
 
         val close = ImageView(ctx).apply {
             setImageDrawable(closeIconDrawable())

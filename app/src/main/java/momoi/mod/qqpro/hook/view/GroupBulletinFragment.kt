@@ -21,7 +21,7 @@ import java.util.Date
 import java.util.Locale
 
 private val BG = M3.surface
-private val ACCENT = M3.primary
+private val ACCENT get() = M3.primary
 private val timeFmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
 /**

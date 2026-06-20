@@ -47,6 +47,7 @@ import moye.wearqq.AtElementArg
 import moye.wearqq.IMEOperation
 import moye.wearqq.ReplyElementArg
 import java.lang.ref.WeakReference
+import momoi.mod.qqpro.lib.material.M3
 
 /**
  * Controller for "完全行内输入" (Settings.fullInlineInput): everything that would normally open the
@@ -63,7 +64,7 @@ import java.lang.ref.WeakReference
  * keyboard page. At send time [send] walks the spans back into MsgElements.
  */
 object InlineInput {
-    private val tokenColor = 0xFF_4FC3F7.toInt()
+    private val tokenColor get() = M3.primary
     private const val BANNER_TAG = "qqpro_inline_banner"
 
     private val mainHandler = Handler(Looper.getMainLooper())

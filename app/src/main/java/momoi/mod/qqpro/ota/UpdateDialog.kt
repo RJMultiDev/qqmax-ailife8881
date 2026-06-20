@@ -26,8 +26,9 @@ import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
 import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.width
+import momoi.mod.qqpro.lib.material.M3
 
-private val ACCENT = 0xFF_4FC3F7.toInt()
+private val ACCENT get() = M3.primary
 private val BG = 0xF0_121212.toInt()
 
 /**

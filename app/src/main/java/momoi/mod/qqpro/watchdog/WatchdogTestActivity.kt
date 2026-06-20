@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import momoi.mod.qqpro.lib.SwipeBackLayout
+import momoi.mod.qqpro.lib.material.M3
 
 /**
  * Watchdog test panel: each button deliberately crashes or hangs the app so the separate-process
@@ -84,7 +85,7 @@ class WatchdogTestActivity : Activity() {
     private fun section(parent: LinearLayout, title: String) {
         parent.addView(TextView(this).apply {
             text = title
-            setTextColor(0xFF_4FC3F7.toInt())
+            setTextColor(M3.primary)
             sp(this, 11f)
             setPadding(0, dp(12), 0, dp(6))
         })
@@ -98,7 +99,7 @@ class WatchdogTestActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(0, dp(9), 0, dp(9))
             background = GradientDrawable().apply {
-                setColor(0xFF_2196F3.toInt())
+                setColor(M3.primary)
                 cornerRadius = dp(18).toFloat()
             }
             // Run after the click is handled so the trigger is realistic.

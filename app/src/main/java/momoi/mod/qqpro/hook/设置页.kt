@@ -33,6 +33,7 @@ import momoi.mod.qqpro.lib.content
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.M3Switch
 import momoi.mod.qqpro.lib.height
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.onCheckedChange
@@ -57,7 +58,7 @@ import moye.wearqq.SettingsActivity
 import kotlin.math.roundToInt
 
 // Routed through the single M3 token source so a retheme flows from lib/material/Material.kt.
-private val ACCENT = M3.primary
+private val ACCENT get() = M3.primary
 private val TRACK_INACTIVE = M3.outline
 private const val REQ_PICK_CHAT_BG = 0x9B01
 private const val REQ_IMPORT_SETTINGS = 0x9B02
@@ -189,6 +190,10 @@ class 设置页 : SettingsActivity() {
 
     /** The full settings tree, grouped into categories for the two-level navigation. */
     private fun buildCategories(): List<SettingsCategory> = listOf(
+        SettingsCategory("外观主题", "Material 主题色") {
+            themeColorPicker()
+            textInput("自定义主题色", "16进制如 #4FC3F7，留空恢复默认。重进页面生效", Settings.themeColor)
+        },
         SettingsCategory("聊天输入", "输入框、发送方式与表情") {
             switch("聊天页直接输入", "在聊天页用输入框替换键盘键，有文字时麦克风键变发送键", Settings.inlineChatInput)
             switch("完全行内输入", "彻底不打开输入法页面：@、图片、回复、编辑、语音转文字都在输入框内完成。@xxx 与 [图片] 整体删除，回复/编辑在输入框上方显示横幅可点击取消(需开启“聊天页直接输入”)", Settings.fullInlineInput)
@@ -334,10 +339,11 @@ class 设置页 : SettingsActivity() {
     ) = card { card ->
         card.content {
             titleColumn(title, desc).weight(1f)
-            // The base app's own switch — the nicer styled toggle used by the native NWear settings.
-            val sw = Switch(this@设置页, null)
-            sw.isChecked = pref.value
-            sw.onCheckedChange { pref.value = it }
+            // Our own Material switch (M3Switch), themed from the M3 accent — replaces the base app's
+            // native toggle so it follows the user's theme color.
+            val sw = M3Switch(this@设置页)
+            sw.setChecked(pref.value, notify = false)
+            sw.onChange = { pref.value = it }
             add(sw)
         }
     }
@@ -492,6 +498,78 @@ class 设置页 : SettingsActivity() {
                     }.weight(1f).margin(left = 4.dp)
                 }
         }
+    }
+
+    /**
+     * Material 主题色 picker: a preview chip plus a grid of preset accent swatches. Tapping a swatch
+     * writes [Settings.themeColor] (blank for the built-in default) — [M3.primary] reads it live, so
+     * the whole materialized UI rethemes the next time each screen is built. Updates the ring/preview
+     * in place for immediate feedback.
+     */
+    @SuppressLint("SetTextI18n")
+    private fun GroupScopeFix.themeColorPicker() = card { card ->
+        card.vertical()
+        val default = "#4FC3F7"
+        val presets = listOf(
+            "#4FC3F7", "#2196F3", "#5C6BC0", "#7E57C2", "#AB47BC", "#EC407A",
+            "#EF5350", "#FF7043", "#FFA726", "#FFCA28", "#66BB6A", "#26A69A",
+        )
+        fun norm(s: String) = (if (s.isBlank()) default else s).trim().removePrefix("#").uppercase()
+        val swatches = ArrayList<Pair<String, View>>()
+        lateinit var preview: View
+        lateinit var previewLabel: TextView
+
+        fun refresh() {
+            val cur = norm(Settings.themeColor.value)
+            for ((hex, v) in swatches) {
+                val sel = norm(hex) == cur
+                v.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(M3.parseColor(hex, M3.DEFAULT_PRIMARY))
+                    if (sel) setStroke(3.dp, M3.onSurface)
+                }
+            }
+            preview.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(M3.primary)
+            }
+            previewLabel.text = "当前主题色  #${cur}"
+        }
+
+        card.content {
+            // Preview row.
+            add<LinearLayout>()
+                .width(FILL)
+                .padding(bottom = 8.dp)
+                .content {
+                    preview = add<View>().size(22.dp).margin(right = 10.dp)
+                    previewLabel = add<TextView>()
+                        .textSize(13f)
+                        .textColor(M3.onSurface)
+                        .gravity(Gravity.CENTER_VERTICAL)
+                }
+        }
+
+        // Swatch grid: rows of 6.
+        for (row in presets.chunked(6)) {
+            val rowView = LinearLayout(this@设置页)
+            rowView.layoutParams = LinearLayout.LayoutParams(FILL, WRAP).apply { topMargin = 4.dp }
+            for (hex in row) {
+                val sw = View(this@设置页)
+                sw.layoutParams = LinearLayout.LayoutParams(30.dp, 30.dp).apply {
+                    rightMargin = 8.dp
+                }
+                sw.onClick {
+                    Settings.themeColor.value = if (norm(hex) == norm(default)) "" else hex
+                    refresh()
+                    Utils.toast(this@设置页, "已设置主题色，重进页面生效")
+                }
+                swatches.add(hex to sw)
+                rowView.addView(sw)
+            }
+            card.addView(rowView)
+        }
+        refresh()
     }
 
     private fun GroupScopeFix.pillButton(

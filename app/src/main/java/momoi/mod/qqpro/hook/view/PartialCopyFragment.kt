@@ -18,7 +18,7 @@ import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
-private val ACCENT = M3.primary
+private val ACCENT get() = M3.primary
 private val BG = M3.surface
 
 /**

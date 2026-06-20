@@ -64,6 +64,7 @@ import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.util.Utils
 import java.io.File
 import java.io.FileOutputStream
+import momoi.mod.qqpro.lib.material.M3
 
 // Last emitted inlineGrow debug line; used to suppress repeated identical logs across layout passes.
 private var lastInlineGrowLog = ""
@@ -84,7 +85,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
         val emoji = getChildAt(0)
         val keyboard = getChildAt(2)
         GroupScope(this).apply {
-            val roundBg = roundCornerDrawable(0xFF_1B9AF7.toInt(), 9999f)
+            val roundBg = roundCornerDrawable(M3.primary, 9999f)
             val sideSpaceDp = Settings.screenCornerDiameter.value.toInt()
             // Baseline single-line height of the bar; buttons stay this tall while the EditText grows.
             val lineH = 36.dp

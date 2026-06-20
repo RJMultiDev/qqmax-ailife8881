@@ -35,6 +35,7 @@ import momoi.mod.qqpro.util.Utils
 import mqq.app.MobileQQ
 import java.io.File
 import java.lang.ref.WeakReference
+import momoi.mod.qqpro.lib.material.M3
 
 /**
  * 完全行内输入 voice messaging. Holding the voice button in the inline input bar records a PTT
@@ -58,7 +59,7 @@ object VoiceRecord {
     private val main = Handler(Looper.getMainLooper())
 
     private val colorIdle = 0xFF_2A2A2A.toInt()
-    private val colorBlue = 0xFF_1B9AF7.toInt()
+    private val colorBlue get() = M3.primary
     private val colorRed = 0xFF_E0_53_53.toInt()
     private val scrim = 0xAA_000000.toInt()
 
@@ -437,7 +438,7 @@ object VoiceRecord {
             style = android.graphics.Paint.Style.STROKE
             strokeWidth = 3f.dpf
             strokeCap = android.graphics.Paint.Cap.ROUND
-            color = 0xFF_1B9AF7.toInt()
+            color = M3.primary
         }
         private val path = android.graphics.Path()
         private var phase = 0f

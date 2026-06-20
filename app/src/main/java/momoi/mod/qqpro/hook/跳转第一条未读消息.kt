@@ -18,6 +18,7 @@ import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.asGroup
 import momoi.mod.qqpro.drawable.roundCornerDrawable
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.action.CurrentMsgList
 import momoi.mod.qqpro.hook.action.RecentContacts
@@ -115,7 +116,7 @@ class 跳转第一条未读消息 : WatchAIOListVB() {
                     .background(roundCornerDrawable(0xFF_303030.toInt(), 9999f, 0f, 9999f, 0f))
                     .padding(6.dp)
                     .textSize(12f)
-                    .textColor(0xFF_22a6f2)
+                    .textColor(M3.primary)
                 SkipAction(this@跳转第一条未读消息.H, tv, recent)
             }
         }

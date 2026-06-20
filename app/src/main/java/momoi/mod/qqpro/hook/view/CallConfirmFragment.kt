@@ -23,7 +23,7 @@ import momoi.mod.qqpro.lib.width
 import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
-private val ACCENT = M3.primary
+private val ACCENT get() = M3.primary
 
 /**
  * Full-screen confirmation shown before starting a voice / video call, to avoid accidental

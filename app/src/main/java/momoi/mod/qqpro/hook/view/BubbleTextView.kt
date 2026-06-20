@@ -12,6 +12,7 @@ import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.hook.action.CurrentMsgList
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.util.Utils
+import momoi.mod.qqpro.lib.material.M3
 
 /**
  * The native chat unread bubble ([com.tencent.watch.aio_impl.reserve1.unreadbubble.UnreadBubbleVB])
@@ -33,7 +34,7 @@ import momoi.mod.qqpro.util.Utils
 @SuppressLint("ViewConstructor", "SetTextI18n")
 class BubbleTextView(context: Context) : TextView(context) {
     // Left corners fully rounded (semicircle), right corners square so it sits flush to the screen edge.
-    private val blueBg = roundCornerDrawable(0xFF_22a6f2.toInt(), 9999f, 0f, 9999f, 0f)
+    private val blueBg = roundCornerDrawable(M3.primary, 9999f, 0f, 9999f, 0f)
     private val greyBg = roundCornerDrawable(0xCC_303030.toInt(), 9999f, 0f, 9999f, 0f)
 
     private var nativeWantsShow = false

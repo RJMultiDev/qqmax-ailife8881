@@ -40,8 +40,8 @@ import momoi.mod.qqpro.util.Utils
 object MainNav {
     private const val NAV_TAG = "qqpro_main_nav"
     // Material 3 (dark) palette. The selected item sits on a tonal "active indicator" pill.
-    private val ACCENT = M3.primary                   // on-secondary-container (selected icon)
-    private val PILL_COLOR = M3.primaryContainer      // secondary-container (active indicator pill)
+    private val ACCENT get() = M3.primary                   // on-secondary-container (selected icon)
+    private val PILL_COLOR get() = M3.primaryContainer      // secondary-container (active indicator pill)
     private val IDLE_ICON = M3.onSurfaceVariant       // on-surface-variant (inactive icon)
     private val DOT_COLOR = 0xFF_8A888F.toInt()
     private val BADGE_COLOR = M3.badge

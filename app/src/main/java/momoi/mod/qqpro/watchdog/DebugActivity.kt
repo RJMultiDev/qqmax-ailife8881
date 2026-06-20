@@ -24,6 +24,7 @@ import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.util.runOnUi
 import java.io.File
 import java.io.RandomAccessFile
+import momoi.mod.qqpro.lib.material.M3
 
 /**
  * In-app debug menu, opened from the settings "调试" section. Shows live device info plus the tail
@@ -94,7 +95,7 @@ class DebugActivity : Activity() {
                 rightMargin = right
             }
         )
-        cell(button("复制", 0xFF_2196F3.toInt()) { copy(report) }, 0, dp(3))
+        cell(button("复制", M3.primary) { copy(report) }, 0, dp(3))
         cell(button("分享", 0xFF_4CAF50.toInt()) { share(report) }, dp(3), dp(3))
         cell(button("保存", 0xFF_009688.toInt()) { save(report) }, dp(3), 0)
         root.addView(

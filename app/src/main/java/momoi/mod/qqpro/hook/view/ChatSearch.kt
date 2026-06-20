@@ -43,7 +43,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val ACCENT = M3.primary
+private val ACCENT get() = M3.primary
 private val BG = 0xF0_121212.toInt()
 private const val ICON_SEARCH = 0x7e0805ca // R.drawable.icon_search
 

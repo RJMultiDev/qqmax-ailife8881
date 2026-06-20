@@ -27,11 +27,18 @@ import momoi.mod.qqpro.lib.dp
  * IllegalAccessError at runtime).
  */
 object M3 {
-    // ── Primary ────────────────────────────────────────────────────────────────
-    val primary = 0xFF_4FC3F7.toInt()              // accent / selected
-    val onPrimary = 0xFF_00344A.toInt()            // text/icon on a filled primary surface
-    val primaryContainer = 0x33_4FC3F7             // tonal container (translucent)
-    val onPrimaryContainer = 0xFF_4FC3F7.toInt()   // content on tonal container
+    // ── Primary (user-themeable) ─────────────────────────────────────────────────
+    // The accent is resolved live from Settings.themeColor (blank = DEFAULT_PRIMARY). The tonal
+    // container and on-primary tokens are DERIVED from it, so changing the one setting rethemes
+    // every materialized screen the next time it's built. See the 外观主题 settings category.
+    val DEFAULT_PRIMARY = 0xFF_4FC3F7.toInt()
+
+    val primary: Int get() = parseColor(momoi.mod.qqpro.Settings.themeColor.value, DEFAULT_PRIMARY)
+    /** Dark, on-accent label color: the accent heavily darkened so text/icons read on a filled button. */
+    val onPrimary: Int get() = darken(primary, 0.80f)
+    /** Translucent tonal container built from the accent (0x33 alpha). */
+    val primaryContainer: Int get() = (primary and 0x00FFFFFF) or 0x33_000000
+    val onPrimaryContainer: Int get() = primary
 
     // ── Surfaces ───────────────────────────────────────────────────────────────
     val surface = 0xFF_1A1A1A.toInt()              // screen background
@@ -78,6 +85,27 @@ object M3 {
     val SURFACE get() = surfaceContainer
     val HINT get() = hint
     val ON_SURFACE get() = onSurface
+
+    /**
+     * Parse a hex color string (`#RRGGBB`, `RRGGBB`, `#AARRGGBB` or `AARRGGBB`, with optional spaces);
+     * a parse without an alpha component is treated as fully opaque. Returns [fallback] when blank/invalid.
+     */
+    fun parseColor(raw: String?, fallback: Int): Int {
+        val s = raw?.trim()?.removePrefix("#")?.replace(" ", "") ?: return fallback
+        if (s.length != 6 && s.length != 8) return fallback
+        val v = s.toLongOrNull(16) ?: return fallback
+        return if (s.length == 6) (0xFF000000.toInt() or v.toInt()) else v.toInt()
+    }
+
+    /** Blend a color toward black by [amount] (0 = unchanged, 1 = black); alpha preserved. */
+    fun darken(color: Int, amount: Float): Int {
+        val k = (1f - amount).coerceIn(0f, 1f)
+        val a = color ushr 24 and 0xFF
+        val r = ((color shr 16 and 0xFF) * k).toInt()
+        val g = ((color shr 8 and 0xFF) * k).toInt()
+        val b = ((color and 0xFF) * k).toInt()
+        return (a shl 24) or (r shl 16) or (g shl 8) or b
+    }
 
     /** A solid rounded rect drawable. */
     fun rounded(color: Int, radius: Float = radiusMd): GradientDrawable = GradientDrawable().apply {

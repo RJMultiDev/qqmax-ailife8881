@@ -22,6 +22,7 @@ import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.util.Utils
 import mqq.app.MobileQQ
+import momoi.mod.qqpro.lib.material.M3
 
 /**
  * Injects a search bar at the top of the emoji picker's "热图" (hot GIF) tab.
@@ -88,7 +89,7 @@ class HotEmojiSearch(dismissCall: EmotionDialogFragment.DialogDismissCall) : Hot
 
         val btn = TextView(ctx)
         btn.text = "搜索"
-        btn.setTextColor(0xFF_4FC3F7.toInt())
+        btn.setTextColor(M3.primary)
         btn.textSize = 13f
         btn.gravity = Gravity.CENTER
         btn.setPadding(8.dp, 0, 4.dp, 0)

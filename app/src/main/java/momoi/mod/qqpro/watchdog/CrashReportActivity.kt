@@ -17,6 +17,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import momoi.mod.qqpro.lib.SwipeBackLayout
+import momoi.mod.qqpro.lib.material.M3
 
 /**
  * Standalone crash/hang report viewer. Declared with `android:process=":crash"` so it lives in a
@@ -85,7 +86,7 @@ class CrashReportActivity : Activity() {
                 rightMargin = right
             }
         )
-        cell(button("复制", 0xFF_2196F3.toInt()) { copyReport(report) }, 0, dp(3))
+        cell(button("复制", M3.primary) { copyReport(report) }, 0, dp(3))
         cell(button("分享", 0xFF_4CAF50.toInt()) { shareReport(report) }, dp(3), dp(3))
         cell(button("保存", 0xFF_009688.toInt()) { saveReport(report) }, dp(3), 0)
         root.addView(

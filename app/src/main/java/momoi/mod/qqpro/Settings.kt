@@ -22,6 +22,10 @@ object Settings {
     val swapCenterKeyboard = BooleanPref("swapCenterKeyboard", true)
 
     // ===== QQ Max 设置 (by AILIFE) =====
+    // Material 主题色 (the M3 accent/primary), as a hex string (#RRGGBB or RRGGBB). Blank = the
+    // built-in default (#4FC3F7). Read live by M3.primary, which derives the tonal/onPrimary tokens
+    // from it, so a change rethemes every materialized non-chat screen the next time it's built.
+    val themeColor = StringPref("themeColor", "")
     val showGroupAvatar = BooleanPref("showGroupAvatar", true)
     // Also show avatar + two-line nick header for your own messages, like others.
     val showSelfAvatar = BooleanPref("showSelfAvatar", false)
@@ -212,7 +216,7 @@ object Settings {
     // Declared last so all the Pref properties above are already initialised.
     val all: List<Pref<*>> = listOf(
         scale, chatScale, enableSmoothScroll, encoderScrollSpeed, blockBack, disableSwipeBack, swapCenterKeyboard,
-        showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
+        themeColor, showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
         screenCornerDiameter, titlebarSideMargin,
         hideVoiceButton, backToFirstPage, attachmentOverlay, enableTitlebar, titlebarShowUnread,
