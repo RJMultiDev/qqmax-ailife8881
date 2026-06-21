@@ -118,6 +118,10 @@ object Settings {
     // the default date_modified. Falls back to date_modified when a file has no
     // capture time recorded.
     val gallerySortByDateTaken = BooleanPref("gallerySortByDateTaken", false)
+    // Quick-send: a single tap on a gallery image/video sends it immediately (through the input-bar
+    // preview). When off, the gallery is always in multi-select mode — a tap toggles selection
+    // (even for a single item) and you press 发送 to send. Default on.
+    val galleryQuickSend = BooleanPref("galleryQuickSend", true)
     // Use the system image picker (Android photo picker if available, otherwise the
     // SAF document picker) for 相册 instead of QQ's in-app gallery. Avoids needing
     // storage permission and works around in-app picker problems on some devices.
@@ -240,7 +244,7 @@ object Settings {
         hideVoiceButton, backToFirstPage, attachmentOverlay, materialAttachmentMenu, enableTitlebar, titlebarShowUnread,
         floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread,
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
-        useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
+        galleryQuickSend, useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
         picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo, qzoneMiniAppCard,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
         doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,

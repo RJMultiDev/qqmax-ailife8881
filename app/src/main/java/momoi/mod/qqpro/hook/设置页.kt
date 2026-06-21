@@ -283,6 +283,7 @@ class 设置页 : SettingsActivity() {
         SettingsCategory("相机与媒体", "拍照、相册与音频") {
             switch("使用应用内相机", "开启后拍照/录像都用应用内相机，关闭后改用系统/第三方相机", Settings.useInAppCamera)
             switch("相册按拍摄时间排序", "图片选择器按拍摄时间排序，关闭则按文件修改时间(默认)", Settings.gallerySortByDateTaken)
+            switch("图片/视频快速发送", "单击相册图片/视频立即发送。关闭后相册始终为多选模式，单击勾选(可只选一个)再点发送", Settings.galleryQuickSend)
             switch("使用系统图片选择器", "相册改用系统图片选择器/文件选择器，无需相册权限，可多选，修复部分设备问题", Settings.useSystemImagePicker)
             switch("使用系统音频选择器", "音频文件改用系统文件选择器，关闭则用应用内音频浏览器(列出本机音频文件)", Settings.useSystemAudioPicker)
         },

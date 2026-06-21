@@ -17,6 +17,7 @@ import com.tencent.qqnt.kernel.nativeinterface.MsgElement
 import com.tencent.qqnt.watch.gallery.GalleryFragment
 import com.tencent.watch.aio_impl.ext.MsgUtil as WatchMsgUtil
 import moye.wearqq.IMEOperation
+import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.hook.action.GalleryMultiSelectState
 import momoi.mod.qqpro.lib.dp
@@ -91,6 +92,21 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
         val allItems = fragment.i?.currentList ?: emptyList()
         val byPath = allItems.associateBy { it.c }
         val selectedItems = selectedPaths.mapNotNull { byPath[it] }
+
+        // A solo video selection (quick-send off, single video picked) routes through the video send
+        // path, not the image element builder. Selection enforces video-must-be-alone, so a video
+        // here is always the only item.
+        val soloVideo = selectedItems.singleOrNull { it.C == 1 }
+        if (soloVideo != null) {
+            val path = soloVideo.c
+            if (path == null) { Utils.log("MultiSelect solo video path=null"); return }
+            Utils.log("MultiSelect sending solo video $path")
+            IMEOperation.extraMsg.clear()
+            exitMultiSelectMode(rv)
+            sendGalleryVideo(path)
+            fragment.pop()
+            return
+        }
         Utils.log("MultiSelect selectedItems=${selectedItems.size} (selection order), building image elements")
 
         val elements = ArrayList<MsgElement>()
@@ -106,6 +122,10 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
         exitMultiSelectMode(rv)
         attachToImeAndOpen(elements)
     }
+
+    /** Whether the gallery item at this path is a video (LocalMediaInfo.C == 1). */
+    private fun isVideoPath(path: String): Boolean =
+        fragment.i?.currentList?.firstOrNull { it.c == path }?.C == 1
 
     // ---- private helpers -------------------------------------------------------
 
@@ -165,12 +185,24 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
             if (pos < 0) return
             val item = fragment.i?.currentList?.getOrNull(pos) ?: return
             val path = item.c ?: return
-            // Multi-select supports images only (C == 1 means video). Long-pressing a video can't
-            // start a selection — tell the user and consume so the gesture doesn't fall through.
+            interceptNextUp = true
+            // A video must be sent on its own. Long-pressing one starts a solo video selection only
+            // when nothing else is selected; otherwise refuse the image+video mix.
             if (item.C == 1) {
-                Utils.log("Gallery onLongPress video pos=$pos (not supported)")
-                Utils.toast(rv.context, "视频不支持多选")
-                interceptNextUp = true
+                if (selectedPaths.isEmpty() || (selectedPaths.size == 1 && selectedPaths.contains(path))) {
+                    if (!multiSelectMode) enterMultiSelectMode()
+                    Utils.log("Gallery onLongPress solo video pos=$pos")
+                    toggleSelection(path, rv)
+                } else {
+                    Utils.log("Gallery onLongPress video pos=$pos but other items selected")
+                    Utils.toast(rv.context, "视频需单独发送")
+                }
+                return
+            }
+            // Long-pressing an image while a video is the solo selection: refuse the mix.
+            if (selectedPaths.size == 1 && isVideoPath(selectedPaths.first())) {
+                Utils.log("Gallery onLongPress image but a video is selected")
+                Utils.toast(rv.context, "视频需单独发送")
                 return
             }
             Utils.log("Gallery onLongPress pos=$pos multiSelectMode=$multiSelectMode")
@@ -182,6 +214,11 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
             Utils.log("Gallery onSingleTapUp multiSelectMode=$multiSelectMode selected=${selectedPaths.size}")
+            // Quick-send off: never send on a single tap — always behave as multi-select so a tap
+            // toggles selection (even a single item) and the user sends with the 发送 button.
+            if (!multiSelectMode && !Settings.galleryQuickSend.value) {
+                enterMultiSelectMode()
+            }
             if (!multiSelectMode) {
                 val child = rv.findChildViewUnder(e.x, e.y) ?: return false
                 val pos = rv.getChildAdapterPosition(child)
@@ -225,10 +262,24 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
             val path = item.c
             if (path == null) { Utils.log("Gallery multiselect tap: path=null pos=$pos"); return false }
             if (item.C == 1) {
-                // Video can't be multi-selected. Tell the user and consume the tap so it doesn't
-                // leak to the native item onClick (which would pop/dismiss the picker).
-                Utils.log("Gallery multiselect tap: video pos=$pos (not supported)")
-                Utils.toast(rv.context, "视频不支持多选")
+                // A video can only be sent on its own (no batch image+video / multi-video send path).
+                // Allow selecting a single video solo: tapping it when it's the lone selection toggles
+                // it off; tapping it with nothing else selected selects it; otherwise refuse the mix.
+                interceptNextUp = true
+                if (selectedPaths.contains(path)) {
+                    toggleSelection(path, rv)
+                } else if (selectedPaths.isEmpty()) {
+                    toggleSelection(path, rv)
+                } else {
+                    Utils.log("Gallery multiselect tap: video pos=$pos but other items selected")
+                    Utils.toast(rv.context, "视频需单独发送")
+                }
+                return true
+            }
+            // Tapping an image while a video is the current solo selection: refuse the mix.
+            if (selectedPaths.size == 1 && isVideoPath(selectedPaths.first())) {
+                Utils.log("Gallery multiselect tap: image but a video is selected")
+                Utils.toast(rv.context, "视频需单独发送")
                 interceptNextUp = true
                 return true
             }
