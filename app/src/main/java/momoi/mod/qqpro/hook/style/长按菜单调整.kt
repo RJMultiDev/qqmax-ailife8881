@@ -311,9 +311,39 @@ object LongPressMenu {
     }
 
     /** Ark card display text for copy — the `prompt` summary (e.g. "[分享]标题"). Non-destructive. */
+    /**
+     * Copyable text for an ark card. The card itself (see [momoi.mod.qqpro.hook.aio_cell.CardMsgView])
+     * renders the full title/desc/body, but the ark "prompt" field is only a short summary (e.g.
+     * "[群公告]…"), so copying it truncates. Reconstruct the same rich text the card shows, by app type,
+     * and fall back to prompt when the schema is unknown.
+     */
     private fun arkText(msg: MsgRecord): String? = runCatching {
         val ark = msg.elements.firstNotNullOfOrNull { it.arkElement } ?: return null
-        Json(ark.bytesData).str("prompt")?.takeIf { it.isNotBlank() }
+        val json = Json(ark.bytesData)
+        val prompt = json.str("prompt")?.takeIf { it.isNotBlank() }
+        val meta = json.json("meta")
+        fun decodeB64(s: String?): String? = s?.takeIf { it.isNotEmpty() }
+            ?.let { runCatching { String(android.util.Base64.decode(it, android.util.Base64.DEFAULT)) }.getOrNull() }
+        fun join(vararg parts: String?): String? =
+            parts.filterNotNull().map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+                .takeIf { it.isNotBlank() }
+        val rich = when {
+            meta == null -> null
+            // 群公告 (com.tencent.mannounce): base64 title + body.
+            json.str("app") == "com.tencent.mannounce" -> {
+                val a = meta.json("mannounce") ?: meta.keys.firstOrNull()?.let { meta.json(it) }
+                join(decodeB64(a?.str("title")), decodeB64(a?.str("text")))
+            }
+            // 名片 (com.tencent.contact.lua): nickname + account.
+            json.str("app") == "com.tencent.contact.lua" ->
+                meta.json("contact")?.let { join(it.str("nickname"), it.str("contact")) }
+            // 位置 (com.tencent.map): name + address.
+            json.str("app") == "com.tencent.map" ->
+                meta.json("Location.Search")?.let { join(it.str("name"), it.str("address")) }
+            // Generic title/desc card.
+            else -> meta.keys.firstOrNull()?.let { meta.json(it) }?.let { join(it.str("title"), it.str("desc")) }
+        }
+        rich ?: prompt
     }.getOrNull()
 
     private fun rowFor(fragment: AIOLongClickMenuFragment, e: Entry): View =

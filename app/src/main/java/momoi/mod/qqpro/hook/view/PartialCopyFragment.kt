@@ -20,6 +20,7 @@ import momoi.mod.qqpro.util.Utils
 
 private val ACCENT get() = M3.primary
 private val BG = M3.surface
+private val GREEN = 0xFF_4CAF50.toInt()
 
 /**
  * "部分复制" — full-screen viewer that shows a single message's text in a selectable [TextView]
@@ -84,13 +85,13 @@ class PartialCopyFragment(private val content: String) : MyDialogFragment() {
         root.addView(bar, LinearLayout.LayoutParams(FILL, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = 4.dp
         })
-        button(bar, "全选", M3.surfaceContainerHigh, M3.onSurface) {
+        button(bar, "全选", GREEN, 0xFF_FFFFFF.toInt()) {
             body.requestFocus()
             runCatching {
                 (body.text as? Spannable)?.let { Selection.setSelection(it, 0, it.length) }
             }.onFailure { Utils.log("PartialCopy: selectAll failed: $it") }
         }
-        button(bar, "关闭", M3.surface, M3.hint) { dismiss() }
+        button(bar, "关闭", M3.surfaceContainerHigh, M3.onSurface) { dismiss() }
 
         return SwipeBackLayout(ctx).apply {
             addView(root, FILL, FILL)
