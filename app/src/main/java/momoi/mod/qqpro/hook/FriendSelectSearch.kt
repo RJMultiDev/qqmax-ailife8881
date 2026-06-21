@@ -44,6 +44,8 @@ class FriendSelectSearch : FriendSelectFragment() {
                 nameOf = { (it as? FriendSelectItem)?.c.orEmpty() },
                 isPinned = { (it as? FriendSelectItem)?.a.let { uid -> uid == "-1" || uid == "-2" } },
             )
+            momoi.mod.qqpro.lib.styleConfirmButton(view)
+            momoi.mod.qqpro.lib.styleSelectorHeaderIcons(view)
         }.onFailure { Utils.log("FriendSelectSearch: install failed: $it") }
     }
 }

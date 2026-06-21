@@ -29,6 +29,7 @@ class GroupMemberSelectSearch : GroupMemberSelectFragment() {
                 hint = "搜索成员",
                 nameOf = { (it as? FriendSelectItem)?.c.orEmpty() },
             )
+            momoi.mod.qqpro.lib.styleConfirmButton(view)
         }.onFailure { Utils.log("GroupMemberSelectSearch: install failed: $it") }
     }
 }

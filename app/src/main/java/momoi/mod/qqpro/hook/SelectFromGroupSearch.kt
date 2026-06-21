@@ -33,6 +33,7 @@ class SelectFromGroupSearch : SelectFromGroupFragment() {
                 hint = "搜索群聊",
                 nameOf = { (it as? GroupSelectItem)?.b.orEmpty() },
             )
+            momoi.mod.qqpro.lib.styleConfirmButton(view)
         }.onFailure { Utils.log("SelectFromGroupSearch: install failed: $it") }
     }
 

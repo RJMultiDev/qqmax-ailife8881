@@ -5,8 +5,10 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import momoi.mod.qqpro.findAll
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -36,6 +38,86 @@ import momoi.mod.qqpro.util.Utils
  * selection state lives on the items / in its own set, so filtering the displayed list leaves it
  * intact. Returns the new wrapping root, or null to keep [root] unchanged.
  */
+/**
+ * Materialize the selector's bottom confirm WatchButton (a MaterialButton) — the native one is a
+ * blue pill with a colourful non-material icon (e.g. the green 转发 glyph). Recolor to the M3 accent
+ * pill with a Material Symbol icon + onPrimary text. The icon is picked from the button's own label.
+ */
+fun styleConfirmButton(root: View) {
+    runCatching {
+        val id = root.resources.getIdentifier("confirm", "id", root.context.packageName)
+        val btn = (if (id != 0) root.findViewById<View>(id) else null) ?: return
+        (btn as? TextView)?.setTextColor(M3.onPrimary)
+        btn.background = GradientDrawable().apply { setColor(M3.primary); cornerRadius = M3.radiusPill }
+        val label = (btn as? TextView)?.text?.toString().orEmpty()
+        val sym = when {
+            label.contains("转发") -> MaterialSymbols.forward
+            label.contains("发送") || label.contains("分享") -> MaterialSymbols.send
+            label.contains("创建") -> MaterialSymbols.group
+            label.contains("邀请") -> MaterialSymbols.person_add
+            else -> MaterialSymbols.send
+        }
+        // setIcon / setIconTint live on MaterialButton (not on our compile classpath) — via reflection.
+        runCatching {
+            btn.javaClass.getMethod("setIcon", android.graphics.drawable.Drawable::class.java)
+                .invoke(btn, MaterialSymbol(sym, M3.onPrimary))
+            btn.javaClass.getMethod("setIconTint", android.content.res.ColorStateList::class.java)
+                .invoke(btn, android.content.res.ColorStateList.valueOf(M3.onPrimary))
+        }
+    }
+}
+
+/**
+ * Materialize the friend selector's pinned entry rows (从群聊中选择 / 选择群聊), whose avatar shows a
+ * colourful icon_group_member. Replace it with a Material group symbol (accent) on an M3 tonal circle.
+ */
+fun styleSelectorHeaderIcons(root: View) {
+    runCatching {
+        val res = root.resources
+        val pkg = root.context.packageName
+        val titleId = res.getIdentifier("title", "id", pkg)
+        val avatarId = res.getIdentifier("avatar", "id", pkg)
+        val rv = (root as? ViewGroup)?.findAll { it is RecyclerView } as? RecyclerView ?: return
+        rv.onChildAttached { row ->
+            // The title is a com.tencent.widget.SingleLineTextView (NOT a TextView) — read via getText().
+            val titleView = if (titleId != 0) row.findViewById<View>(titleId) else null
+            val title = runCatching { titleView?.javaClass?.getMethod("getText")?.invoke(titleView) as? CharSequence }
+                .getOrNull()?.toString().orEmpty()
+            if (title != "从群聊中选择" && title != "选择群聊") return@onChildAttached
+            // The avatar is a com.tencent.qqnt.avatar.WatchAvatarView (extends View, NOT ImageView/ViewGroup),
+            // so there is no ImageView to retarget. It exposes a public setImageDrawable(Drawable) that
+            // rasterises the drawable into a circular RGB_565 bitmap shader (no alpha, self-masks a circle).
+            // Hand it a square, solid-filled tonal drawable with a centred group glyph so the rasterised
+            // circle reads as an M3 tonal avatar — a bare glyph would land on a black circle.
+            val avatar = (if (avatarId != 0) row.findViewById<View>(avatarId) else null) ?: return@onChildAttached
+            val m = avatar.javaClass.methods.firstOrNull {
+                it.name == "setImageDrawable" && it.parameterTypes.size == 1
+            } ?: return@onChildAttached
+            runCatching { m.invoke(avatar, tonalGroupAvatar()) }
+                .onFailure { Utils.log("styleSelectorHeaderIcons: setImageDrawable failed: $it") }
+        }
+    }.onFailure { Utils.log("styleSelectorHeaderIcons: $it") }
+}
+
+/** A square M3 tonal-filled drawable with a centred group glyph, sized for [WatchAvatarView] rasterisation. */
+private fun tonalGroupAvatar(): android.graphics.drawable.Drawable = object : android.graphics.drawable.Drawable() {
+    private val size = 48.dp
+    private val bg = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = M3.TONAL; style = android.graphics.Paint.Style.FILL
+    }
+    private val glyph = MaterialSymbol(MaterialSymbols.group, M3.primary, insetFraction = 0.26f)
+    override fun onBoundsChange(b: android.graphics.Rect) { glyph.bounds = b }
+    override fun getIntrinsicWidth() = size
+    override fun getIntrinsicHeight() = size
+    override fun draw(canvas: android.graphics.Canvas) {
+        canvas.drawRect(bounds, bg)
+        glyph.draw(canvas)
+    }
+    override fun setAlpha(a: Int) {}
+    override fun setColorFilter(cf: android.graphics.ColorFilter?) {}
+    override fun getOpacity() = android.graphics.PixelFormat.OPAQUE
+}
+
 object ListSearchBar {
     private const val TAG = "qqpro_list_search"
 
