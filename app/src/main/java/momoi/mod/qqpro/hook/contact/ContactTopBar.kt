@@ -129,13 +129,20 @@ object ContactTopBar {
 
         installHideOnScroll(rv)
         submit()
-        top.post {
-            runCatching {
-                rv.clipToPadding = false
-                rv.setPadding(rv.paddingLeft, top.height, rv.paddingRight, rv.paddingBottom)
+        // Reserve space for the overlay bar by padding the list's top to the bar's measured height.
+        // A one-shot post() is unreliable: on re-entry the bar may not be measured yet (height 0), so
+        // the padding stays 0 and the first 好友/群聊 header hides under the bar (the recurring bug).
+        // Track the bar's real height on every layout pass and keep the padding in sync — this also
+        // self-corrects if the bar height changes (e.g. a badge appears).
+        rv.clipToPadding = false
+        top.addOnLayoutChangeListener { _, _, t, _, b, _, _, _, _ ->
+            val h = b - t
+            if (h > 0 && rv.paddingTop != h) {
+                rv.setPadding(rv.paddingLeft, h, rv.paddingRight, rv.paddingBottom)
+                Utils.log("ContactTopBar: set list top padding=$h")
             }
         }
-        Utils.log("ContactTopBar: wrapped (bar height post)")
+        Utils.log("ContactTopBar: wrapped")
         return wrap
     }
 
