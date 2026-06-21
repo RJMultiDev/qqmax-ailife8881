@@ -477,11 +477,28 @@ class 设置页 : SettingsActivity() {
             }
         }
 
-        dialog.setContentView(panel)
+        // Wrap the panel in a ScrollView so a long option list (or a short screen) can scroll instead
+        // of being clipped. The rounded background stays on the panel; the ScrollView is transparent.
+        val scroll = ScrollView(this).apply {
+            isFillViewport = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            addView(panel, ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
+        dialog.setContentView(scroll)
         dialog.window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             val w = (resources.displayMetrics.widthPixels * 0.82f).toInt()
-            setLayout(w, ViewGroup.LayoutParams.WRAP_CONTENT)
+            // Cap the dialog height so the ScrollView gets a bounded viewport (an unbounded WRAP_CONTENT
+            // dialog measures to the full content height and just clips off-screen, never scrolling).
+            val maxH = (resources.displayMetrics.heightPixels * 0.85f).toInt()
+            panel.measure(
+                View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+            )
+            val h = if (panel.measuredHeight > maxH) maxH else ViewGroup.LayoutParams.WRAP_CONTENT
+            setLayout(w, h)
         }
         dialog.show()
     }
