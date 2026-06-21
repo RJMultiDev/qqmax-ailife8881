@@ -33,12 +33,15 @@ class GalleryMultiSelect : GalleryFragment() {
         // here. When this is NOT a chat launch (or the args say it's the avatar picker), leave the
         // native gallery untouched so its fragment-result delivery still works.
         val requestKey = runCatching { arguments?.getString("request_key") }.getOrNull()
-        val chatLaunch = GalleryMultiSelectState.consumeChatLaunch()
+        // Sticky per-fragment so a re-shown/recreated chat gallery keeps our interception even though
+        // the global one-shot flag was already consumed on its first onCreateView.
+        val chatLaunch = GalleryMultiSelectState.isChatLaunch(this)
+        val frag = System.identityHashCode(this)
         if (!chatLaunch || requestKey == "EditAvatarFragment") {
-            Utils.log("GalleryMultiSelect: native launch (chatLaunch=$chatLaunch requestKey=$requestKey), skipping interception")
+            Utils.log("GalleryMultiSelect: native launch (chatLaunch=$chatLaunch requestKey=$requestKey frag=$frag globalFlag=${GalleryMultiSelectState.chatLaunch}), skipping interception")
             return baseView
         }
-        Utils.log("GalleryMultiSelect: chat launch, installing multi-select interception")
+        Utils.log("GalleryMultiSelect: chat launch, installing multi-select interception (frag=$frag)")
 
         val helper = GalleryMultiSelectHelper(this)
 

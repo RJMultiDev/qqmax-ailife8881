@@ -1,5 +1,6 @@
 package momoi.mod.qqpro.hook.action
 
+import androidx.fragment.app.Fragment
 import com.tencent.qqnt.kernel.nativeinterface.MsgElement
 
 /**
@@ -51,10 +52,27 @@ object GalleryMultiSelectState {
     @Volatile
     var chatLaunch = false
 
-    /** Read-and-clear [chatLaunch]. Returns whether the gallery being created was opened from chat. */
-    fun consumeChatLaunch(): Boolean {
+    // Per-fragment memo of the chat-launch decision. The global [chatLaunch] flag is read-and-cleared
+    // at the first onCreateView, but a GalleryFragment instance gets onCreateView called MORE than
+    // once (view recreation, and crucially re-show of a cached/back-stacked instance the user
+    // re-opens WITHOUT going back through the "+ → 相册" tap that sets the flag). Those later calls
+    // would see the flag already false and fall back to the native path → the picker pops without
+    // routing the pick into the input bar (the reported "closes without putting it in the box" bug).
+    // Remembering the decision per instance keeps every onCreateView of a chat-launched gallery on
+    // our interception path. WeakHashMap so destroyed fragments are GC'd, never leaking to avatar
+    // pickers (different instances; also excluded by their requestKey).
+    private val chatLaunchByFragment = java.util.WeakHashMap<Fragment, Boolean>()
+
+    /**
+     * Whether the given gallery [fragment] is a chat-send launch. Sticky per instance: returns the
+     * remembered decision if this fragment was already classified; otherwise reads-and-clears the
+     * global [chatLaunch] flag, remembers it for this instance, and returns it.
+     */
+    fun isChatLaunch(fragment: Fragment): Boolean {
+        chatLaunchByFragment[fragment]?.let { return it }
         val v = chatLaunch
         chatLaunch = false
+        chatLaunchByFragment[fragment] = v
         return v
     }
 }
