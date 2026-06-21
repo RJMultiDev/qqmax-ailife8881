@@ -181,7 +181,7 @@ private fun copyText(context: Context, text: CharSequence) {
     cm.setPrimaryClip(ClipData.newPlainText("text", text))
 }
 
-private fun savePic(context: Context, pic: PicElement) {
+fun savePic(context: Context, pic: PicElement) {
     val cacheDir = context.safeCacheDir
     if (cacheDir == null) {
         Utils.log("savePic: no cache dir available, skip")
@@ -190,10 +190,13 @@ private fun savePic(context: Context, pic: PicElement) {
     val cacheFile = cacheDir.child("${pic.md5HexStr}.jpg")
     if (cacheFile.exists()) {
         RFWSaveUtil.a(context, cacheFile.path, null)
+        Utils.toast(context, "已保存到相册")
     } else {
         download(pic.getImageUrl(), cacheFile) { ok ->
-            if (ok) runOnUi { RFWSaveUtil.a(context, cacheFile.path, null) }
-            else Utils.log("savePic: download failed for ${pic.md5HexStr}")
+            runOnUi {
+                if (ok) { RFWSaveUtil.a(context, cacheFile.path, null); Utils.toast(context, "已保存到相册") }
+                else Utils.toast(context, "保存失败")
+            }
         }
     }
 }
@@ -230,7 +233,7 @@ private fun fileMd5(file: File): String {
  * original which we never downloaded, so — like Share's createPicElement — we upload the file we
  * actually have and describe it with its own md5/size to keep the request self-consistent.
  */
-private fun saveFavEmoji(context: Context, pic: PicElement) {
+fun saveFavEmoji(context: Context, pic: PicElement) {
     val cacheDir = context.safeCacheDir
     if (cacheDir == null) {
         Utils.log("saveFavEmoji: no cache dir available, skip")
@@ -247,7 +250,7 @@ private fun saveFavEmoji(context: Context, pic: PicElement) {
     }
 }
 
-private fun doAddFavEmoji(context: Context, file: File) {
+fun doAddFavEmoji(context: Context, file: File) {
     val md5 = fileMd5(file)
     val req = AddFavEmojiReq("", 0, file.path, file.length(), file.name, md5, false, true)
     val msgService = WatchPicElementExtKt.r0().wrapperSession?.msgService
