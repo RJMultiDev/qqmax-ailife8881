@@ -15,6 +15,7 @@ import com.tencent.mobileqq.text.QQText
 import momoi.mod.qqpro.lib.dp
 import android.widget.ImageView
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.M3Button
 import momoi.mod.qqpro.lib.material.MaterialSymbol
 import momoi.mod.qqpro.lib.material.MaterialSymbols
 import momoi.mod.qqpro.lib.material.leadingSymbol
@@ -175,14 +176,27 @@ object RichProfilePage {
                 }
             }
 
-            // --- Action buttons (re-parented, restyled into full-width pills) ---
-            // 3 button kinds: 去聊天 (message), 艾特Ta (@), 加好友 (add friend). Only message shipped an
-            // icon. To avoid the MaterialButton fixed-size-icon problem we drop the drawable icon and use
-            // a leading glyph rendered as TEXT — an emoji 💬 for message, a text symbol for the others.
+            // --- Action buttons ---
+            // All buttons use our own M3Button (the watch theme isn't MaterialComponents-based, so a
+            // real MaterialButton can't be styled consistently — different font/metrics). We build a
+            // fresh M3Button per action and forward its click to the native button's handler (or our
+            // own action), instead of re-parenting the native MaterialButton. This keeps the 去聊天/
+            // 艾特Ta/加好友/TA的空间 buttons visually identical.
+            // Button kinds: 去聊天 (message), 艾特Ta (@), 加好友 (add friend), TA的空间 (QZone).
             val H = 40.dp
+            fun addM3Button(symbol: String, label: String, onClick: () -> Unit) {
+                val mb = M3Button(ctx).variant(M3Button.Variant.FILLED).apply {
+                    text = label
+                    leadingSymbol(symbol, M3.onPrimary, sizeDp = 18)
+                    setOnClickListener { onClick() }
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, H,
+                    ).apply { topMargin = 10.dp }
+                }
+                content.addView(mb)
+            }
             fun styleButton(btn: View?) {
                 btn ?: return
-                reparent(btn)
                 val label = (btn as? android.widget.TextView)?.text?.toString().orEmpty()
                 val isAt = label.contains("艾特") || label.contains("@")
                 val symbol = when {
@@ -191,31 +205,11 @@ object RichProfilePage {
                     else -> MaterialSymbols.chat_bubble // 去聊天
                 }
                 val base = label.removePrefix("💬 ").removePrefix("＋ ").removePrefix("@ ").trim()
-                val mb = btn as? MaterialButton
-                if (mb != null) {
-                    // Use MaterialButton's own icon slot with ICON_GRAVITY_TEXT_START so the icon hugs
-                    // the centered label (a plain compound drawable would pin it to the far edge).
-                    mb.transformationMethod = null
-                    mb.text = base
-                    mb.setTextColor(M3.onPrimary)
-                    mb.icon = MaterialSymbol(symbol, M3.onPrimary).apply { setBounds(0, 0, 18.dp, 18.dp) }
-                    mb.setIconGravity(2)   // ICON_GRAVITY_TEXT_START (constant not in the compile stub)
-                    mb.iconSize = 18.dp
-                    mb.iconPadding = 6.dp
-                    mb.setIconTint(android.content.res.ColorStateList.valueOf(M3.onPrimary))
-                } else (btn as? android.widget.TextView)?.apply {
-                    text = base
-                    setTextColor(M3.onPrimary)
-                    leadingSymbol(symbol, M3.onPrimary, sizeDp = 18)
-                }
                 // The native 艾特Ta handler's openIME is lost from the profile page (chat not resumed);
                 // replace it with our stage-and-pop action that defers openIME to the chat's onResume.
-                if (isAt) btn.setOnClickListener { atAction() }
-                btn.background = pill()
-                btn.layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, H,
-                ).apply { topMargin = 10.dp }
-                content.addView(btn)
+                // Other buttons forward to the native handler (the native view stays off-screen but its
+                // click listener still fires when performed).
+                addM3Button(symbol, base) { if (isAt) atAction() else btn.performClick() }
             }
             styleButton(gotoChat)
             styleButton(atBtn)
@@ -223,28 +217,7 @@ object RichProfilePage {
             // TA的空间 — open the user's QZone home feed (reuses the chat-settings QZone shortcut).
             val uinLong = uin.trim().toLongOrNull()
             if (uinLong != null && uinLong > 0) {
-                // Centered icon + label row (a plain TextView compound drawable would pin the star
-                // to the far edge instead of next to the centered text).
-                val qzone = LinearLayout(ctx).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER
-                    background = pill()
-                    isClickable = true
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, H,
-                    ).apply { topMargin = 10.dp }
-                    addView(ImageView(ctx).apply {
-                        setImageDrawable(MaterialSymbol(MaterialSymbols.star, M3.onPrimary))
-                        layoutParams = LinearLayout.LayoutParams(18.dp, 18.dp).apply { rightMargin = 6.dp }
-                    })
-                    addView(TextView(ctx).apply {
-                        text = "TA的空间"
-                        textSize = 14f
-                        setTextColor(M3.onPrimary)
-                    })
-                }
-                qzone.setOnClickListener { openUserQzone(qzone, uinLong) }
-                content.addView(qzone)
+                addM3Button(MaterialSymbols.star, "TA的空间") { openUserQzone(content, uinLong) }
             }
 
             val scroll = ScrollView(ctx).apply {
