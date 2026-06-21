@@ -33,7 +33,13 @@ import mqq.app.MobileQQ
 @Mixin
 class ProfileCardIconFix : ProfileCardFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
+        // Native onViewCreated does `view.findViewById(R.id.at_btn).setOnClickListener(...)`
+        // unconditionally. When this fragment's view is reused after our rich rebuild has already
+        // re-parented at_btn into its own tree, that findViewById returns null → the native code NPEs
+        // and crashes the app. Guard it: the rich build below is idempotent (returns early when the
+        // page is already built), so the displayed profile is unaffected.
+        runCatching { super.onViewCreated(view, savedInstanceState) }
+            .onFailure { Utils.log("ProfileCardFragment super.onViewCreated threw (likely at_btn null on view reuse): ${it.message}") }
         if (Settings.useRichProfile.value) {
             // Full Material rebuild: re-parents the native views into a new tree (own scroll + info card).
             try {
