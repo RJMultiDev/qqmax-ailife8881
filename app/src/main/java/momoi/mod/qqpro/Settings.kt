@@ -207,7 +207,7 @@ object Settings {
     // Enable the main-thread hang watchdog (HangWatcher). When on, a stalled main thread for
     // 8s+ shows a "应用卡死" report. Crash capture is always on; this gates only hang detection,
     // which can false-positive on a watch that suspends/dozes. Read once at install time.
-    val watchdogEnabled = BooleanPref("watchdogEnabled", true)
+    val watchdogEnabled = BooleanPref("watchdogEnabled", false)
     // Persist Utils.log output to the on-device log file. Always on in debug builds; in release
     // builds logging is off unless this is enabled (default off). Read live by Utils.log.
     val enableLog = BooleanPref("enableLog", false)
