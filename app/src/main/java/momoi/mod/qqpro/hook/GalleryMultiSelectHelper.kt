@@ -112,13 +112,16 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
         val elements = ArrayList<MsgElement>()
         for (item in selectedItems) {
             try {
-                elements.add(WatchMsgUtil.a.a(item.c, 0))
+                val el = WatchMsgUtil.a.a(item.c, 0)
+                Utils.log("MultiSelect built element for ${item.c}: ${describe(el)}")
+                elements.add(el)
             } catch (t: Throwable) {
                 Log.e(HTAG, "GalleryMultiSelect: build failed ${item.c}: ${t.message}")
                 Utils.log("MultiSelect build FAILED ${t.javaClass.simpleName}: ${t.message}")
             }
         }
 
+        Utils.log("MultiSelect built ${elements.size} element(s), routing to attachToImeAndOpen")
         exitMultiSelectMode(rv)
         attachToImeAndOpen(elements)
     }
@@ -126,6 +129,14 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
     /** Whether the gallery item at this path is a video (LocalMediaInfo.C == 1). */
     private fun isVideoPath(path: String): Boolean =
         fragment.i?.currentList?.firstOrNull { it.c == path }?.C == 1
+
+    /** Diagnostic: summarize a built MsgElement so the gallery→inline path can be traced in the log. */
+    private fun describe(el: MsgElement?): String = runCatching {
+        if (el == null) return "null"
+        val pic = el.picElement
+        "elemType=${el.elementType} pic=${pic != null} " +
+            (pic?.let { "srcPath=${it.sourcePath} w=${it.picWidth} h=${it.picHeight}" } ?: "")
+    }.getOrElse { "describe-failed:${it.message}" }
 
     // ---- private helpers -------------------------------------------------------
 
@@ -148,7 +159,8 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
         // pendingImages into extraMsg synchronously right before openIME instead.
         GalleryMultiSelectState.pendingImages = ArrayList(elements)
         GalleryMultiSelectState.pendingOpenIme = true
-        Utils.log("Gallery attached ${elements.size} image(s) to IME, popping gallery")
+        Utils.log("Gallery attached ${elements.size} image(s) to IME (pendingImages set, pendingOpenIme=true): " +
+            elements.joinToString("; ") { describe(it) })
         Log.e(HTAG, "GalleryMultiSelect: attached ${elements.size} image(s), calling pop()")
         fragment.pop()
     }
@@ -247,6 +259,7 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
                     Utils.log("Gallery single image build FAILED: ${t.message}")
                     return false
                 }
+                Utils.log("Gallery single-tap built element for $path: ${describe(element)}")
                 // consume this UP so the item's native click (which would send immediately) doesn't fire
                 interceptNextUp = true
                 actionConsumed = true

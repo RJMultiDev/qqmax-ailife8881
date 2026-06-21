@@ -72,6 +72,14 @@ object InlineInput {
     private var editTextRef: WeakReference<ImeEditText>? = null
     private var controllerRef: WeakReference<InputBarController>? = null
     private var bannerRef: WeakReference<TextView>? = null
+
+    // Gallery-staged image elements awaiting insertion. They are drained into whichever inline
+    // EditText is actually registered/visible at the time — the bar has two hosts (list-footer pill
+    // and floating overlay pill), and focusAndShow() may switch hosts after consumePending() runs, so
+    // inserting eagerly into the current host can land the image in a now-hidden box. Draining from
+    // BOTH the consume path and register() (whichever fires with a live EditText first wins and
+    // clears the list) makes the image follow the visible host. See [[gallery-send-flow]].
+    private var pendingImageElements: List<MsgElement> = emptyList()
     private var bannerLayoutListener: ViewTreeObserver.OnGlobalLayoutListener? = null
 
     private data class ReplyState(val msgId: Long, val senderUid: String, val nick: String)
@@ -207,6 +215,8 @@ object InlineInput {
 
     /** Called from the input-bar hook each time the inline pill is (re)built for a chat. */
     fun register(editText: ImeEditText, controller: InputBarController) {
+        val prev = editTextRef?.get()
+        Utils.log("InlineInput.register: et=${System.identityHashCode(editText)} prev=${if (prev != null) System.identityHashCode(prev) else null} barState=${runCatching { controller.g }.getOrNull()} pendingExtraMsg=${IMEOperation.extraMsg.size}")
         editTextRef = WeakReference(editText)
         controllerRef = WeakReference(controller)
         // Match the chat message text size multiplier so the inline input box scales with it.
@@ -225,6 +235,7 @@ object InlineInput {
         currentChatKey = key
         if (key != null) {
             val mem = drafts[key]
+            Utils.log("InlineInput.register: restoring draft key=$key memLen=${mem?.length} (textBefore=${editText.text?.length})")
             if (mem != null) {
                 // Same session: restore the full in-memory copy (keeps [图片] image tokens too).
                 runCatching {
@@ -237,6 +248,7 @@ object InlineInput {
                 restoreFromPrefs(editText, key)
             }
             editText.addTextChangedListener(draftWatcher)
+            Utils.log("InlineInput.register: after draft restore textLen=${editText.text?.length}")
         }
         // The input bar auto-hides on scroll, detaching this EditText; drop the floating banner then.
         // When it reattaches (bar reshown) the reply/edit state is still live, so rebuild the banner —
@@ -250,6 +262,12 @@ object InlineInput {
         if (reply != null) updateBanner()
         // 上拉打开键盘: pulling the chat list up past its bottom opens the inline keyboard.
         ChatPullUpKeyboard.attach(editText)
+        // If a gallery pick is still awaiting insertion (e.g. focusAndShow switched to this host),
+        // drain it into this freshly-registered box now that the draft restore above is done.
+        if (pendingImageElements.isNotEmpty()) {
+            Utils.log("InlineInput.register: ${pendingImageElements.size} image(s) pending, draining into new host")
+            editText.post { drainPendingImages("register") }
+        }
     }
 
     // ---- inputs from the StartImeUtil interception (InlineImeRoute) ----
@@ -259,7 +277,8 @@ object InlineInput {
      * / edit-or-复读 prefill — then clear the IMEOperation staging and focus the box.
      */
     fun consumePending() {
-        val et = editText() ?: return
+        val et = editText() ?: run { Utils.log("InlineInput.consumePending: NO editText (isReady=$isReady)"); return }
+        Utils.log("InlineInput.consumePending: et=${System.identityHashCode(et)} attached=${et.isAttachedToWindow} extraMsg=${IMEOperation.extraMsg.size} extra=${IMEOperation.INSTANCE.extra.size} textLenBefore=${et.text?.length}")
         runCatching {
             // Reply / @ are staged in IMEOperation.extra (newest first via add(0,…)); apply in input order.
             for (obj in IMEOperation.INSTANCE.extra.reversed()) {
@@ -270,8 +289,9 @@ object InlineInput {
                         insertAt(obj.atUid, TextUtilKt.b64Decode(obj.atNickname))
                 }
             }
-            // Images staged by the gallery flow.
-            for (el in IMEOperation.extraMsg) insertImage(el)
+            // Images staged by the gallery flow: stash them and drain into the visible host (below),
+            // rather than inserting eagerly here (the host may change in focusAndShow).
+            pendingImageElements = ArrayList(IMEOperation.extraMsg)
             // Prefill text: 编辑 (MessageEdit active → banner) or 复读 (plain).
             IMEOperation.extraText?.let { if (it.isNotEmpty()) insertText(it) }
         }.onFailure { Utils.log("InlineInput.consumePending failed: $it") }
@@ -280,6 +300,31 @@ object InlineInput {
         IMEOperation.extraMsg.clear()
         updateBanner()
         focusAndShow()
+        // Drain after focusAndShow so the (possibly switched) visible host receives the images.
+        val cur = editText()
+        if (cur != null) cur.post { drainPendingImages("consume") } else drainPendingImages("consume")
+        Utils.log("InlineInput.consumePending: pendingImages=${pendingImageElements.size} textLenAfter=${et.text?.length}")
+    }
+
+    /**
+     * Insert any gallery-staged image tokens into the currently-registered (visible) inline EditText,
+     * then clear the staging. Idempotent: the first caller with a live EditText consumes the list, so
+     * a later register()/consume() drain becomes a no-op. See [pendingImageElements].
+     */
+    private fun drainPendingImages(srcTag: String) {
+        val imgs = pendingImageElements
+        if (imgs.isEmpty()) return
+        val et = editText()
+        if (et == null) {
+            Utils.log("InlineInput.drainPendingImages($srcTag): no editText, keeping ${imgs.size} pending")
+            return
+        }
+        pendingImageElements = emptyList()
+        Utils.log("InlineInput.drainPendingImages($srcTag): inserting ${imgs.size} into et=${System.identityHashCode(et)} attached=${et.isAttachedToWindow}")
+        runCatching { for (el in imgs) insertImage(el) }
+            .onFailure { Utils.log("InlineInput.drainPendingImages($srcTag) failed: $it") }
+        saveDraft()
+        Utils.log("InlineInput.drainPendingImages($srcTag): textLenAfter=${et.text?.length}")
     }
 
     /** STT / plain prefill: drop [s] into the box at the caret. */
@@ -293,7 +338,11 @@ object InlineInput {
 
     private fun insertAt(uid: String, nick: String) = insertToken("@$nick ", AtTag(uid, nick, 2))
 
-    private fun insertImage(element: MsgElement) = insertToken("[图片]", ImageTag(element))
+    private fun insertImage(element: MsgElement) {
+        val et = editText()
+        Utils.log("InlineInput.insertImage: et=${if (et != null) System.identityHashCode(et) else null} hasPic=${runCatching { element.picElement != null }.getOrNull()}")
+        insertToken("[图片]", ImageTag(element))
+    }
 
     /**
      * Route ready-to-send elements from QQ's native emoji selector (sysface / fav / market face /
@@ -354,7 +403,9 @@ object InlineInput {
         if (colorize) sp.setSpan(ForegroundColorSpan(tokenColor), 0, sp.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         val start = et.selectionStart.coerceAtLeast(0)
         val end = et.selectionEnd.coerceAtLeast(start)
-        et.text?.replace(start, end, sp)
+        val textObj = et.text
+        textObj?.replace(start, end, sp)
+        Utils.log("InlineInput.insertSpan: label='$label' tag=${tag.javaClass.simpleName} et=${System.identityHashCode(et)} textNull=${textObj == null} start=$start end=$end newLen=${et.text?.length}")
     }
 
     fun setReply(msgId: Long, senderUid: String, nick: String) {
@@ -594,8 +645,10 @@ object InlineInput {
         // targets the sliver state (g=1) which only shows at the list bottom, so it does nothing here.
         // Instead simulate pressing the up-arrow (showArrowListener m) which pops the floating input
         // (g=2) overlaid on the chat regardless of scroll. Skip when already shown (g==1 sliver / g==2).
+        val etBefore = editText()
         runCatching {
             controllerRef?.get()?.let { c ->
+                Utils.log("InlineInput.focusAndShow: barState=${c.g} etBefore=${if (etBefore != null) System.identityHashCode(etBefore) else null}")
                 if (c.g != 1 && c.g != 2) {
                     Utils.log("InlineInput: bar hidden (state=${c.g}), simulating up-arrow")
                     c.m.onClick(editText())
@@ -603,6 +656,7 @@ object InlineInput {
             }
         }.onFailure { Utils.log("InlineInput.forceShowBar failed: $it") }
         val et = editText() ?: return
+        if (et !== etBefore) Utils.log("InlineInput.focusAndShow: host SWITCHED to et=${System.identityHashCode(et)} (was ${if (etBefore != null) System.identityHashCode(etBefore) else null})")
         et.post {
             runCatching {
                 et.isFocusableInTouchMode = true

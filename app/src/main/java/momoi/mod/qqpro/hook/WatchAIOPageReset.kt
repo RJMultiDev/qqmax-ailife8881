@@ -140,8 +140,11 @@ class WatchAIOPageReset : WatchAIOFragment() {
                     IMEOperation.extraMsg.addAll(imgs)
                     Utils.log("Gallery onResume staged ${imgs.size} image(s) into extraMsg before openIME")
                 }
+                Utils.log("Gallery onResume pre-openIME: extraMsg=${IMEOperation.extraMsg.size} " +
+                    "InlineInput.isReady=${InlineInput.isReady} currentItem=${runCatching { f?.javaClass?.getMethod("getCurrentItem")?.invoke(f) }.getOrNull()}")
                 runCatching { IMEOperation.INSTANCE.openIME() }
                     .onFailure { Utils.log("Gallery openIME failed: $it") }
+                Utils.log("Gallery onResume post-openIME returned")
             }
         }
     }
