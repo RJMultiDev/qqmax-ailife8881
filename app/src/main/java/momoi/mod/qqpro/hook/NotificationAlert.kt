@@ -5,7 +5,6 @@ import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
-import android.media.RingtoneManager
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -29,7 +28,19 @@ import momoi.mod.qqpro.util.Utils
  * - 系统 → the system default notification ringtone / a standard system-style vibration pattern.
  */
 object NotificationAlert {
-    const val CHANNEL_ID = "qqpro_message_alert"
+    // FOUR FIXED channels (sound × vibration), created once on fresh ids and NEVER mutated.
+    // NotificationChannel sound/vibration are immutable after creation (changing an existing id
+    // silently no-ops, and a wrong config even survives delete+recreate via a tombstone) — so we use
+    // brand-new ids with a known-good config and never touch them again.
+    //
+    // 系统 sound/vibration are put ON the channel, so the OS produces them on post exactly like any
+    // other app's notification (the canonical, reliable path — the app does nothing). 应用内 is
+    // app-driven in [fire] (channel silent for that aspect); 关闭 is silent both on channel and app.
+    // We pick the channel matching (soundMode==系统, vibrateMode==系统):
+    const val CHANNEL_SOUND_VIBE = "qqpro_alert2_sv"   // 系统 sound + 系统 vibrate
+    const val CHANNEL_SOUND = "qqpro_alert2_s"         // 系统 sound only
+    const val CHANNEL_VIBE = "qqpro_alert2_v"          // 系统 vibrate only
+    const val CHANNEL_QUIET = "qqpro_alert2_n"         // neither (silent channel)
 
     private const val MODE_OFF = 0
     private const val MODE_IN_APP = 1
@@ -38,45 +49,95 @@ object NotificationAlert {
     /** App message tone (in-app mode). Matches the native NotifyProcessor's R.raw.office. */
     private const val IN_APP_SOUND_RES = "office"
     private val IN_APP_VIBRATE = longArrayOf(100, 200, 200, 100)
-    // A standard "double buzz" used for system mode (there is no public API to read the user's
-    // configured notification vibration pattern, so we use a typical default-style one).
+    // Vibration pattern for the system-vibrate channels. No API exposes the user's configured system
+    // pattern, so use a standard "double buzz". Must be concrete & non-empty —
+    // setVibrationPattern(null) sets mVibrationEnabled=false.
     private val SYSTEM_VIBRATE = longArrayOf(0, 250, 250, 250)
 
     /** Held so the previous tone can be released before a new one starts (avoids overlap/leak). */
     private var player: MediaPlayer? = null
 
+    private val ALL_CHANNELS = listOf(CHANNEL_SOUND_VIBE, CHANNEL_SOUND, CHANNEL_VIBE, CHANNEL_QUIET)
+
     /**
-     * Ensure the silent high-importance channel QQPro posts to exists. No-op below Oreo (channels
-     * don't exist there; the notification itself carries no sound/vibration, so it's silent and we
-     * still alert manually).
+     * Create the four fixed channels (once) and return the id to post to for the current modes. The
+     * 系统 sound and 系统 vibration are carried by the channel, so the OS produces them on post — the
+     * app does nothing for 系统. Below Oreo there are no channels and [fire] does everything manually.
      */
-    fun ensureChannel(ctx: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    fun ensureChannel(ctx: Context): String {
+        val sysSound = Settings.notifySoundMode.value == MODE_SYSTEM
+        val sysVibe = Settings.notifyVibrateMode.value == MODE_SYSTEM
+        val id = when {
+            sysSound && sysVibe -> CHANNEL_SOUND_VIBE
+            sysSound -> CHANNEL_SOUND
+            sysVibe -> CHANNEL_VIBE
+            else -> CHANNEL_QUIET
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return id
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (nm.getNotificationChannel(CHANNEL_ID) != null) return
-        val channel = NotificationChannel(CHANNEL_ID, "消息提醒", NotificationManager.IMPORTANCE_HIGH).apply {
+        // Remove obsolete channels from earlier designs (legacy single channel + per-mode channels),
+        // keeping only our four fixed ones.
+        runCatching {
+            nm.notificationChannels.map { it.id }
+                .filter { it.startsWith("qqpro_") && it !in ALL_CHANNELS }
+                .forEach { nm.deleteNotificationChannel(it) }
+        }.onFailure { Utils.log("NotificationAlert: channel cleanup failed: ${it.message}") }
+
+        ensureOneChannel(nm, CHANNEL_SOUND_VIBE, "消息提醒（声音+震动）", sound = true, vibrate = true)
+        ensureOneChannel(nm, CHANNEL_SOUND, "消息提醒（声音）", sound = true, vibrate = false)
+        ensureOneChannel(nm, CHANNEL_VIBE, "消息提醒（震动）", sound = false, vibrate = true)
+        ensureOneChannel(nm, CHANNEL_QUIET, "消息提醒", sound = false, vibrate = false)
+
+        val ch = nm.getNotificationChannel(id)
+        Utils.log("NotificationAlert: ensureChannel -> $id (sysSound=$sysSound sysVibe=$sysVibe " +
+            "shouldVibrate=${ch?.shouldVibrate()} channelSound=${ch?.sound})")
+        return id
+    }
+
+    private fun ensureOneChannel(
+        nm: NotificationManager, id: String, name: String, sound: Boolean, vibrate: Boolean,
+    ) {
+        if (nm.getNotificationChannel(id) != null) return
+        val channel = NotificationChannel(id, name, NotificationManager.IMPORTANCE_HIGH).apply {
             setShowBadge(true)
-            enableVibration(false)
-            setSound(null, null)
+            enableLights(false)
+            if (vibrate) {
+                enableVibration(true)
+                vibrationPattern = SYSTEM_VIBRATE   // concrete pattern → mVibrationEnabled=true
+            } else {
+                enableVibration(false)
+            }
+            if (sound) {
+                val attrs = AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .build()
+                setSound(ASettings.System.DEFAULT_NOTIFICATION_URI, attrs)
+            } else {
+                setSound(null, null)
+            }
         }
         nm.createNotificationChannel(channel)
+        Utils.log("NotificationAlert: created channel $id (sound=$sound vibrate=$vibrate " +
+            "shouldVibrate=${channel.shouldVibrate()} channelSound=${channel.sound})")
     }
 
-    /** Fire the configured alert once. Call after posting the notification (not on re-posts). */
+    /**
+     * Fire the APP-driven part of the alert once, after the first post (not on re-posts). 系统 is
+     * produced by the channel itself (the app must NOT also fire it, or it would double); this only
+     * handles 应用内 (manual tone / pattern). 关闭 does nothing.
+     */
     fun fire(ctx: Context) {
-        val vibrateMode = Settings.notifyVibrateMode.value
-        if (vibrateMode != MODE_OFF) vibrate(ctx, vibrateMode)
-        val soundMode = Settings.notifySoundMode.value
-        if (soundMode != MODE_OFF) playSound(ctx, soundMode)
+        if (Settings.notifyVibrateMode.value == MODE_IN_APP) vibrateInApp(ctx)
+        if (Settings.notifySoundMode.value == MODE_IN_APP) playInAppTone(ctx)
     }
 
-    private fun vibrate(ctx: Context, mode: Int) {
+    private fun vibrateInApp(ctx: Context) {
         val vibrator = ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return
-        val pattern = if (mode == MODE_SYSTEM) SYSTEM_VIBRATE else IN_APP_VIBRATE
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator.vibrate(
-                    VibrationEffect.createWaveform(pattern, -1),
+                    VibrationEffect.createWaveform(IN_APP_VIBRATE, -1),
                     AudioAttributes.Builder()
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .setUsage(AudioAttributes.USAGE_NOTIFICATION)
@@ -84,29 +145,10 @@ object NotificationAlert {
                 )
             } else {
                 @Suppress("DEPRECATION")
-                vibrator.vibrate(pattern, -1)
+                vibrator.vibrate(IN_APP_VIBRATE, -1)
             }
         } catch (e: Throwable) {
             Utils.log("NotificationAlert: vibrate failed: ${e.message}")
-        }
-    }
-
-    private fun playSound(ctx: Context, mode: Int) {
-        if (mode == MODE_SYSTEM) {
-            playSystemNotification(ctx)
-        } else {
-            playInAppTone(ctx)
-        }
-    }
-
-    /** Play the system default notification ringtone (system mode). */
-    private fun playSystemNotification(ctx: Context) {
-        try {
-            val uri = ASettings.System.DEFAULT_NOTIFICATION_URI ?: return
-            val ringtone = RingtoneManager.getRingtone(ctx, uri) ?: return
-            ringtone.play()
-        } catch (e: Throwable) {
-            Utils.log("NotificationAlert: system ringtone failed: ${e.message}")
         }
     }
 

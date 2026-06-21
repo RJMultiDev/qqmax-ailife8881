@@ -104,7 +104,9 @@ private fun postChatNotification(facade: NotificationFacade, app: AppRuntime, ms
     val ctx = Utils.application
     ensureReceiverRegistered(ctx)
     ensureReadListenerRegistered(app)
-    NotificationAlert.ensureChannel(ctx)
+    // The channel id encodes the current sound/vibrate modes (system alerts are produced by the
+    // channel itself); post to whichever channel matches the active modes.
+    val channelId = NotificationAlert.ensureChannel(ctx)
 
     val peerUid = msg.peerUid ?: ""
     val peerUin = msg.peerUin
@@ -172,8 +174,8 @@ private fun postChatNotification(facade: NotificationFacade, app: AppRuntime, ms
 
     // Builds a fresh notification; with no [bigPicture] it uses BigTextStyle so longer messages
     // expand to the full text instead of being clipped to one line.
-    fun build(bigPicture: Bitmap?): android.app.Notification {
-        val b = NotificationCompat.Builder(ctx, NotificationAlert.CHANNEL_ID)
+    fun build(bigPicture: Bitmap?, alertOnce: Boolean): android.app.Notification {
+        val b = NotificationCompat.Builder(ctx, channelId)
             .setSmallIcon(smallIcon)
             .setContentTitle(name)
             .setContentText(content)
@@ -181,6 +183,10 @@ private fun postChatNotification(facade: NotificationFacade, app: AppRuntime, ms
             .setAutoCancel(true)
             .setWhen(System.currentTimeMillis())
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            // The image re-post updates the SAME id for the same message, so it must not re-trigger
+            // the system-channel sound/vibration (alertOnce=true). A genuinely new message is a fresh
+            // post with alertOnce=false, so it still alerts even while the chat's notification shows.
+            .setOnlyAlertOnce(alertOnce)
             .addAction(replyAction)
         if (avatar != null) b.setLargeIcon(avatar)
         if (bigPicture != null) {
@@ -197,15 +203,16 @@ private fun postChatNotification(facade: NotificationFacade, app: AppRuntime, ms
     }
 
     val nm = NotificationManagerCompat.from(ctx)
-    nm.notify(notifyId, build(null))
-    // Fire the alert once per posting (vibration/sound), not on the later image re-post below.
+    nm.notify(notifyId, build(null, alertOnce = false))
+    // Fire the APP-driven alert once per message (应用内 mode only — 系统 is produced by the channel,
+    // 关闭 does nothing), not on the later image re-post below.
     NotificationAlert.fire(ctx)
     Utils.log("NotificationReply: posted id=$notifyId uin=$peerUin type=$chatType preview=$showPreview")
 
     // For an image message, load the picture in the background and re-post with BigPictureStyle.
     if (showPreview && msg.abstractContent?.any { it.elementType == ElementType.PIC } == true) {
         fetchImageBitmap(ctx, app, msg) { bmp ->
-            runCatching { nm.notify(notifyId, build(bmp)) }
+            runCatching { nm.notify(notifyId, build(bmp, alertOnce = true)) }
                 .onFailure { Utils.log("NotificationReply: re-notify with image failed: ${it.message}") }
             Utils.log("NotificationReply: attached image to id=$notifyId")
         }
