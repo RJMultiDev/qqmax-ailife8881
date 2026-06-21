@@ -205,6 +205,7 @@ class 设置页 : SettingsActivity() {
             switch("表情选择器插入输入框", "从系统表情选择器选择表情/图片/GIF 时不立即发送，而是作为 [表情]/[图片] 插入输入框，可继续编辑一起发送(需开启“完全行内输入”)", Settings.emojiPickerToInput)
             switch("附件浮层", "用输入框左侧 + 键打开附件浮层，移除附件翻页；表情移入附件列表(重进聊天页生效)", Settings.attachmentOverlay)
             switch("Material 附件菜单", "附件「+」菜单应用 Material 风格：M3 符号图标(主题色)、表面卡片与涟漪，与长按菜单一致；关闭则保留原图标(重进聊天页生效)", Settings.materialAttachmentMenu)
+            switch("Material 长按菜单", "消息长按菜单应用 Material 风格(表面卡片+主题色)；关闭则用半透明深色行+白色文字", Settings.materialLongPressMenu)
             switch("单行输入", "输入框固定为单行显示", Settings.singleLineInput)
             switch("输入键居中", "在聊天页面将输入键居中放置", Settings.swapCenterKeyboard)
             switch("隐藏语音按钮", "在聊天页隐藏语音(麦克风)按钮，所有输入模式下均生效", Settings.hideVoiceButton)

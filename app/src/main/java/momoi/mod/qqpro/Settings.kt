@@ -79,6 +79,9 @@ object Settings {
     // Material style for the "+" attachment menu rows (M3 symbols + accent + surface card),
     // matching the long-press menu. Default on.
     val materialAttachmentMenu = BooleanPref("materialAttachmentMenu", true)
+    // Material style for the chat long-press menu (M3 symbols + accent + one surface card). Off uses
+    // semi-transparent dark rows with white text (the "material disabled" look of the + menu).
+    val materialLongPressMenu = BooleanPref("materialLongPressMenu", true)
     // Rich chat titlebar: replaces the top page-indicator strip with a bar holding a back
     // button, the indicator dots, other-chats unread count, group member count and the
     // group/contact name. titlebarHeight (dp) defaults to the current strip height (16).
@@ -241,7 +244,7 @@ object Settings {
         themeColor, showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
         screenCornerDiameter, titlebarSideMargin,
-        hideVoiceButton, backToFirstPage, attachmentOverlay, materialAttachmentMenu, enableTitlebar, titlebarShowUnread,
+        hideVoiceButton, backToFirstPage, attachmentOverlay, materialAttachmentMenu, materialLongPressMenu, enableTitlebar, titlebarShowUnread,
         floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread,
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         galleryQuickSend, useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,

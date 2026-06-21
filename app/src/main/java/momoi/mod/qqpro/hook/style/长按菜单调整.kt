@@ -31,6 +31,7 @@ import com.tencent.watch.aio_impl.ui.cell.base.WatchAIOGroupWidgetItemCell
 import com.tencent.watch.aio_impl.ui.menu.AIOLongClickMenuFragment
 import com.tencent.watch.aio_impl.ui.menu.MenuItemFactory
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.hook.HistoryMsgRegistry
 import momoi.mod.qqpro.hook.aio_cell.MarketFaceImage
@@ -115,22 +116,27 @@ object LongPressMenu {
         isHistory: Boolean,
     ): View {
         val ctx = inflater.context
+        // Material = one M3 surface card with ripple rows; non-material = semi-transparent dark rows
+        // with white text (the "+ menu material-disabled" look).
+        val material = Settings.materialLongPressMenu.value
         val card = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             isClickable = true
         }
 
         buildEntries(fragment, card, msg, msgItem, fm, isHistory).sortedBy { it.order }.forEach { e ->
-            card.addView(rowFor(fragment, e))
+            card.addView(rowFor(fragment, e, material))
         }
-        addRecall(fragment, card, msg, isHistory)
+        addRecall(fragment, card, msg, isHistory, material)
 
-        // The rounded frame is the (fixed) ScrollView; rows scroll INSIDE it, clipped to the rounded
-        // corners — so the corners stay put instead of scrolling off with the content.
+        // The rounded frame is the (fixed) ScrollView; rows scroll INSIDE it. Material clips them to a
+        // solid surface card; non-material is a transparent container (each row is its own pill).
         val scroll = ScrollView(ctx).apply {
-            background = GradientDrawable().apply { setColor(M3.surfaceContainer); cornerRadius = M3.radiusLg }
-            clipToOutline = true
-            setPadding(0, 6.dp, 0, 6.dp)
+            if (material) {
+                background = GradientDrawable().apply { setColor(M3.surfaceContainer); cornerRadius = M3.radiusLg }
+                clipToOutline = true
+                setPadding(0, 6.dp, 0, 6.dp)
+            }
             isVerticalScrollBarEnabled = false
             isClickable = true
             addView(card, FrameLayout.LayoutParams(MP, WC))
@@ -261,7 +267,7 @@ object LongPressMenu {
      * messages in a group the role check is async: owner can recall anyone; admin only a normal
      * member. Inserted at the order-3 position (above 编辑) via the row tags.
      */
-    private fun addRecall(fragment: AIOLongClickMenuFragment, card: LinearLayout, msg: MsgRecord?, isHistory: Boolean) {
+    private fun addRecall(fragment: AIOLongClickMenuFragment, card: LinearLayout, msg: MsgRecord?, isHistory: Boolean, material: Boolean) {
         if (isHistory || msg == null) return
         val recallId = msg.msgId
         if (recallId == 0L) return
@@ -273,7 +279,7 @@ object LongPressMenu {
                 runCatching { KernelServiceUtil.c()?.recallMsg(CurrentContact, recallId, null) }
                     .onFailure { Utils.log("menu recall failed: $it") }
             }
-            insertByOrder(card, rowFor(fragment, e), 3)
+            insertByOrder(card, rowFor(fragment, e, material), 3)
         }
         CurrentGroupMembers.get(SelfContact.peerUid) { self ->
             when (self.role) {
@@ -346,8 +352,8 @@ object LongPressMenu {
         rich ?: prompt
     }.getOrNull()
 
-    private fun rowFor(fragment: AIOLongClickMenuFragment, e: Entry): View =
-        row(fragment.requireContext(), e) { runCatching { e.action() }; runCatching { fragment.dismiss() } }
+    private fun rowFor(fragment: AIOLongClickMenuFragment, e: Entry, material: Boolean): View =
+        row(fragment.requireContext(), e, material) { runCatching { e.action() }; runCatching { fragment.dismiss() } }
             .apply { tag = e.order }
 
     private fun insertByOrder(card: LinearLayout, rowView: View, order: Int) {
@@ -355,16 +361,31 @@ object LongPressMenu {
         if (idx != null) card.addView(rowView, idx) else card.addView(rowView)
     }
 
-    private fun row(ctx: Context, e: Entry, onClick: () -> Unit): View {
-        val tint = if (e.destructive) M3.error else M3.primary
-        val textColor = if (e.destructive) M3.error else M3.onSurface
+    private fun row(ctx: Context, e: Entry, material: Boolean, onClick: () -> Unit): View {
+        // Material: accent/onSurface on a flush ripple row inside the surface card.
+        // Non-material: white text + white icon (red for destructive) on a semi-transparent dark
+        // rounded pill, with a small gap between rows.
+        val red = 0xFF_FF6B6B.toInt()
+        val tint = if (e.destructive) (if (material) M3.error else red) else (if (material) M3.primary else Color.WHITE)
+        val textColor = if (e.destructive) (if (material) M3.error else red) else (if (material) M3.onSurface else Color.WHITE)
         return LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(18.dp, 12.dp, 18.dp, 12.dp)
             isClickable = true
-            background = RippleDrawable(ColorStateList.valueOf(0x33_888888), null, ColorDrawable(Color.WHITE))
+            background = if (material) {
+                RippleDrawable(ColorStateList.valueOf(0x33_888888), null, ColorDrawable(Color.WHITE))
+            } else {
+                val pill = GradientDrawable().apply { setColor(0x80_242424.toInt()); cornerRadius = 14.dp.toFloat() }
+                RippleDrawable(ColorStateList.valueOf(0x33_FFFFFF), pill, pill)
+            }
             setOnClickListener { onClick() }
+            if (!material) {
+                // Each row is its own pill → give it horizontal/vertical margin so they don't touch.
+                layoutParams = LinearLayout.LayoutParams(MP, WC).apply {
+                    leftMargin = 10.dp; rightMargin = 10.dp; topMargin = 3.dp; bottomMargin = 3.dp
+                }
+            }
             addView(ImageView(ctx).apply { setImageDrawable(MaterialSymbol(e.symbol, tint)) },
                 LinearLayout.LayoutParams(22.dp, 22.dp))
             addView(TextView(ctx).apply { text = e.label; setTextColor(textColor); textSize = 15f },

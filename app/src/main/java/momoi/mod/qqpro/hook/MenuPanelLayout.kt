@@ -138,7 +138,8 @@ class MenuPanelLayout(p0: (Int) -> Unit, p1: Boolean) : MenuFrame(p0, p1) {
             ll.background = android.graphics.drawable.RippleDrawable(
                 android.content.res.ColorStateList.valueOf(0x33_888888), null,
                 android.graphics.drawable.ColorDrawable(android.graphics.Color.WHITE))
-            ll.setPadding(16.dp, 12.dp, 16.dp, 12.dp)
+            // Tighter vertical padding → smaller gap between rows.
+            ll.setPadding(16.dp, 8.dp, 16.dp, 8.dp)
         } else {
             // R.drawable.watch_normal_button_white_bg — the original per-row (non-material) card.
             ll.background = androidx.core.content.ContextCompat.getDrawable(ll.context, 0x7e080ea8)
