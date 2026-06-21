@@ -33,6 +33,9 @@ import momoi.mod.qqpro.hook.view.MemberPickerFragment
 import momoi.mod.qqpro.lib.clickable
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.dpf
+import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
 import momoi.mod.qqpro.lib.onChildAttached
 import momoi.mod.qqpro.util.Utils
 
@@ -53,8 +56,21 @@ class MenuPanelLayout(p0: (Int) -> Unit, p1: Boolean) : MenuFrame(p0, p1) {
         val list = (root as? ViewGroup)?.findAll { it is RecyclerView } as? RecyclerView
         if (list != null) {
             list.layoutManager = GridLayoutManager(list.context, 1)
-            list.setPadding(8.dp, 0, 8.dp, 0)
             list.clipToPadding = false
+            if (Settings.materialAttachmentMenu.value) {
+                // One M3 surface card holding every row (matches the long-press menu): the rounded
+                // card is the RecyclerView itself, centered with side margins; rows scroll inside it.
+                list.background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(M3.surfaceContainer); cornerRadius = M3.radiusLg
+                }
+                list.clipToOutline = true
+                list.setPadding(0, 6.dp, 0, 6.dp)
+                list.layoutParams = android.widget.FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER,
+                ).apply { val m = 14.dp; setMargins(m, m, m, m) }
+            } else {
+                list.setPadding(8.dp, 0, 8.dp, 0)
+            }
         }
         Utils.log("MenuPanelLayout: switched to vertical list")
         return root
@@ -112,25 +128,35 @@ class MenuPanelLayout(p0: (Int) -> Unit, p1: Boolean) : MenuFrame(p0, p1) {
         }
         if (icon == null || label == null) return
 
-        // Card container: horizontal row, dark rounded background, unified margin + padding.
+        val labelText = label.text?.toString().orEmpty()
+        val material = Settings.materialAttachmentMenu.value
+
         ll.orientation = LinearLayout.HORIZONTAL
         ll.gravity = Gravity.CENTER_VERTICAL
-        // Use the exact same drawable the long-press context-menu cards use
-        // (R.drawable.watch_normal_button_white_bg) so they look identical — no hand-picked alpha.
-        ll.background = androidx.core.content.ContextCompat.getDrawable(ll.context, 0x7e080ea8)
-            ?: roundCornerDrawable(0x80_242424.toInt(), 14.dpf)
-        ll.cardMargin()
-        ll.setPadding(14.dp, 10.dp, 14.dp, 10.dp)
+        if (material) {
+            // A plain ripple row INSIDE the single surface card (the RecyclerView) — no per-row card.
+            ll.background = android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf(0x33_888888), null,
+                android.graphics.drawable.ColorDrawable(android.graphics.Color.WHITE))
+            ll.setPadding(16.dp, 12.dp, 16.dp, 12.dp)
+        } else {
+            // R.drawable.watch_normal_button_white_bg — the original per-row (non-material) card.
+            ll.background = androidx.core.content.ContextCompat.getDrawable(ll.context, 0x7e080ea8)
+                ?: roundCornerDrawable(0x80_242424.toInt(), 14.dpf)
+            ll.cardMargin()
+            ll.setPadding(14.dp, 10.dp, 14.dp, 10.dp)
+        }
 
-        // Icon on the left, fixed size, with our drawn drawable chosen by the label text.
+        // Icon on the left: Material symbol (accent) or the original hand-drawn drawable.
         icon.scaleType = ImageView.ScaleType.FIT_CENTER
-        icon.setImageDrawable(iconFor(label.text?.toString().orEmpty()))
+        icon.setImageDrawable(
+            if (material) MaterialSymbol(materialSymbolFor(labelText), M3.primary) else iconFor(labelText))
         icon.layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp)
 
         // Label fills the rest, left-aligned.
         label.gravity = Gravity.CENTER_VERTICAL or Gravity.START
         label.textSize = 14f
-        label.setTextColor(0xFF_FFFFFF.toInt())
+        label.setTextColor(if (material) M3.onSurface else 0xFF_FFFFFF.toInt())
         label.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
             marginStart = 12.dp
         }
@@ -169,6 +195,19 @@ class MenuPanelLayout(p0: (Int) -> Unit, p1: Boolean) : MenuFrame(p0, p1) {
             CallConfirmFragment("确定要发起$label 吗？", action)
                 .show(parentFragmentManager, "qqpro_call_confirm")
         }.onFailure { Utils.log("call confirm show failed: $it") }
+    }
+
+    /** Material Symbol path per attachment item label (matches the long-press menu's icon set). */
+    private fun materialSymbolFor(text: String): String = when {
+        text.contains("表情") -> MaterialSymbols.mood
+        text.contains("艾特") -> MaterialSymbols.alternate_email
+        text.contains("音频") -> MaterialSymbols.audio_file
+        text.contains("录") -> MaterialSymbols.videocam
+        text.contains("相册") -> MaterialSymbols.image
+        text.contains("拍") -> MaterialSymbols.photo_camera
+        text.contains("视频") -> MaterialSymbols.videocam
+        text.contains("语音") || text.contains("通话") -> MaterialSymbols.call
+        else -> MaterialSymbols.image
     }
 
     private fun iconFor(text: String) = when {

@@ -76,6 +76,9 @@ object Settings {
     // list as an overlay over the chat (like the long-press menu). Removes the attachment
     // ViewPager page (友: 聊天+设置 两页; 非好友: 仅聊天), and moves 表情 into the overlay list.
     val attachmentOverlay = BooleanPref("attachmentOverlay", true)
+    // Material style for the "+" attachment menu rows (M3 symbols + accent + surface card),
+    // matching the long-press menu. Default on.
+    val materialAttachmentMenu = BooleanPref("materialAttachmentMenu", true)
     // Rich chat titlebar: replaces the top page-indicator strip with a bar holding a back
     // button, the indicator dots, other-chats unread count, group member count and the
     // group/contact name. titlebarHeight (dp) defaults to the current strip height (16).
@@ -234,7 +237,7 @@ object Settings {
         themeColor, showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
         screenCornerDiameter, titlebarSideMargin,
-        hideVoiceButton, backToFirstPage, attachmentOverlay, enableTitlebar, titlebarShowUnread,
+        hideVoiceButton, backToFirstPage, attachmentOverlay, materialAttachmentMenu, enableTitlebar, titlebarShowUnread,
         floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread,
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
