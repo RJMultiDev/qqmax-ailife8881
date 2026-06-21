@@ -86,7 +86,12 @@ object GroupBulletinApi {
             val text = StringBuilder()
             val pics = mutableListOf<Image>()
             rec.feedsMsg.feedsContents.forEach { c ->
-                if (c.contentValue.isNotEmpty()) {
+                // Skip the generic "群公告" title chunk the server appends to almost every
+                // announcement: the viewer already shows a "群公告" header, so it would just be a
+                // redundant trailing line. Matched by value (not the exact contentType number, which
+                // we don't fully trust) — no real announcement body is the lone string "群公告".
+                val isGenericTitle = c.contentValue.trim() == "群公告"
+                if (c.contentValue.isNotEmpty() && !isGenericTitle) {
                     if (text.isNotEmpty()) text.append('\n')
                     text.append(c.contentValue)
                 }
