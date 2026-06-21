@@ -47,6 +47,7 @@ import momoi.mod.qqpro.hook.forwardText
 import momoi.mod.qqpro.hook.repeatMsgRecord
 import momoi.mod.qqpro.hook.shareImageFile
 import momoi.mod.qqpro.hook.shareMessage
+import momoi.mod.qqpro.hook.view.ConfirmFragment
 import momoi.mod.qqpro.hook.view.PartialCopyFragment
 import momoi.mod.qqpro.hook.aio_cell.doAddFavEmoji
 import momoi.mod.qqpro.child
@@ -233,16 +234,23 @@ object LongPressMenu {
         val deleteId = msg?.msgId
         if (!isHistory && deleteId != null && deleteId != 0L && msg != null)
             add(15, "删除", MaterialSymbols.delete, destructive = true) {
-                val contact = Contact(msg.chatType, msg.peerUid, "")
-                runCatching {
-                    MsgUtil.msgService.deleteMsg(contact, arrayListOf(deleteId), IOperateCallback { code, reason ->
-                        Utils.log("menu delete: id=$deleteId code=$code reason=$reason")
-                        runOnUi {
-                            if (code == 0) { CurrentMsgList.removeLive(setOf(deleteId)); Utils.toast(host.context, "删除成功") }
-                            else Utils.toast(host.context, "删除失败")
-                        }
-                    })
-                }.onFailure { Utils.log("menu delete failed: $it"); Utils.toast(host.context, "删除失败") }
+                // The menu has dismissed; show the confirm on the chat fragment's manager.
+                val doDelete = {
+                    val contact = Contact(msg.chatType, msg.peerUid, "")
+                    runCatching {
+                        MsgUtil.msgService.deleteMsg(contact, arrayListOf(deleteId), IOperateCallback { code, reason ->
+                            Utils.log("menu delete: id=$deleteId code=$code reason=$reason")
+                            runOnUi {
+                                if (code == 0) { CurrentMsgList.removeLive(setOf(deleteId)); Utils.toast(host.context, "删除成功") }
+                                else Utils.toast(host.context, "删除失败")
+                            }
+                        })
+                    }.onFailure { Utils.log("menu delete failed: $it"); Utils.toast(host.context, "删除失败") }
+                }
+                if (fm != null) runCatching {
+                    ConfirmFragment("仅从本机删除此消息，不会撤回，对方仍可看到。", "删除", destructive = true) { doDelete() }
+                        .show(fm, "qqpro_delete_confirm")
+                }.onFailure { doDelete() } else doDelete()
             }
 
         return out
