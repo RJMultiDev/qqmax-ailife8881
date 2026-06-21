@@ -95,12 +95,15 @@ object MainNav {
         val uid = c?.peerUid ?: return
         if (uid.isEmpty()) return
         unread[uid] = c.unreadCnt.toInt()
+        // Capture the muted/DND state the kernel carries so DND chats are excluded from the badge
+        // total even before their list row renders (see RecentContacts.mutedMap).
+        RecentContacts.recordMuted(uid, RecentContacts.isMuted(c.isMsgDisturb, c.shieldFlag))
     }
 
     private fun messagesUnread(): Int {
         RecentContacts.map.forEach { (k, v) -> if (!unread.containsKey(k)) unread[k] = v.unreadCntCached }
         return unread.entries
-            .filter { it.value > 0 && RecentContacts.get(it.key)?.disturb != true }
+            .filter { it.value > 0 && !RecentContacts.isDisturb(it.key) }
             .sumOf { it.value }
     }
 

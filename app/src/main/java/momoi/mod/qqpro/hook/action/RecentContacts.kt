@@ -66,6 +66,29 @@ fun sanitizeRecentSummary(cs: CharSequence): CharSequence {
 object RecentContacts {
     val map = mutableMapOf<String, Data>()
     fun get(peerUin: String?) = map[peerUin]
+
+    // 免打扰/屏蔽 (muted) state per peerUid, kept independently of [map] so the live unread badges
+    // (MainNav / RichTitlebar) can exclude DND chats even before their list row has rendered — the
+    // kernel listeners push unread counts and RecentContactInfo before the WatchRecentItemBuilder
+    // binds, so [map] may not have the entry yet. Both the list-render path and the kernel-listener
+    // paths feed this via [recordMuted].
+    private val mutedMap = mutableMapOf<String, Boolean>()
+
+    /**
+     * A chat is muted (DND) when isMsgDisturb is set OR shieldFlag is outside {0,1}: 0 = 好友默认,
+     * 1 = 群正常接收并提醒, anything else (2 收进群助手 / 3 接收但不提醒 / 4 屏蔽) is muted. Mirrors
+     * WatchRecentItemBuilder.l()'s grey-badge condition.
+     */
+    fun isMuted(isMsgDisturb: Boolean, shieldFlag: Long): Boolean =
+        isMsgDisturb || (shieldFlag != 0L && shieldFlag != 1L)
+
+    fun recordMuted(peerUid: String?, muted: Boolean) {
+        if (!peerUid.isNullOrEmpty()) mutedMap[peerUid] = muted
+    }
+
+    /** Whether this peer is muted (DND). Prefers the live [mutedMap], falls back to [map]. */
+    fun isDisturb(peerUid: String?): Boolean =
+        mutedMap[peerUid] ?: map[peerUid]?.disturb ?: false
     class Data(
         val raw: RecentContactInfo,
         val unreadCntCached: Int,
@@ -85,14 +108,14 @@ object RecentContacts {
 
         override fun t(item: RecentContactChatItem, holder: WatchRecentContactHolder) {
             // Grey badge (muted) = isMsgDisturb (item.p) OR shieldFlag (item.q) not in {0,1}.
-            val sf = item.q.toInt()
-            val muted = item.p || (sf != 0 && sf != 1)
+            val muted = isMuted(item.p, item.q)
             Utils.log("load recent contact: ${item.a.peerName}, unreadCnt: ${item.a.unreadCnt}, peerUid: ${item.a.peerUid}, muted=$muted (disturb=${item.p}, shieldFlag=${item.q})")
             map[item.a.peerUid] = Data(
                 item.a,
                 item.a.unreadCnt.toInt(),
                 muted
             )
+            recordMuted(item.a.peerUid, muted)
             // Replace unrendered emoji garbage in the preview with a "[表情]" placeholder before binding.
             sanitizeItem(item)
             super.t(item, holder)

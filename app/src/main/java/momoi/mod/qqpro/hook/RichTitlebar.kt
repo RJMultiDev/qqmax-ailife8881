@@ -248,11 +248,10 @@ object RichTitlebar {
     private fun applyUnread() {
         // Exclude the current chat and any 免打扰 (DND) chats from the badge total.
         unread.entries.filter { it.value > 0 && it.key != peer }.forEach {
-            val rc = RecentContacts.get(it.key)
-            Utils.log("RichTitlebar unread breakdown: peer=${it.key} cnt=${it.value} disturb=${rc?.disturb} inMap=${rc != null}")
+            Utils.log("RichTitlebar unread breakdown: peer=${it.key} cnt=${it.value} disturb=${RecentContacts.isDisturb(it.key)}")
         }
         val other = unread.entries
-            .filter { it.key != peer && RecentContacts.get(it.key)?.disturb != true }
+            .filter { it.key != peer && !RecentContacts.isDisturb(it.key) }
             .sumOf { it.value }
         val text = if (other > 99) "99+" else other.toString()
         // Float option takes over the unread display: when on, hide the header badge and show the
@@ -341,6 +340,8 @@ object RichTitlebar {
         val uid = c.peerUid ?: return
         if (uid.isEmpty()) return
         unread[uid] = c.unreadCnt.toInt()
+        // Capture the kernel's muted/DND state so DND chats are excluded even before their row renders.
+        RecentContacts.recordMuted(uid, RecentContacts.isMuted(c.isMsgDisturb, c.shieldFlag))
     }
 
     /** Live unread updates pushed by the kernel; we recompute and refresh the badge in place. */
