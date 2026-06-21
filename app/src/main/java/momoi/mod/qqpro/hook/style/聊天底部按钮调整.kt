@@ -85,7 +85,13 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
         val emoji = getChildAt(0)
         val keyboard = getChildAt(2)
         GroupScope(this).apply {
-            val roundBg = roundCornerDrawable(M3.primary, 9999f)
+            // A FRESH drawable per button — one shared GradientDrawable instance can't back several
+            // views at once (its bounds/callback follow the last view, so earlier ones, e.g. the "+",
+            // render as a thin sliver). Material accent circle for the side icon buttons.
+            val roundBg = { roundCornerDrawable(M3.primary, 9999f) }
+            // Material primary pill for the keyboard button — same accent color as the +/voice
+            // buttons (instead of QQ's native blue rounded-rect drawable).
+            val inputBg = { roundCornerDrawable(M3.primary, 9999f) }
             val sideSpaceDp = Settings.screenCornerDiameter.value.toInt()
             // Baseline single-line height of the bar; buttons stay this tall while the EditText grows.
             val lineH = 36.dp
@@ -311,7 +317,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                         add(pill.marginHorizontal(sideSpaceDp.dp))
                     } else {
                         val left = add<ImageView>().height(FILL).adjustViewBounds()
-                            .scaleType(ImageView.ScaleType.FIT_CENTER).background(roundBg).padding(8.dp)
+                            .scaleType(ImageView.ScaleType.FIT_CENTER).background(roundBg()).padding(8.dp)
                         if (Settings.attachmentOverlay.value) {
                             left.setImageDrawable(plusIconDrawable())
                             left.clickable { hideIme(left); AttachmentOverlay.show(left, emoji) }
@@ -319,7 +325,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                             left.bitmapDecodeAssets("pro/ic_emoji.png")
                             left.clickable { hideIme(left); emoji.callOnClick() }
                         }
-                        voice.background(roundBg)
+                        voice.background(roundBg())
                         val input = if (Settings.text.isEmpty()) {
                             create<ImageView>().bitmapDecodeAssets("pro/ic_keyboard.png")
                                 .scaleType(ImageView.ScaleType.FIT_CENTER).padding(8.dp)
@@ -327,7 +333,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                             create<TextView>().gravity(Gravity.CENTER).textSize(14f)
                                 .textColor(0xFF_FFFFFF).text(Settings.text)
                         }.height(FILL).weight(1f)
-                            .background(ContextCompat.getDrawable(context, 2114457248)).clickable {
+                            .background(inputBg()).clickable {
                                 keyboard.callOnClick()
                             }
 
