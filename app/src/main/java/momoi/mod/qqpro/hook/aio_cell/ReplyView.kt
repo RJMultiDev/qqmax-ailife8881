@@ -13,6 +13,8 @@ import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.join
+import momoi.mod.qqpro.lib.FILL
+import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.lib.background
 import momoi.mod.qqpro.lib.content
 import momoi.mod.qqpro.lib.dp
@@ -35,8 +37,15 @@ class ReplyView(context: Context) : LinearLayout(context) {
     private var currentMsgSeq: Long = 0
 
     init {
+        // Explicit MATCH_PARENT layout params so the reply quote fills the bubble width the MESSAGE
+        // TEXT decides (LinearLayout re-measures match-width children to the column's wrap width),
+        // instead of hugging the short quote text. Set here (not via the .width()/.marginHorizontal()
+        // helpers) because at construction time the view has no layoutParams yet — .width() would NPE
+        // and .margin() would silently no-op.
+        this.layoutParams = LinearLayout.LayoutParams(FILL, WRAP).apply {
+            leftMargin = 2.dp; rightMargin = 2.dp
+        }
         this.vertical()
-            .marginHorizontal(2.dp)
             .background(roundCornerDrawable(Colors.replyBackground, Settings.bubbleCornerRadius.value.dpf))
             // Inset the text by ~half the corner radius so it clears the rounded corners.
             .paddingHorizontal(maxOf(2.dp, (Settings.bubbleCornerRadius.value * 0.6f).dpf.toInt()))

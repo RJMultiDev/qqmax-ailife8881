@@ -67,15 +67,14 @@ object LinkPreview {
             })
             c
         }
-        // AIOCell.i() resets the content's layout params to WRAP/WRAP on every rebind so a
-        // plain message bubble hugs its text. Once a preview is attached the text lives in
-        // the wrapped column and must fill it, otherwise the bubble shrinks to the text
-        // width when the cell is rebound on scroll-back. Re-assert the column-fill params.
+        // Keep the message text WRAP so IT decides the bubble width (matches AIOCell.i()'s reset).
+        // The card below is MATCH_PARENT, so LinearLayout re-measures it to exactly the text's wrap
+        // width — the preview fills the text width instead of dictating a wider/narrower bubble.
         (content!!.layoutParams as? LinearLayout.LayoutParams)?.also {
-            it.width = FILL
-            it.height = 0
-            it.weight = 1f
-        } ?: run { content.layoutParams = LinearLayout.LayoutParams(FILL, 0, 1f) }
+            it.width = WRAP
+            it.height = WRAP
+            it.weight = 0f
+        } ?: run { content.layoutParams = LinearLayout.LayoutParams(WRAP, WRAP) }
         card.root.visibility = View.VISIBLE
         card.show(url)
     }
