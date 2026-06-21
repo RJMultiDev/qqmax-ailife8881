@@ -117,6 +117,9 @@ fun ViewGroup.styleGenderBirthdayChips(): Boolean {
     if (gIcon == null && bDate == null) return false
     (gIcon as? ImageView)?.setColorFilter(M3.primary)
     (bDate as? TextView)?.setTextColor(M3.primary)
+    // The gender value text ("男"/"女"/"未知") is native-blue too — theme it to match the birthday.
+    (byName("gender_text") as? TextView)?.setTextColor(M3.primary)
+    (byName("gender_tv") as? TextView)?.setTextColor(M3.primary)
 
     val gCard = gIcon?.nearestClickableAncestor()
     val bCard = bDate?.nearestClickableAncestor()
