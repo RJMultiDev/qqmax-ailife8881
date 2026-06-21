@@ -24,6 +24,7 @@ import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.material.M3Progress
+import momoi.mod.qqpro.lib.material.MaterialIconButton
 import momoi.mod.qqpro.lib.material.MaterialSymbol
 import momoi.mod.qqpro.lib.material.MaterialSymbols
 import momoi.mod.qqpro.lib.material.leadingSymbol
@@ -98,8 +99,8 @@ object MemberListSearch {
             setPadding(12.dp, 4.dp, 6.dp, 4.dp)
         }
 
-        // icon() already gives each a fixed 22dp LayoutParams; just add a gap before the search icon.
-        (searchIcon.layoutParams as LinearLayout.LayoutParams).marginStart = 22.dp
+        // icon() already gives each a fixed 30dp LayoutParams; just add a gap before the search icon.
+        (searchIcon.layoutParams as LinearLayout.LayoutParams).marginStart = 12.dp
         bar.addView(addIcon)
         bar.addView(searchIcon)
         bar.addView(et, LinearLayout.LayoutParams(0, WRAP, 1f))
@@ -192,10 +193,12 @@ object MemberListSearch {
         runCatching { adapter.submitList(result) }.onFailure { Utils.log("MemberSearch apply: $it") }
     }
 
-    private fun icon(ctx: Context, path: String): ImageView = ImageView(ctx).apply {
-        layoutParams = LinearLayout.LayoutParams(22.dp, 22.dp)
-        scaleType = ImageView.ScaleType.FIT_CENTER
-        setImageDrawable(MaterialSymbol(path, M3.onSurface))
+    // Accent-tinted icon in an M3 tonal circle, matching the other top bars (ContactTopBar/QZoneTopBar
+    // use MaterialIconButton(30dp) + setTonalContainer()).
+    private fun icon(ctx: Context, path: String): MaterialIconButton = MaterialIconButton(ctx).apply {
+        layoutParams = LinearLayout.LayoutParams(30.dp, 30.dp)
+        setIcon(MaterialSymbol(path, M3.ACCENT))
+        setTonalContainer()
     }
 
     private fun infoOf(item: GroupMemberItem): MemberInfo? = runCatching {
