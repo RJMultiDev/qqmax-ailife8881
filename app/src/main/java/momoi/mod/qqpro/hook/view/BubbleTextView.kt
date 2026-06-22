@@ -51,7 +51,7 @@ class BubbleTextView(context: Context) : TextView(context) {
 
     init {
         gravity = Gravity.CENTER
-        setTextColor(0xFF_FFFFFF.toInt())
+        setTextColor(M3.onSurface)
         textSize = 14f
         setPadding(18.dp, 9.dp, 14.dp, 9.dp)
     }

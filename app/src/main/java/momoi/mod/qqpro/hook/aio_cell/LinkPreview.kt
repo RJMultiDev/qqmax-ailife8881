@@ -16,6 +16,7 @@ import momoi.mod.qqpro.confirmOpenUrl
 import loadPicUrl
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.WRAP
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.util.firstUrl
 import momoi.mod.qqpro.util.runOnUi
@@ -140,7 +141,7 @@ object LinkPreview {
             })
             site = TextView(ctx).apply {
                 textSize = 11f
-                setTextColor(0xFF_9E9E9E.toInt())
+                setTextColor(M3.onSurfaceVariant)
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
             }
@@ -149,7 +150,7 @@ object LinkPreview {
 
             title = TextView(ctx).apply {
                 textSize = 12f
-                setTextColor(0xFF_E0E0E0.toInt())
+                setTextColor(M3.onSurface)
                 maxLines = 2
                 ellipsize = TextUtils.TruncateAt.END
             }
@@ -157,7 +158,7 @@ object LinkPreview {
 
             desc = TextView(ctx).apply {
                 textSize = 11f
-                setTextColor(0xFF_9E9E9E.toInt())
+                setTextColor(M3.onSurfaceVariant)
                 maxLines = 3
                 ellipsize = TextUtils.TruncateAt.END
             }

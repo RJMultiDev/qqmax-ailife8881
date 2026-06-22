@@ -16,6 +16,7 @@ import momoi.mod.qqpro.hook.action.CurrentMsgList
 import momoi.mod.qqpro.hook.view.BubbleTextView
 import momoi.mod.qqpro.hook.view.smoothScrollToStart
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.material.M3CircularProgress
 import momoi.mod.qqpro.util.Utils
 
@@ -65,7 +66,7 @@ class ReplyClick(
         val tv = TextView(rv.context).apply {
             this.text = text
             textSize = 13f
-            setTextColor(0xFF_FFFFFF.toInt())
+            setTextColor(M3.onSurface)
             gravity = Gravity.CENTER
         }
         val pill = LinearLayout(rv.context).apply {

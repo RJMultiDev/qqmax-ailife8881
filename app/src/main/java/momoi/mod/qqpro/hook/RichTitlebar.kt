@@ -26,6 +26,7 @@ import momoi.mod.qqpro.hook.action.RecentContacts
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -100,15 +101,15 @@ object RichTitlebar {
             // input pill (corner diameter). The two spacers share the slack so the name is centered
             // until the badge would crowd it, then it sits just right of the badge — see relayoutTitle.
             val badgeView = TextView(ctx).apply {
-                setTextColor(0xFF_FFFFFF.toInt())
+                setTextColor(M3.onSurface)
                 textSize = 10f
                 gravity = Gravity.CENTER
-                background = roundCornerDrawable(0xFF_E5443C.toInt(), 9999f)
+                background = roundCornerDrawable(M3.error, 9999f)
                 setPadding(4.dp, 0, 4.dp, 0)
                 visibility = View.GONE
             }
             val nameTv = TextView(ctx).apply {
-                setTextColor(0xFF_FFFFFF.toInt())
+                setTextColor(M3.onSurface)
                 textSize = 13f
                 isSingleLine = true
                 if (Settings.titlebarMarquee.value) {
@@ -123,7 +124,7 @@ object RichTitlebar {
                 text = name
             }
             val countTv = TextView(ctx).apply {
-                setTextColor(0xFF_FFFFFF.toInt())
+                setTextColor(M3.onSurface)
                 textSize = 13f
                 isSingleLine = true
                 text = ""
@@ -213,10 +214,10 @@ object RichTitlebar {
 
             val view = TextView(ctx).apply {
                 tag = FLOAT_TAG
-                setTextColor(0xFF_FFFFFF.toInt())
+                setTextColor(M3.onSurface)
                 textSize = 10f
                 gravity = Gravity.CENTER
-                background = roundCornerDrawable(0xFF_E5443C.toInt(), 9999f)
+                background = roundCornerDrawable(M3.error, 9999f)
                 setPadding(5.dp, 1.dp, 5.dp, 1.dp)
                 visibility = View.GONE
                 elevation = 10.dp.toFloat()

@@ -18,6 +18,7 @@ import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.hook.contact.ProfileNameView
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.material.MaterialSymbol
 import momoi.mod.qqpro.lib.material.MaterialSymbols
 import momoi.mod.qqpro.util.Utils
@@ -87,7 +88,7 @@ class ProfileCardIconFix : ProfileCardFragment() {
                 resources.getIdentifier("nickname", "id", pkg)
             ) as? SingleLineTextView ?: return
             val qqView = view.findViewById<TextView>(resources.getIdentifier("self_qq", "id", pkg))
-            val color = qqView?.currentTextColor ?: 0xFF_FFFFFF.toInt()
+            val color = qqView?.currentTextColor ?: M3.onSurface
             ProfileNameView.enhanceCardName(nickView, color)
         } catch (e: Exception) {
             Utils.log("ProfileCardIconFix multiline error: ${e.message}")
@@ -155,7 +156,7 @@ class ProfileCardIconFix : ProfileCardFragment() {
             // QQ nickname too. The card opener pre-fetches the profile, so the cache is already
             // populated here — a single synchronous read suffices (no polling).
             if (nickView != null && !uid.isNullOrEmpty()) {
-                val color = qqView?.currentTextColor ?: 0xFF_000000.toInt()
+                val color = qqView?.currentTextColor ?: M3.onSurface
                 tryShowRealNick(nickView, uid, displayName, ctx, color)
             } else {
                 Utils.log("ProfileCardIconFix: skip real-nick (nickView=$nickView uid='$uid')")

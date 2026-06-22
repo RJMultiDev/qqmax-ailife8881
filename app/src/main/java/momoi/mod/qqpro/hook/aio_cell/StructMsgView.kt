@@ -15,6 +15,7 @@ import momoi.mod.qqpro.lib.background
 import momoi.mod.qqpro.lib.content
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.dpf
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
@@ -40,11 +41,11 @@ class StructMsgView(context: Context) : LinearLayout(context) {
             mTvTitle = add<TextView>()
                 .width(FILL)
                 .textSize(13f * Settings.chatScale.value)
-                .textColor(0xFF_FFFFFF.toInt())
+                .textColor(M3.onSurface)
             mTvSummary = add<TextView>()
                 .width(FILL)
                 .textSize(11f * Settings.chatScale.value)
-                .textColor(0xFF_CCCCCC.toInt())
+                .textColor(M3.onSurfaceVariant)
         }
     }
 

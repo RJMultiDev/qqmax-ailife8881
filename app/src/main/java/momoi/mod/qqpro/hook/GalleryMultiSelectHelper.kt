@@ -335,14 +335,14 @@ class GalleryMultiSelectHelper(private val fragment: GalleryFragment) {
         private val margin = 6.dp.toFloat()
         private val circleFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = M3.primary }
         private val circleBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 2f
+            color = M3.onSurface; style = Paint.Style.STROKE; strokeWidth = 2f
         }
         private val checkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 2f
+            color = M3.onSurface; style = Paint.Style.STROKE; strokeWidth = 2f
             strokeCap = Paint.Cap.ROUND
         }
         private val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE; textAlign = Paint.Align.CENTER
+            color = M3.onSurface; textAlign = Paint.Align.CENTER
             textSize = radius * 1.1f; isFakeBoldText = true
         }
 

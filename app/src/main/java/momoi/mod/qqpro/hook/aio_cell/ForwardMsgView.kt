@@ -12,6 +12,7 @@ import momoi.mod.qqpro.lib.clickable
 import momoi.mod.qqpro.lib.content
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.marginVertical
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.size
 import momoi.mod.qqpro.lib.textColor
@@ -37,17 +38,17 @@ class ForwardMsgView(context: Context) : LinearLayout(context) {
             .content {
                 mTvTitle = add<TextView>()
                     .textSize(13f * Settings.chatScale.value)
-                    .textColor(0xFF_FFFFFF.toInt())
+                    .textColor(M3.onSurface)
                 mTvPreview = add<TextView>()
                     .textSize(12f * Settings.chatScale.value)
-                    .textColor(0xFF_CCCCCC.toInt())
+                    .textColor(M3.onSurfaceVariant)
                 add<View>()
                     .size(width = FILL, height = 1)
-                    .background(0xFF_AAAAAA.toInt())
+                    .background(M3.outline)
                     .marginVertical(1.dp)
                 mTvSummary = add<TextView>()
                     .textSize(10f * Settings.chatScale.value)
-                    .textColor(0xFF_CCCCCC.toInt())
+                    .textColor(M3.onSurfaceVariant)
             }
     }
 }

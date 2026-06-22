@@ -232,7 +232,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                             editText = create<ImeEditText>()
                                 .background(null)
                                 .paddingHorizontal(4.dp)
-                                .textColor(0xFF_FFFFFF).textSize(14f)
+                                .textColor(M3.onSurface).textSize(14f)
                                 .gravity(Gravity.CENTER_VERTICAL)
                                 .apply {
                                     if (inlineGrow) {
@@ -353,7 +353,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                 .scaleType(ImageView.ScaleType.FIT_CENTER).padding(8.dp)
                         } else {
                             create<TextView>().gravity(Gravity.CENTER).textSize(14f)
-                                .textColor(0xFF_FFFFFF).text(Settings.text)
+                                .textColor(M3.onSurface).text(Settings.text)
                         }.height(FILL).weight(1f)
                             .background(inputBg()).clickable {
                                 keyboard.callOnClick()

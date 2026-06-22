@@ -16,6 +16,7 @@ import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.action.CurrentMsgList
 import momoi.mod.qqpro.lib.Observable
 import momoi.mod.qqpro.lib.WRAP
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.warp
 import java.lang.ref.WeakReference
@@ -152,7 +153,7 @@ object PlusOneButton {
 
         val btn = button ?: TextView(widget.context).apply {
             setText("+1")
-            setTextColor(0xFFFFFFFF.toInt())
+            setTextColor(M3.onSurface)
             textSize = 10f
             gravity = Gravity.CENTER
             // Rounded translucent-dark pill so the "+1" stays visible even when the bubble

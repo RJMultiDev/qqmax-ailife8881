@@ -15,6 +15,7 @@ import android.widget.ScrollView
 import com.tencent.mobileqq.text.QQText
 import com.tencent.qqnt.emotion.utils.QQSysFaceUtil
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -89,7 +90,7 @@ object InlineEmojiPanel {
                     val container = FrameLayout(ctx).apply {
                         tag = TAG
                         isClickable = true // swallow taps so they don't fall through to the chat
-                        setBackgroundColor(0xF2_1C1C1C.toInt())
+                        setBackgroundColor(M3.surface)
                         elevation = 24.dp.toFloat()
                     }
                     // Sit just above the input pill (its parent), leaving it tappable below.

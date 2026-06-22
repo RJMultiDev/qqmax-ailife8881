@@ -113,7 +113,7 @@ class 跳转第一条未读消息 : WatchAIOListVB() {
             if (recent.unreadCntCached > 0) {
                 val tv = add<TextView>()
                     .layoutGravity(Gravity.RIGHT or Gravity.TOP)
-                    .background(roundCornerDrawable(0xFF_303030.toInt(), 9999f, 0f, 9999f, 0f))
+                    .background(roundCornerDrawable(M3.surfaceContainerHigh, 9999f, 0f, 9999f, 0f))
                     .padding(6.dp)
                     .textSize(12f)
                     .textColor(M3.primary)

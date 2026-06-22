@@ -21,6 +21,7 @@ import momoi.mod.qqpro.lib.clickable
 import momoi.mod.qqpro.lib.content
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.gravity
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.marginVertical
 import momoi.mod.qqpro.lib.padding
@@ -66,15 +67,15 @@ class CardMsgView(context: Context) : LinearLayout(context) {
                         add<LinearLayout>().vertical().weight(1f).margin(left = 4.dp).content {
                             mTvTitle = add<TextView>()
                                 .textSize(12f * Settings.chatScale.value)
-                                .textColor(0xFF_FFFFFF.toInt())
+                                .textColor(M3.onSurface)
                             mTvDesc = add<TextView>()
                                 .textSize(10f * Settings.chatScale.value)
-                                .textColor(0xFF_CCCCCC.toInt())
+                                .textColor(M3.onSurfaceVariant)
                         }
                     }
                 add<View>()
                     .size(width = FILL, height = 1)
-                    .background(0xFF_AAAAAA.toInt())
+                    .background(M3.outline)
                     .marginVertical(1.dp)
                 mIvPreview = add<ImageView>()
                     .width(FILL)
@@ -84,7 +85,7 @@ class CardMsgView(context: Context) : LinearLayout(context) {
                 mTvTag = add<TextView>()
                     .width(FILL)
                     .textSize(9f * Settings.chatScale.value)
-                    .textColor(0xFF_FFFFFF.toInt())
+                    .textColor(M3.onSurface)
                     .text(" ")
             }
             mContact = add<LinearLayout>().width(FILL).gravity(Gravity.CENTER_VERTICAL).content {
@@ -95,13 +96,13 @@ class CardMsgView(context: Context) : LinearLayout(context) {
                 add<LinearLayout>().vertical().weight(1f).margin(left = 6.dp).content {
                     mTvCardNick = add<TextView>()
                         .textSize(13f * Settings.chatScale.value)
-                        .textColor(0xFF_FFFFFF.toInt())
+                        .textColor(M3.onSurface)
                     mTvCardAccount = add<TextView>()
                         .textSize(10f * Settings.chatScale.value)
-                        .textColor(0xFF_CCCCCC.toInt())
+                        .textColor(M3.onSurfaceVariant)
                     mTvCardTag = add<TextView>()
                         .textSize(9f * Settings.chatScale.value)
-                        .textColor(0xFF_AAAAAA.toInt())
+                        .textColor(M3.onSurfaceTip)
                 }
             }
             mContact.visibility = GONE

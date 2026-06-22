@@ -74,13 +74,13 @@ class HotEmojiSearch(dismissCall: EmotionDialogFragment.DialogDismissCall) : Hot
 
         val input = EditText(ctx)
         input.hint = "搜索 GIF"
-        input.setHintTextColor(0xFF_777777.toInt())
-        input.setTextColor(0xFF_FFFFFF.toInt())
+        input.setHintTextColor(M3.hint)
+        input.setTextColor(M3.onSurface)
         input.textSize = 13f
         input.setSingleLine()
         input.imeOptions = EditorInfo.IME_ACTION_SEARCH
         input.background = GradientDrawable().apply {
-            setColor(0xFF_222222.toInt())
+            setColor(M3.surfaceContainer)
             cornerRadius = 14.dp.toFloat()
         }
         input.setPadding(10.dp, 6.dp, 10.dp, 6.dp)

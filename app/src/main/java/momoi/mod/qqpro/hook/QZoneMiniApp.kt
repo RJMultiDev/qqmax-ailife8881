@@ -19,6 +19,7 @@ import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.child
 import momoi.mod.qqpro.confirmOpenUrl
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.safeCacheDir
 import momoi.mod.qqpro.util.Utils
 import java.net.HttpURLConnection
@@ -119,7 +120,7 @@ object QZoneMiniApp {
         sp.setSpan(StyleSpan(Typeface.BOLD), 0, nameEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         if (desc != null) {
             sp.setSpan(RelativeSizeSpan(0.68f), nameEnd, full.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            sp.setSpan(ForegroundColorSpan(0xFF_909094.toInt()), nameEnd, full.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sp.setSpan(ForegroundColorSpan(M3.onSurfaceVariant), nameEnd, full.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         tv.text = sp
         // Tap opens the mini-app share link — confirm first or open directly, same as chat links.

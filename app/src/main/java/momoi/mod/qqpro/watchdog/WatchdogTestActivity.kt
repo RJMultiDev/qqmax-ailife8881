@@ -39,7 +39,7 @@ class WatchdogTestActivity : Activity() {
 
         column.addView(TextView(this).apply {
             text = "Watchdog 测试"
-            setTextColor(Color.WHITE)
+            setTextColor(M3.onSurface)
             sp(this, 15f)
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(12))
@@ -66,13 +66,13 @@ class WatchdogTestActivity : Activity() {
         button(column, "关闭") { finish() }
 
         val scroll = ScrollView(this).apply {
-            setBackgroundColor(0xFF_121212.toInt())
+            setBackgroundColor(M3.surface)
             addView(column, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
 
         setContentView(
             SwipeBackLayout(this).apply {
-                setBackgroundColor(0xFF_121212.toInt())
+                setBackgroundColor(M3.surface)
                 addView(
                     scroll,
                     ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -94,7 +94,7 @@ class WatchdogTestActivity : Activity() {
     private fun button(parent: LinearLayout, label: String, action: () -> Unit) {
         val btn = TextView(this).apply {
             text = label
-            setTextColor(Color.WHITE)
+            setTextColor(M3.onPrimary)
             sp(this, 13f)
             gravity = Gravity.CENTER
             setPadding(0, dp(9), 0, dp(9))

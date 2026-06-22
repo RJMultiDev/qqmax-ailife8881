@@ -66,6 +66,7 @@ import momoi.mod.qqpro.lib.layoutParams
 import momoi.mod.qqpro.lib.linearLayout
 import momoi.mod.qqpro.lib.longClickable
 import momoi.mod.qqpro.lib.margin
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.paddingHorizontal
 import momoi.mod.qqpro.lib.size
@@ -328,7 +329,7 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
     private val bubbleColor: Int
         get() = parseHexColor(Settings.bubbleColorOther.value) ?: 0xFF_515151.toInt()
     private val msgTextColor: Int
-        get() = parseHexColor(Settings.textColor.value) ?: 0xFF_FFFFFF.toInt()
+        get() = parseHexColor(Settings.textColor.value) ?: M3.onSurface
 
     @SuppressLint("NotifyDataSetChanged")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -360,7 +361,7 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                     .textSize(13f)
                     .width(FILL)
                     .gravity(Gravity.CENTER)
-                    .textColor(0xFF_FFFFFF.toInt())
+                    .textColor(M3.onSurface)
                     .apply {
                         isSingleLine = true
                         ellipsize = android.text.TextUtils.TruncateAt.END
@@ -381,7 +382,7 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
                                         // so the avatar — sized off this view's textSize in
                                         // applyAvatar — also tracks 头像大小/聊天缩放 settings.
                                         .textSize(12f * Settings.chatScale.value)
-                                        .textColor(0xFF_999999.toInt())
+                                        .textColor(M3.onSurfaceVariant)
                                         .id(0)
                                     add<LinearLayout>()
                                         .vertical()

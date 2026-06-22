@@ -45,7 +45,7 @@ import java.util.Date
 import java.util.Locale
 
 private val ACCENT get() = M3.primary
-private val BG = 0xF0_121212.toInt()
+private val BG = M3.surface
 private const val ICON_SEARCH = 0x7e0805ca // R.drawable.icon_search
 
 private val dayFmt = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -204,7 +204,7 @@ class ChatSearchFragment : MyDialogFragment() {
                     }
                 }
                 .margin(bottom = 10.dp)
-            button("搜索", ACCENT, 0xFF_000000.toInt()) {
+            button("搜索", ACCENT, M3.onPrimary) {
                 hideKeyboard(input)
                 startSearch(SearchType.TEXT, input.text?.toString()?.trim().orEmpty(), null)
             }
@@ -555,7 +555,7 @@ class ChatSearchFragment : MyDialogFragment() {
             textSize = 11f; setTextColor(ACCENT); setSingleLine()
         }
         fun body() = TextView(ctx).apply {
-            textSize = 14f; setTextColor(0xFF_EEEEEE.toInt()); maxLines = 2
+            textSize = 14f; setTextColor(M3.onSurface); maxLines = 2
         }
 
         if (!withPreview) {

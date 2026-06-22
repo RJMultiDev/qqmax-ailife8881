@@ -62,9 +62,9 @@ import momoi.mod.qqpro.lib.material.MaterialSymbols
 object VoiceRecord {
     private val main = Handler(Looper.getMainLooper())
 
-    private val colorIdle = 0xFF_2A2A2A.toInt()
+    private val colorIdle = M3.surfaceContainerHigh
     private val colorBlue get() = M3.primary
-    private val colorRed = 0xFF_E0_53_53.toInt()
+    private val colorRed = M3.error
     private val scrim = 0xAA_000000.toInt()
 
     private enum class Target { SEND, CANCEL, STT }
@@ -381,7 +381,7 @@ object VoiceRecord {
             scaleType = ImageView.ScaleType.FIT_CENTER
             val pad = 17.dp
             setPadding(pad, pad, pad, pad)
-            setImageDrawable(MaterialSymbol(symbolPath, Color.WHITE))
+            setImageDrawable(MaterialSymbol(symbolPath, M3.onPrimary))
             background = circleBg(colorIdle)
         }
 
@@ -426,7 +426,7 @@ object VoiceRecord {
             clipToPadding = false
         }
         val timer = TextView(ctx).apply {
-            text = "0:00"; setTextColor(Color.WHITE); textSize = 18f; gravity = Gravity.CENTER
+            text = "0:00"; setTextColor(M3.onSurface); textSize = 18f; gravity = Gravity.CENTER
         }
         column.addView(timer)
         val hint = TextView(ctx).apply {

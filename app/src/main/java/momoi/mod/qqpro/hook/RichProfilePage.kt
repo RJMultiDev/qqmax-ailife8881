@@ -61,7 +61,7 @@ object RichProfilePage {
             // Detach the original ScrollView so we can install our own scroll container.
             root.removeAllViews()
             // Match the app's dark theme (the native page uses a light blue→white gradient).
-            root.setBackgroundColor(0xFF_000000.toInt())
+            root.setBackgroundColor(M3.surface)
 
             val content = LinearLayout(ctx).apply {
                 orientation = LinearLayout.VERTICAL

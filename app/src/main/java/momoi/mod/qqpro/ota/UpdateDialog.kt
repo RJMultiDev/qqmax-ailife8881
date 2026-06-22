@@ -29,7 +29,7 @@ import momoi.mod.qqpro.lib.width
 import momoi.mod.qqpro.lib.material.M3
 
 private val ACCENT get() = M3.primary
-private val BG = 0xF0_121212.toInt()
+private val BG = M3.surface
 
 /**
  * Watch-styled "update available" dialog, built to replace the framework [android.app.AlertDialog]
@@ -62,7 +62,7 @@ object UpdateDialog {
             add<TextView>()
                 .text("发现新版本 V$version")
                 .textSize(17f)
-                .textColor(0xFF_FFFFFF)
+                .textColor(M3.onSurface)
                 .gravity(Gravity.CENTER)
                 .width(FILL)
                 .padding(top = 6.dp, bottom = 12.dp)
@@ -70,17 +70,17 @@ object UpdateDialog {
             add<TextView>()
                 .text(changelog)
                 .textSize(13f)
-                .textColor(0xFF_DDDDDD)
+                .textColor(M3.onSurfaceVariant)
                 .width(FILL)
 
-            button("更新", ACCENT, 0xFF_000000.toInt()) {
+            button("更新", ACCENT, M3.onPrimary) {
                 dialog.dismiss()
                 onUpdate.run()
             }
-            button("稍后", 0xFF_2A2A2A.toInt(), 0xFF_FFFFFF.toInt()) {
+            button("稍后", M3.surfaceContainerHigh, M3.onSurface) {
                 dialog.dismiss()
             }
-            button("不再提醒", 0xFF_1A1A1A.toInt(), 0xFF_999999.toInt()) {
+            button("不再提醒", M3.surface, M3.onSurfaceTip) {
                 dialog.dismiss()
                 onDisable.run()
             }

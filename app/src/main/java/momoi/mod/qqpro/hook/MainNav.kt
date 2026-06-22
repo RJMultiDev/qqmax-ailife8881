@@ -49,7 +49,7 @@ object MainNav {
     private val ACCENT get() = M3.primary                   // on-secondary-container (selected icon)
     private val PILL_COLOR get() = M3.primaryContainer      // secondary-container (active indicator pill)
     private val IDLE_ICON = M3.onSurfaceVariant       // on-surface-variant (inactive icon)
-    private val DOT_COLOR = 0xFF_8A888F.toInt()
+    private val DOT_COLOR = M3.onSurfaceVariant
     private val BADGE_COLOR = M3.badge
 
     // Live unread, kept in sync by the kernel listener — same source RichTitlebar uses.

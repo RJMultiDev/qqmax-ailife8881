@@ -15,6 +15,7 @@ import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.dpf
 import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.margin
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.size
 import momoi.mod.qqpro.lib.textColor
@@ -44,9 +45,9 @@ class FileMsgView(context: Context) : LinearLayout(context) {
                 .size(badgeSize)
                 .gravity(Gravity.CENTER)
                 .textSize(9f * Settings.chatScale.value)
-                .textColor(0xFF_FFFFFF.toInt())
+                .textColor(M3.onSurface)
                 .apply {
-                    background = roundCornerDrawable(0xFF_4B8DF8.toInt(), 4.dpf)
+                    background = roundCornerDrawable(M3.primary, 4.dpf)
                 }
             add<LinearLayout>().vertical().margin(left = 8.dp).content {
                 // Root card is WRAP_CONTENT inside the bubble warp, so a weight
@@ -54,7 +55,7 @@ class FileMsgView(context: Context) : LinearLayout(context) {
                 // wrap to 2 lines / ellipsize rather than blowing out the bubble.
                 mTvName = add<TextView>()
                     .textSize(12f * Settings.chatScale.value)
-                    .textColor(0xFF_FFFFFF.toInt())
+                    .textColor(M3.onSurface)
                     .apply {
                         maxWidth = (150f * Settings.chatScale.value).toInt().dp
                         maxLines = 2
@@ -62,7 +63,7 @@ class FileMsgView(context: Context) : LinearLayout(context) {
                     }
                 mTvSize = add<TextView>()
                     .textSize(10f * Settings.chatScale.value)
-                    .textColor(0xFF_CCCCCC.toInt())
+                    .textColor(M3.onSurfaceVariant)
             }
         }
     }

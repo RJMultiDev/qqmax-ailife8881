@@ -10,6 +10,7 @@ import com.tencent.watch.aio_impl.ui.widget.AIOCellGroupWidget
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.lib.dpf
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.util.parseHexColor
 
@@ -67,7 +68,7 @@ object BubbleCorner {
         d.setBounds(0, 0, w, h)
         d.draw(canvas)
         d.bounds = old
-        val color = runCatching { bmp.getPixel(w / 2, h / 2) }.getOrDefault(0xFF_2B2B2B.toInt())
+        val color = runCatching { bmp.getPixel(w / 2, h / 2) }.getOrDefault(M3.surfaceContainer)
         bmp.recycle()
         return color
     }

@@ -4,6 +4,7 @@ import android.graphics.Typeface
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
 import com.tencent.widget.SingleLineTextView
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -58,7 +59,7 @@ class HeaderStyler(
             title?.apply {
                 if (baseSp > 0f) setTextSize(baseSp * 1.35f)
                 setTypeface(Typeface.DEFAULT_BOLD)
-                setTextColor(0xFFBFC6CC.toInt())       // light gray, distinct from row text
+                setTextColor(M3.onSurfaceVariant)       // light gray, distinct from row text
             }
         } else {
             // Restore defaults (this view may have been a header before recycling).

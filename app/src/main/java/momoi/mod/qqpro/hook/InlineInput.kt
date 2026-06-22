@@ -511,7 +511,7 @@ object InlineInput {
                         textSize = 11f
                         gravity = Gravity.CENTER_VERTICAL
                         setPadding(12.dp, 4.dp, 12.dp, 4.dp)
-                        setBackgroundColor(0xF2_1C1C1C.toInt())
+                        setBackgroundColor(M3.surfaceContainer)
                         isClickable = true
                         setOnClickListener { onBannerClick() }
                     }

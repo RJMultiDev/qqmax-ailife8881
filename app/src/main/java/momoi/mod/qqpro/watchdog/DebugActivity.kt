@@ -52,19 +52,19 @@ class DebugActivity : Activity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFF_121212.toInt())
+            setBackgroundColor(M3.surface)
             setPadding(dp(14), dp(14), dp(14), dp(14))
         }
 
         root.addView(TextView(this).apply {
             text = "调试菜单"
-            setTextColor(Color.WHITE)
+            setTextColor(M3.onSurface)
             sp(this, 15f)
             gravity = Gravity.CENTER
         })
         root.addView(TextView(this).apply {
             text = "设备信息与调试日志"
-            setTextColor(0xFF_BBBBBB.toInt())
+            setTextColor(M3.onSurfaceVariant)
             sp(this, 10f)
             gravity = Gravity.CENTER
             setPadding(0, dp(4), 0, dp(8))
@@ -72,7 +72,7 @@ class DebugActivity : Activity() {
 
         body = TextView(this).apply {
             this.text = "正在收集设备信息与日志…"
-            setTextColor(0xFF_DDDDDD.toInt())
+            setTextColor(M3.onSurface)
             sp(this, 9f)
             setTextIsSelectable(true)
             setPadding(dp(8), dp(8), dp(8), dp(8))
@@ -128,7 +128,7 @@ class DebugActivity : Activity() {
                 .apply { rightMargin = dp(3) }
         )
         row2.addView(
-            button("关闭", 0xFF_555555.toInt()) { finish() },
+            button("关闭", M3.surfaceContainer) { finish() },
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 .apply { leftMargin = dp(3) }
         )

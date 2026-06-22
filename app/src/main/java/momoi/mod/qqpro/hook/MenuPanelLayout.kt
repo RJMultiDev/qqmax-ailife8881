@@ -157,7 +157,7 @@ class MenuPanelLayout(p0: (Int) -> Unit, p1: Boolean) : MenuFrame(p0, p1) {
         // Label fills the rest, left-aligned.
         label.gravity = Gravity.CENTER_VERTICAL or Gravity.START
         label.textSize = 14f
-        label.setTextColor(if (material) M3.onSurface else 0xFF_FFFFFF.toInt())
+        label.setTextColor(M3.onSurface)
         label.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
             marginStart = 12.dp
         }

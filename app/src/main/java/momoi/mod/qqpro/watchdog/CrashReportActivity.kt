@@ -42,19 +42,19 @@ class CrashReportActivity : Activity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFF_121212.toInt())
+            setBackgroundColor(M3.surface)
             setPadding(dp(14), dp(14), dp(14), dp(14))
         }
 
         root.addView(TextView(this).apply {
             text = if (kind == Watchdog.KIND_HANG) "应用卡死了" else "应用崩溃了"
-            setTextColor(Color.WHITE)
+            setTextColor(M3.onSurface)
             sp(this, 15f)
             gravity = Gravity.CENTER
         })
         root.addView(TextView(this).apply {
             text = "请把下面的报告发给开发者"
-            setTextColor(0xFF_BBBBBB.toInt())
+            setTextColor(M3.onSurfaceVariant)
             sp(this, 10f)
             gravity = Gravity.CENTER
             setPadding(0, dp(4), 0, dp(8))
@@ -63,7 +63,7 @@ class CrashReportActivity : Activity() {
         // Report body fills the remaining space and scrolls.
         val body = TextView(this).apply {
             text = report
-            setTextColor(0xFF_DDDDDD.toInt())
+            setTextColor(M3.onSurface)
             sp(this, 9f)
             setTextIsSelectable(true)
             setPadding(dp(8), dp(8), dp(8), dp(8))
@@ -107,7 +107,7 @@ class CrashReportActivity : Activity() {
             }
         )
         cell2(button("重启", 0xFF_FF9800.toInt()) { restartApp() }, 0, dp(3))
-        cell2(button("关闭", 0xFF_555555.toInt()) { finishAndRemoveTask() }, dp(3), 0)
+        cell2(button("关闭", M3.surfaceContainer) { finishAndRemoveTask() }, dp(3), 0)
         root.addView(
             row2,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
