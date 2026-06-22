@@ -263,18 +263,26 @@ object LongPressMenu {
     }
 
     /**
-     * 撤回 row logic: own message uses the native revoke (added in [buildEntries]). For others'
-     * messages in a group the role check is async: owner can recall anyone; admin only a normal
-     * member. Inserted at the order-3 position (above 编辑) via the row tags.
+     * 撤回 row logic, driven by the SELF role (not the kernel's "RevokeMsg" menu item, which it drops
+     * once the self-recall time window passes — so owner/admin would otherwise lose recall on their
+     * own/old messages). In a group:
+     *  - 群主 (owner): recall any message, including own — always.
+     *  - 管理员 (admin): recall own messages and other normal members', but NOT the owner or another
+     *    admin's.
+     *  - normal member: only the kernel's time-limited self-recall ([buildEntries]'s native RevokeMsg).
+     * Inserted at order 3; de-duped against the native self-recall [buildEntries] may already have added.
      */
     private fun addRecall(fragment: AIOLongClickMenuFragment, card: LinearLayout, msg: MsgRecord?, isHistory: Boolean, material: Boolean) {
         if (isHistory || msg == null) return
         val recallId = msg.msgId
         if (recallId == 0L) return
-        if (msg.senderUid == SelfContact.peerUid) return // own → native revoke handled in buildEntries
         if (!CurrentContact.isGroup) return
+        val isSelf = msg.senderUid == SelfContact.peerUid
         val targetUid = msg.senderUid
         fun addRow() = runOnUi {
+            // Don't duplicate an order-3 撤回 row already present (e.g. the native self-recall that
+            // buildEntries adds while it's still in the kernel's menu list).
+            if ((0 until card.childCount).any { card.getChildAt(it).tag == 3 }) return@runOnUi
             val e = Entry(3, "撤回", MaterialSymbols.undo, true) {
                 runCatching { KernelServiceUtil.c()?.recallMsg(CurrentContact, recallId, null) }
                     .onFailure { Utils.log("menu recall failed: $it") }
@@ -283,12 +291,14 @@ object LongPressMenu {
         }
         CurrentGroupMembers.get(SelfContact.peerUid) { self ->
             when (self.role) {
-                MemberRole.OWNER -> addRow() // owner: recall anyone
-                MemberRole.ADMIN -> CurrentGroupMembers.get(targetUid) { target ->
-                    // admin: only normal members (not owner / other admins)
-                    if (target.role != MemberRole.OWNER && target.role != MemberRole.ADMIN) addRow()
-                }
-                else -> {}
+                MemberRole.OWNER -> addRow() // owner: recall anyone, incl. self
+                MemberRole.ADMIN ->
+                    if (isSelf) addRow() // admin: own message always
+                    else CurrentGroupMembers.get(targetUid) { target ->
+                        // admin: other normal members only (not owner / other admins)
+                        if (target.role != MemberRole.OWNER && target.role != MemberRole.ADMIN) addRow()
+                    }
+                else -> {} // normal member: only the native time-limited self-recall (buildEntries)
             }
         }
     }
