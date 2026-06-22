@@ -268,6 +268,10 @@ class SelectDialogMargins :
         savedInstanceState: Bundle?
     ): View {
         val root = super.onCreateView(inflater, container, savedInstanceState)
+        if (Settings.useM3Settings.value && root != null) {
+            rebuildSettingList(root, "", "setting_container", dismissTarget = this, syntheticToggles = true)
+                ?.let { return it }
+        }
         (root as? ViewGroup)?.normalizeListCards()
         Utils.log("CardMarginUnify: select dialog normalized")
         return root

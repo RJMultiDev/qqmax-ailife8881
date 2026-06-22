@@ -2,6 +2,7 @@ package momoi.mod.qqpro.hook
 
 import android.app.Activity
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -10,12 +11,12 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.ScrollView
 import com.tencent.mobileqq.text.QQText
 import com.tencent.qqnt.emotion.utils.QQSysFaceUtil
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.M3Progress
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -90,7 +91,13 @@ object InlineEmojiPanel {
                     val container = FrameLayout(ctx).apply {
                         tag = TAG
                         isClickable = true // swallow taps so they don't fall through to the chat
-                        setBackgroundColor(M3.surface)
+                        // Material sheet: surface-container with rounded top corners, sitting above the bar.
+                        background = GradientDrawable().apply {
+                            setColor(M3.surfaceContainer)
+                            cornerRadii = floatArrayOf(
+                                M3.radiusLg, M3.radiusLg, M3.radiusLg, M3.radiusLg, 0f, 0f, 0f, 0f,
+                            )
+                        }
                         elevation = 24.dp.toFloat()
                     }
                     // Sit just above the input pill (its parent), leaving it tappable below.
@@ -125,16 +132,19 @@ object InlineEmojiPanel {
         val screenW = ctx.resources.displayMetrics.widthPixels
         // Big faces for a watch: fewer columns => larger cells.
         val columns = 6
-        val cell = screenW / columns
+        // Flexible cell width derived from the width actually available INSIDE the grid padding, so the
+        // last column never spills off the (round) screen edge. columns*cell + 2*pad == screenW.
+        val gridPad = 6.dp
+        val cell = ((screenW - gridPad * 2) / columns).coerceAtLeast(24.dp)
         val pad = (cell * 0.16f).toInt()
 
-        val progress = ProgressBar(ctx)
+        val progress = M3Progress.spinner(ctx)
         container.addView(progress, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
 
         val grid = GridLayout(ctx).apply {
             columnCount = columns
-            setPadding(2.dp, 2.dp, 2.dp, 2.dp)
+            setPadding(gridPad, gridPad, gridPad, gridPad)
         }
         val scroll = ScrollView(ctx).apply { addView(grid) }
         container.addView(scroll, FrameLayout.LayoutParams(
@@ -145,6 +155,7 @@ object InlineEmojiPanel {
                 setImageDrawable(d)
                 setPadding(pad, pad, pad, pad)
                 scaleType = ImageView.ScaleType.FIT_CENTER
+                background = M3.ripple(null) // Material press feedback per face
                 setOnClickListener { insert(editText, id) }
             }
             grid.addView(iv, GridLayout.LayoutParams().apply { width = cell; height = cell })

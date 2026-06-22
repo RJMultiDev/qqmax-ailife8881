@@ -33,6 +33,8 @@ class ConfirmFragment(
     private val title: String,
     private val confirmLabel: String = "确定",
     private val destructive: Boolean = false,
+    private val cancelLabel: String = "取消",
+    private val onCancel: () -> Unit = {},
     private val onConfirm: () -> Unit,
 ) : MyDialogFragment() {
     override fun onCreateView(
@@ -54,7 +56,9 @@ class ConfirmFragment(
             button(confirmLabel, confirmBg, M3.onColor(confirmBg)) {
                 dismiss(); runCatching { onConfirm() }
             }
-            button("取消", M3.surfaceContainerHigh, M3.onSurface) { dismiss() }
+            button(cancelLabel, M3.surfaceContainerHigh, M3.onSurface) {
+                dismiss(); runCatching { onCancel() }
+            }
         }
         // Wrap so the message + buttons scroll on a small round screen.
         val scroll = ScrollView(ctx).apply {

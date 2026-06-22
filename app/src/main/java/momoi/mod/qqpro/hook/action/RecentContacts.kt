@@ -1,12 +1,34 @@
 package momoi.mod.qqpro.hook.action
 
 import android.text.SpannableStringBuilder
+import android.widget.ImageView
 import com.tencent.qqnt.chats.core.adapter.itemdata.RecentContactChatItem
 import com.tencent.qqnt.kernel.nativeinterface.RecentContactInfo
 import com.tencent.qqnt.watch.chat.list.WatchRecentContactHolder
 import com.tencent.qqnt.watch.chat.list.WatchRecentItemBuilder
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
 import momoi.mod.qqpro.util.Utils
+
+/**
+ * Replace the conversation row's native 置顶 (pin) glyph with the Material push_pin symbol, tinted to
+ * the theme accent. The native bind only toggles the icon's visibility, so swapping the drawable on
+ * full bind persists across show/hide. Gated by the M3 redesign toggle.
+ */
+fun swapPinIcon(holder: WatchRecentContactHolder) {
+    if (!Settings.useM3Settings.value) return
+    runCatching {
+        val root = holder.itemView
+        val id = root.resources.getIdentifier("top_icon", "id", root.context.packageName)
+        val iv = if (id != 0) root.findViewById<ImageView>(id) else null
+        // Filled accent disc with a white pin (same circled treatment used for M3 list icons) so the
+        // tiny corner marker reads clearly against any avatar.
+        iv?.setImageDrawable(MaterialSymbol.circled(MaterialSymbols.push_pin, M3.onPrimary, M3.primary))
+    }
+}
 
 /** QQ sysface emo-code lead char: `new String(new char[]{20, (char) localId})` (see QQSysFaceUtil.g). */
 private const val FACE_LEAD = '\u0014'
@@ -119,6 +141,7 @@ object RecentContacts {
             // Replace unrendered emoji garbage in the preview with a "[表情]" placeholder before binding.
             sanitizeItem(item)
             super.t(item, holder)
+            swapPinIcon(holder)
         }
 
         /**

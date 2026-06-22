@@ -24,6 +24,7 @@ import androidx.fragment.app.Fragment
 import momoi.mod.qqpro.hook.sendInAppVideo
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.M3Button
 import momoi.mod.qqpro.util.Utils
 import java.io.File
 
@@ -119,8 +120,8 @@ class VideoRecordFragment(private val host: Fragment? = null) : MyDialogFragment
             gravity = Gravity.CENTER
             visibility = View.GONE
         }
-        bar.addView(pillButton(ctx, "重拍", M3.surfaceContainerHigh, M3.onSurface) { retake() })
-        bar.addView(pillButton(ctx, "发送", M3.primary, M3.onPrimary) { sendRecorded() })
+        bar.addView(m3Button(ctx, "重拍", M3Button.Variant.TONAL) { retake() })
+        bar.addView(m3Button(ctx, "发送", M3Button.Variant.FILLED) { sendRecorded() })
         confirmBar = bar
         root.addView(bar, FrameLayout.LayoutParams(-1, -2).apply {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
@@ -310,25 +311,20 @@ class VideoRecordFragment(private val host: Fragment? = null) : MyDialogFragment
         return "%02d:%02d".format(total / 60, total % 60)
     }
 
+    // Shutter: a red dot (idle) → white dot (recording = tap to stop), ringed in white; themed via M3.
     private fun recordButtonDrawable(stop: Boolean) = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
-        setColor(if (stop) 0xFF_FFFFFF.toInt() else 0xFF_FF3B30.toInt())
+        setColor(if (stop) M3.onSurface else M3.error)
         setStroke(4.dp, 0x66_FFFFFF.toInt())
     }
 
-    private fun pillButton(
+    private fun m3Button(
         ctx: android.content.Context,
         label: String,
-        bg: Int,
-        fg: Int,
+        variant: M3Button.Variant,
         onClick: () -> Unit
-    ) = TextView(ctx).apply {
+    ) = M3Button(ctx).variant(variant).apply {
         text = label
-        setTextColor(fg)
-        textSize = 14f
-        gravity = Gravity.CENTER
-        setPadding(22.dp, 9.dp, 22.dp, 9.dp)
-        background = GradientDrawable().apply { setColor(bg); cornerRadius = 22.dp.toFloat() }
         setOnClickListener { onClick() }
         layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginStart = 8.dp; marginEnd = 8.dp }
     }

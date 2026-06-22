@@ -58,6 +58,9 @@ private class HarvestedRow(
     val nativeSwitch: CompoundButton?,
     val click: () -> Unit,
     val destructive: Boolean,
+    // For action rows that actually toggle a state (置顶/免打扰 in the long-press sheet): render as a
+    // switch reflecting the current state inferred from the label (取消X = currently on). Null = not a toggle.
+    var virtualChecked: Boolean? = null,
 )
 
 /** Walk the direct children of [container] (each a native card) into [HarvestedRow]s. */
@@ -182,7 +185,7 @@ private fun newListCard(ctx: Context): M3Card = M3Card(ctx).contentPadding(4.dp)
 }
 
 /** Build one M3 list row (leading icon disc + title/subtitle + trailing switch or chevron). */
-private fun buildItem(ctx: Context, row: HarvestedRow): View {
+private fun buildItem(ctx: Context, row: HarvestedRow, afterClick: (() -> Unit)? = null): View {
     val item = M3ListItem(ctx).title(row.title)
     row.subtitle?.let { item.subtitle(it) }
 
@@ -192,37 +195,49 @@ private fun buildItem(ctx: Context, row: HarvestedRow): View {
     val disc = ImageView(ctx).apply { setImageDrawable(MaterialSymbol.circled(path, fg, bg)) }
     item.leading(disc, 36)
 
+    val click = { row.click(); afterClick?.invoke(); Unit }
     val native = row.nativeSwitch
-    if (native != null) {
-        val sw = M3Switch(ctx)
-        sw.setChecked(native.isChecked, notify = false)
-        sw.onChange = { row.click() }
-        item.trailing(sw)
-        mirrorSwitch(sw, native)
-        item.setOnClickListener { row.click() }
-    } else {
-        item.trailing(symbolImage(ctx, MaterialSymbols.chevron_right, M3.onSurfaceVariant, 20))
-        item.setOnClickListener { row.click() }
+    when {
+        native != null -> {
+            val sw = M3Switch(ctx)
+            sw.setChecked(native.isChecked, notify = false)
+            sw.onChange = { row.click() } // a toggle keeps the sheet open (no afterClick)
+            item.trailing(sw)
+            mirrorSwitch(sw, native)
+            item.setOnClickListener { sw.toggle() }
+        }
+        row.virtualChecked != null -> {
+            // Action that toggles state (置顶/免打扰): show a switch; toggling runs the native action.
+            val sw = M3Switch(ctx)
+            sw.setChecked(row.virtualChecked == true, notify = false)
+            sw.onChange = { row.click() }
+            item.trailing(sw)
+            item.setOnClickListener { sw.toggle() }
+        }
+        else -> {
+            item.trailing(symbolImage(ctx, MaterialSymbols.chevron_right, M3.onSurfaceVariant, 20))
+            item.setOnClickListener { click() }
+        }
     }
     return item
 }
 
 /** Append one row to [card], inserting an inset divider before it when the card already has rows. */
-private fun appendRow(ctx: Context, card: M3Card, row: HarvestedRow) {
+private fun appendRow(ctx: Context, card: M3Card, row: HarvestedRow, afterClick: (() -> Unit)? = null) {
     if (card.childCount > 0) card.addView(divider(ctx))
-    card.addView(buildItem(ctx, row), LinearLayout.LayoutParams(FILL, WRAP))
+    card.addView(buildItem(ctx, row, afterClick), LinearLayout.LayoutParams(FILL, WRAP))
 }
 
 /** Insert one row at the TOP of [card] (used for late-injected custom options like 群公告/搜索). */
-private fun prependRow(ctx: Context, card: M3Card, row: HarvestedRow) {
+private fun prependRow(ctx: Context, card: M3Card, row: HarvestedRow, afterClick: (() -> Unit)? = null) {
     if (card.childCount > 0) card.addView(divider(ctx), 0)
-    card.addView(buildItem(ctx, row), 0, LinearLayout.LayoutParams(FILL, WRAP))
+    card.addView(buildItem(ctx, row, afterClick), 0, LinearLayout.LayoutParams(FILL, WRAP))
 }
 
 /** Build one M3 surface card holding all [rows] as M3 list items, with inset dividers between them. */
-private fun buildList(ctx: Context, rows: List<HarvestedRow>): M3Card {
+private fun buildList(ctx: Context, rows: List<HarvestedRow>, afterClick: (() -> Unit)? = null): M3Card {
     val card = newListCard(ctx)
-    rows.forEach { appendRow(ctx, card, it) }
+    rows.forEach { appendRow(ctx, card, it, afterClick) }
     return card
 }
 
@@ -373,21 +388,41 @@ fun rebuildSettingList(
     title: String,
     containerId: String = "setting_container",
     swipeBack: Boolean = false,
+    dismissTarget: androidx.fragment.app.DialogFragment? = null,
+    syntheticToggles: Boolean = false,
 ): View? = runCatching {
     val ctx = nativeRoot.context
     val container = nativeRoot.byIdName(containerId) as? ViewGroup ?: return null
     val rows = harvest(container)
     if (rows.isEmpty()) return null
 
+    // Render 置顶/免打扰 action rows as state switches (state inferred from the 取消X label).
+    if (syntheticToggles) rows.forEach { r ->
+        if (r.nativeSwitch == null && (r.title.contains("置顶") || r.title.contains("免打扰"))) {
+            r.virtualChecked = r.title.contains("取消")
+        }
+    }
+
+    // When hosted in a dialog (long-press action sheet), close it after a non-toggle action runs.
+    val afterClick: (() -> Unit)? = dismissTarget?.let { d -> { d.dismissAllowingStateLoss() } }
+
     val (scroll, col) = newScroll(ctx)
-    col.addView(titleHeader(ctx, title))
-    val list = buildList(ctx, rows)
+    if (title.isNotBlank()) col.addView(titleHeader(ctx, title))
+    val list = buildList(ctx, rows, afterClick)
     col.addView(list)
     attachLateInjections(container, ctx, list)
 
     Utils.log("M3SettingsRedesign: '$title' rebuilt (${rows.size} rows)")
     val content = frameOver(ctx, nativeRoot, scroll)
-    if (swipeBack) swipeBackWrap(ctx, content) else content
+    when {
+        // A dialog swipes to dismiss itself (not the activity back stack).
+        dismissTarget != null -> SwipeBackLayout(ctx).apply {
+            onSwipeBack = { dismissTarget.dismissAllowingStateLoss() }
+            addView(content, FILL, FILL)
+        }
+        swipeBack -> swipeBackWrap(ctx, content)
+        else -> content
+    }
 }.getOrElse { Utils.log("M3SettingsRedesign: '$title' rebuild failed: $it"); null }
 
 /**
