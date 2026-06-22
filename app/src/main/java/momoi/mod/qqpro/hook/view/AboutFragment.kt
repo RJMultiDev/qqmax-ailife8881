@@ -9,8 +9,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import momoi.mod.qqpro.hook.versionName
-import momoi.mod.qqpro.lib.FILL
-import momoi.mod.qqpro.lib.SwipeBackLayout
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.material.M3
@@ -83,9 +81,6 @@ class AboutFragment : MyDialogFragment() {
                 }
             }
 
-        return SwipeBackLayout(ctx).apply {
-            addView(dialog, FILL, FILL)
-            onSwipeBack = { dismiss() }
-        }
+        return swipeBackWrap(dialog)
     }
 }

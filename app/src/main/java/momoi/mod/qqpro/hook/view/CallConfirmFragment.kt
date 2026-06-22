@@ -65,7 +65,7 @@ class CallConfirmFragment(
                 dismiss()
             }
         }
-        return root
+        return swipeBackWrap(root)
     }
 
     private fun momoi.mod.qqpro.lib.LinearScope.button(

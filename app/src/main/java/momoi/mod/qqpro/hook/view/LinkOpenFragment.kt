@@ -33,7 +33,7 @@ class LinkOpenFragment(private val url: String) : MyDialogFragment() {
         savedInstanceState: Bundle?
     ): View {
         val ctx = inflater.context
-        return M3Dialog(ctx)
+        return swipeBackWrap(M3Dialog(ctx)
             .title("打开链接")
             .body {
                 add<TextView>()
@@ -56,6 +56,6 @@ class LinkOpenFragment(private val url: String) : MyDialogFragment() {
                 action("取消", M3Button.Variant.TEXT) {
                     dismiss()
                 }
-            }
+            })
     }
 }

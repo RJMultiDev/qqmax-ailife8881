@@ -83,7 +83,7 @@ class SearchNumberFragment(
                 dismiss()
             }
         }
-        return scroll
+        return swipeBackWrap(scroll)
     }
 
     private fun momoi.mod.qqpro.lib.LinearScope.button(

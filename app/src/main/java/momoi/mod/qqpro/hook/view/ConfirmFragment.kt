@@ -56,12 +56,13 @@ class ConfirmFragment(
             button("取消", M3.surfaceContainerHigh, M3.onSurface) { dismiss() }
         }
         // Wrap so the message + buttons scroll on a small round screen.
-        return ScrollView(ctx).apply {
+        val scroll = ScrollView(ctx).apply {
             setBackgroundColor(M3.surface)
             isFillViewport = true
             isVerticalScrollBarEnabled = false
             addView(root, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
+        return swipeBackWrap(scroll)
     }
 
     private fun LinearScope.button(label: String, bg: Int, fg: Int, onClick: () -> Unit) {
