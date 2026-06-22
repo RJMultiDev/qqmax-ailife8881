@@ -394,19 +394,49 @@ object MainNav {
         val method = when {
             contactFriendUnread > 0 -> "topFriendNotify"
             contactGroupUnread > 0 -> "topGroupNotify"
-            else -> return true   // nothing pending — consume the tap, do nothing
+            else -> {
+                // Nothing pending — jump the contacts list to the top instead of doing nothing.
+                Utils.log("MainNav: contacts no unread → scroll to top")
+                scrollToTop(findRecycler((f as? androidx.fragment.app.Fragment)?.view))
+                return true
+            }
         }
         return runCatching { f.javaClass.getMethod(method).invoke(f); true }
             .onFailure { Utils.log("MainNav: openContactNotify failed: $it") }
             .getOrDefault(true)
     }
 
-    /** QZone page: open the 通知 screen (no per-page count available, so always open it). */
+    /**
+     * QZone page: open the 通知 screen only when there's an active notification (the page's QUIBadge
+     * `unread` field `k`, set VISIBLE in QZoneMainFrame.f0() iff the undeal count > 0); otherwise jump
+     * the feed (SmartRefreshLayout `n` → RecyclerView) to the top.
+     */
     private fun openQzoneNotify(): Boolean {
         val f = qzoneFragment?.get() ?: return false
-        return runCatching { f.javaClass.getMethod("barNotify").invoke(f); true }
-            .onFailure { Utils.log("MainNav: openQzoneNotify failed: $it") }
-            .getOrDefault(true)
+        val hasNotify = runCatching {
+            (f.javaClass.getField("k").get(f) as? View)?.visibility == View.VISIBLE
+        }.getOrDefault(false)
+        if (hasNotify) {
+            return runCatching { f.javaClass.getMethod("barNotify").invoke(f); true }
+                .onFailure { Utils.log("MainNav: openQzoneNotify failed: $it") }
+                .getOrDefault(true)
+        }
+        // No active notification — scroll the feed to the top instead of opening 通知.
+        Utils.log("MainNav: qzone no notify → scroll to top")
+        runCatching {
+            scrollToTop(findRecycler(f.javaClass.getField("n").get(f) as? View))
+        }.onFailure { Utils.log("MainNav: qzone scroll-top failed: $it") }
+        return true
+    }
+
+    /** The first RecyclerView at or under [v] (the page root may itself be the list). */
+    private fun findRecycler(v: View?): RecyclerView? =
+        v as? RecyclerView ?: (v as? ViewGroup)?.findAll { it is RecyclerView } as? RecyclerView
+
+    private fun scrollToTop(rv: RecyclerView?) {
+        rv ?: return
+        rv.stopScroll()
+        rv.smoothScrollToStart(0)
     }
 
     /**
