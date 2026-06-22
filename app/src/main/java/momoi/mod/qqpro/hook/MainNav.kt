@@ -172,6 +172,9 @@ object MainNav {
                 gravity = Gravity.CENTER
                 clipChildren = false
                 clipToPadding = false
+                // The bar otherwise sits over the window's pure black; fill it with the M3 page
+                // surface so it matches the materialized pages (chat list etc.) seamlessly.
+                setBackgroundColor(M3.surface)
             }
             val state = NavState(nav, pager, iconMap, pageCount)
             state.current = pager.current()
