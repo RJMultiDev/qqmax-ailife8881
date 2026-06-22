@@ -290,24 +290,41 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                             if (Settings.fullInlineInput.value) InlineInput.send()
                             else sendInline(editText)
                         }
-                        editText.doAfterTextChanged {
+                        // Mic/send/emoji button visibility for the current text. Extracted so it can
+                        // also be re-run when voice-to-text conversion finishes (see below).
+                        val applyButtonState = fun() {
                             // Use isNullOrEmpty (not isNullOrBlank): a space is real content the
                             // user typed (the hint already disappeared), so it must flip to send.
-                            val hasText = !it.isNullOrEmpty()
+                            val hasText = !editText.text.isNullOrEmpty()
+                            // While STT is converting, the mic shows a spinner — keep it visible (and
+                            // the send button hidden) even though recognized text is filling in, so
+                            // the progress indicator doesn't vanish on the first character.
+                            val converting = Settings.fullInlineInput.value && VoiceRecord.isConverting
                             hintView.visibility = if (hasText) View.GONE else View.VISIBLE
                             val emojiMode = hasText && Settings.inlineEmojiButton.value
                             // Hide the emoji / "+" button when there is text, to make room for
                             // the send button; show the emoji-picker toggle in its place if enabled.
                             emojiBtn.visibility = if (hasText) View.GONE else View.VISIBLE
                             emojiToggle.visibility = if (emojiMode) View.VISIBLE else View.GONE
-                            voice.visibility =
-                                if (hasText || Settings.hideVoiceButton.value) View.GONE else View.VISIBLE
-                            send.visibility = if (hasText) View.VISIBLE else View.GONE
+                            voice.visibility = when {
+                                converting -> View.VISIBLE
+                                hasText || Settings.hideVoiceButton.value -> View.GONE
+                                else -> View.VISIBLE
+                            }
+                            send.visibility = if (hasText && !converting) View.VISIBLE else View.GONE
                             if (!emojiMode) InlineEmojiPanel.dismiss()
+                        }
+                        editText.doAfterTextChanged {
+                            applyButtonState()
                             // Grow/shrink the bar on every edit. Posted so editText.lineCount reflects
                             // the new text (it updates after the next measure). In the floating overlay
                             // layout passes are too sparse to catch this on their own.
                             if (inlineGrow) editText.post { applyInlineGrow() }
+                        }
+                        if (Settings.fullInlineInput.value) {
+                            // Re-evaluate the buttons when STT starts/finishes so the spinner survives
+                            // the live text insertion and the mic flips to send only once converted.
+                            VoiceRecord.onConvertStateChanged = { applyButtonState() }
                         }
                         if (Settings.fullInlineInput.value) {
                             // The reply/edit banner is a floating overlay above the bar (InlineInput

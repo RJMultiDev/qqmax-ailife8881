@@ -338,6 +338,42 @@ object InlineInput {
         focusAndShow()
     }
 
+    // ---- streaming text insertion (live STT recognition progress) ----
+    // The native VoiceInputFragment shows speech-to-text results filling in progressively. With the
+    // inline voice recorder ([VoiceRecord]) the recognition callback fires repeatedly with the
+    // cumulative text so far; these helpers keep replacing the same range in the inline EditText so
+    // the user sees the same real-time progress as the native page. sttAnchor < 0 means no stream is
+    // active (so a stray update just inserts at the cursor).
+    private var sttAnchor = -1
+    private var sttLen = 0
+
+    /** Begin a streaming insertion at the current cursor; shows the keyboard so progress is visible. */
+    fun beginStreamingText() {
+        val et = editText() ?: return
+        sttAnchor = et.selectionStart.coerceAtLeast(0)
+        sttLen = 0
+        focusAndShow()
+    }
+
+    /** Replace the streamed range with the latest cumulative [text]. */
+    fun updateStreamingText(text: String) {
+        val et = editText() ?: return
+        if (sttAnchor < 0) { insertText(text); return }
+        val len = et.text?.length ?: 0
+        val start = sttAnchor.coerceIn(0, len)
+        val end = (sttAnchor + sttLen).coerceIn(start, len)
+        et.text?.replace(start, end, text)
+        sttLen = text.length
+        et.setSelection((start + text.length).coerceAtMost(et.text?.length ?: 0))
+    }
+
+    /** Finish the stream: apply the final [text] (if any) and reset the stream state. */
+    fun endStreamingText(text: String?) {
+        if (text != null) updateStreamingText(text)
+        sttAnchor = -1
+        sttLen = 0
+    }
+
     private fun insertAt(uid: String, nick: String) = insertToken("@$nick ", AtTag(uid, nick, 2))
 
     private fun insertImage(element: MsgElement) {

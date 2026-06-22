@@ -2,6 +2,7 @@ package momoi.mod.qqpro.hook
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
@@ -36,6 +37,7 @@ import mqq.app.MobileQQ
 import java.io.File
 import java.lang.ref.WeakReference
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.M3ProgressDrawable
 import momoi.mod.qqpro.lib.material.MaterialSymbol
 import momoi.mod.qqpro.lib.material.MaterialSymbols
 
@@ -75,6 +77,21 @@ object VoiceRecord {
     private var target = Target.SEND
     private var pendingTarget = Target.SEND
 
+    // The inline mic button + its idle icon, so STT can swap it to a spinner while converting.
+    private var buttonRef: WeakReference<ImageView>? = null
+    private var buttonIcon: Drawable? = null
+    private var sttRunning = false
+
+    /** True while a recording is being converted to text (the mic shows a spinner). */
+    val isConverting: Boolean get() = sttRunning
+
+    /**
+     * Set by the inline input bar; invoked on the main thread whenever [isConverting] flips. The bar
+     * re-evaluates its mic/send button visibility so the spinner stays put until conversion finishes
+     * (otherwise the first recognized character flips the mic to the send button, hiding the spinner).
+     */
+    var onConvertStateChanged: (() -> Unit)? = null
+
     // overlay views
     private var overlay: FrameLayout? = null
     private var cancelCircle: ImageView? = null
@@ -100,7 +117,11 @@ object VoiceRecord {
     /** Wire the inline voice button to hold-to-record. Replaces the native PTT delegate. */
     @SuppressLint("ClickableViewAccessibility")
     fun attach(button: ImageView) {
+        buttonRef = WeakReference(button)
         button.setOnTouchListener { v, e ->
+            // While a previous recording is being converted to text, the mic shows a spinner —
+            // swallow touches so it can't be pressed again mid-conversion.
+            if (sttRunning) return@setOnTouchListener true
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     // The custom recorder talks to the mic directly (no native VoiceInputFragment),
@@ -270,24 +291,60 @@ object VoiceRecord {
             Utils.toast(Utils.application, "转换失败"); return
         }
         Utils.toast(Utils.application, "正在转文字…")
+        // Spinner on the mic + a live streaming insertion, so the recognized text fills in
+        // progressively (same as the native VoiceInputFragment) and the button can't be re-pressed.
+        beginSttUi()
+        InlineInput.beginStreamingText()
         runCatching {
             val app = MobileQQ.sMobileQQ.peekAppRuntime()
             val svc = app.getRuntimeService(ITranslateTextService::class.java, "")
             svc.translateText(CurrentContact.isGroup, File(pcm), File(audioFile),
                 object : ITranslateTextService.AbsTranslateTextCallback() {
                     override fun b(isSuccess: Boolean, isLast: Boolean, text: String, curKey: String) {
-                        if (!isSuccess) { main.post { Utils.toast(Utils.application, "转换失败") }; return }
-                        if (isLast) main.post {
-                            if (text.isNotEmpty()) InlineInput.insertText(text)
-                            else Utils.toast(Utils.application, "没有识别到内容")
-                            runCatching { File(audioFile).delete() }
+                        if (!isSuccess) {
+                            main.post { endStt(); Utils.toast(Utils.application, "转换失败") }
+                            return
+                        }
+                        main.post {
+                            // text is cumulative — keep replacing the streamed range in real time.
+                            InlineInput.updateStreamingText(text)
+                            if (isLast) {
+                                InlineInput.endStreamingText(null)
+                                if (text.isEmpty()) Utils.toast(Utils.application, "没有识别到内容")
+                                endStt()
+                                runCatching { File(audioFile).delete() }
+                            }
                         }
                     }
                 })
         }.onFailure {
             Utils.log("VoiceRecord stt failed: $it")
-            main.post { Utils.toast(Utils.application, "转换失败") }
+            main.post { endStt(); Utils.toast(Utils.application, "转换失败") }
         }
+    }
+
+    /** Swap the inline mic icon for an indeterminate M3 spinner while STT runs. */
+    private fun beginSttUi() {
+        sttRunning = true
+        onConvertStateChanged?.invoke()
+        val btn = buttonRef?.get() ?: return
+        buttonIcon = btn.drawable
+        val spinner = M3ProgressDrawable()
+        btn.setImageDrawable(spinner)
+        spinner.setVisible(true, true)
+    }
+
+    /** Restore the mic icon and re-enable presses; also resets any half-finished stream state. */
+    private fun endStt() {
+        sttRunning = false
+        InlineInput.endStreamingText(null)
+        val btn = buttonRef?.get()
+        if (btn != null) {
+            (btn.drawable as? M3ProgressDrawable)?.setVisible(false, false)
+            buttonIcon?.let { btn.setImageDrawable(it) }
+        }
+        // Now that conversion is done, let the bar flip the mic → send button for the inserted text.
+        onConvertStateChanged?.invoke()
     }
 
     // ---- gesture target tracking ----
