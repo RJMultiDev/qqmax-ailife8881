@@ -3,6 +3,7 @@ package momoi.mod.qqpro.lib.material
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Dialog
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -22,6 +23,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.widget.doAfterTextChanged
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -167,22 +169,40 @@ class ColorWheelView(activity: Activity) : View(activity) {
         canvas.drawCircle(sx, sy, 8f.dpPx(), selStroke)
     }
 
+    // Tap-only: we deliberately do NOT consume drags or call requestDisallowInterceptTouchEvent,
+    // so a vertical drag that starts on the wheel scrolls the enclosing dialog ScrollView normally
+    // (the ScrollView intercepts the move and the wheel just gets a CANCEL). A pick happens on UP
+    // only when the finger barely moved.
+    private var downX = 0f
+    private var downY = 0f
+    private val touchSlop = android.view.ViewConfiguration.get(context).scaledTouchSlop
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        when (event.action) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                parent?.requestDisallowInterceptTouchEvent(true)
-                val dx = event.x - cx
-                val dy = event.y - cy
-                var deg = Math.toDegrees(atan2(dy, dx).toDouble()).toFloat()
-                if (deg < 0) deg += 360f
-                hsv[0] = deg
-                hsv[1] = (hypot(dx, dy) / radius).coerceIn(0f, 1f)
-                invalidate()
-                onColorChanged?.invoke(color)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x; downY = event.y
+                return true // claim the gesture so we still receive UP for a tap
+            }
+            MotionEvent.ACTION_UP -> {
+                if (abs(event.x - downX) <= touchSlop && abs(event.y - downY) <= touchSlop) {
+                    pickAt(event.x, event.y)
+                }
                 return true
             }
         }
         return super.onTouchEvent(event)
+    }
+
+    /** Set hue/saturation from a tapped point and notify. */
+    private fun pickAt(x: Float, y: Float) {
+        val dx = x - cx
+        val dy = y - cy
+        var deg = Math.toDegrees(atan2(dy, dx).toDouble()).toFloat()
+        if (deg < 0) deg += 360f
+        hsv[0] = deg
+        hsv[1] = (hypot(dx, dy) / radius).coerceIn(0f, 1f)
+        invalidate()
+        onColorChanged?.invoke(color)
     }
 }
 
@@ -296,50 +316,45 @@ fun showColorPicker(
             updatePreview(c)
         }
     }
-    // Preset swatches, rows of 6 — tap routes through the hex field so everything stays in sync.
-    for (rowHexes in presets.chunked(6)) {
-        val rowView = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(4), 0, 0)
-        }
-        for (hex in rowHexes) {
-            val sw = View(activity).apply {
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(M3.parseColor(hex, M3.surfaceContainer))
-                    setStroke(dp(1), M3.outlineVariant)
-                }
-                setOnClickListener { hexField.setText(hex) }
+    // Preset swatches in an auto-wrapping flow — fills the available width and re-flows to the
+    // next line so nothing clips off a narrow round screen. Tap routes through the hex field so
+    // everything stays in sync.
+    val flow = FlowLayout(activity, dp(8), dp(8)).apply { setPadding(0, dp(6), 0, 0) }
+    for (hex in presets) {
+        val sw = View(activity).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(M3.parseColor(hex, M3.surfaceContainer))
+                setStroke(dp(1), M3.outlineVariant)
             }
-            rowView.addView(sw, LinearLayout.LayoutParams(dp(30), dp(30)).apply { rightMargin = dp(8) })
+            setOnClickListener { hexField.setText(hex) }
         }
-        panel.addView(rowView)
+        flow.addView(sw, ViewGroup.LayoutParams(dp(30), dp(30)))
     }
+    panel.addView(flow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
-    // Action buttons.
+    // Action buttons — stacked vertically like the other M3 dialogs (full-width M3Button stack).
     val actions = LinearLayout(activity).apply {
-        orientation = LinearLayout.HORIZONTAL
+        orientation = LinearLayout.VERTICAL
         setPadding(0, dp(14), 0, 0)
     }
-    fun textButton(label: String, color: Int, onTap: () -> Unit) {
-        val b = TextView(activity).apply {
+    fun stackButton(label: String, variant: M3Button.Variant, onTap: () -> Unit) {
+        val b = M3Button(activity).variant(variant).apply {
             text = label
-            textSize = 13f
-            setTextColor(color)
-            gravity = Gravity.CENTER
-            setPadding(dp(8), dp(8), dp(8), dp(8))
             setOnClickListener { onTap() }
         }
-        actions.addView(b, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        actions.addView(b, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(8)
+        })
     }
-    textButton("取消", M3.onSurfaceVariant) { dialog.dismiss() }
-    if (allowDefault) textButton("默认", M3.onSurfaceVariant) { onPick(""); dialog.dismiss() }
-    textButton("确定", M3.primary) {
+    stackButton("确定", M3Button.Variant.FILLED) {
         val chosen = M3.parseColorOrNull(hexField.text?.toString())?.let { colorToHex(it) }
             ?: colorToHex(wheel.color)
         onPick(chosen)
         dialog.dismiss()
     }
+    if (allowDefault) stackButton("默认", M3Button.Variant.TONAL) { onPick(""); dialog.dismiss() }
+    stackButton("取消", M3Button.Variant.TEXT) { dialog.dismiss() }
     panel.addView(actions, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
     // Scroll so the panel fits a short round screen; rounded bg stays on the panel.
@@ -361,4 +376,46 @@ fun showColorPicker(
         setLayout(w, h)
     }
     dialog.show()
+}
+
+/**
+ * Minimal flow container: lays children left-to-right, wrapping to the next line when the row is
+ * full. Used for the preset swatch grid so it adapts to any (narrow, round) screen width instead of
+ * a fixed column count that clips. Children keep their own measured size; [hGap]/[vGap] space them.
+ */
+private class FlowLayout(context: Context, private val hGap: Int, private val vGap: Int) : ViewGroup(context) {
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val width = MeasureSpec.getSize(widthMeasureSpec)
+        val avail = width - paddingLeft - paddingRight
+        var x = 0
+        var y = 0
+        var rowH = 0
+        for (i in 0 until childCount) {
+            val c = getChildAt(i)
+            if (c.visibility == GONE) continue
+            measureChild(c, widthMeasureSpec, heightMeasureSpec)
+            if (x > 0 && x + c.measuredWidth > avail) { x = 0; y += rowH + vGap; rowH = 0 }
+            x += c.measuredWidth + hGap
+            rowH = maxOf(rowH, c.measuredHeight)
+        }
+        val totalH = paddingTop + paddingBottom + y + rowH
+        setMeasuredDimension(width, resolveSize(totalH, heightMeasureSpec))
+    }
+
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        val avail = r - l - paddingLeft - paddingRight
+        var x = paddingLeft
+        var y = paddingTop
+        var rowH = 0
+        for (i in 0 until childCount) {
+            val c = getChildAt(i)
+            if (c.visibility == GONE) continue
+            if (x > paddingLeft && x - paddingLeft + c.measuredWidth > avail) {
+                x = paddingLeft; y += rowH + vGap; rowH = 0
+            }
+            c.layout(x, y, x + c.measuredWidth, y + c.measuredHeight)
+            x += c.measuredWidth + hGap
+            rowH = maxOf(rowH, c.measuredHeight)
+        }
+    }
 }
