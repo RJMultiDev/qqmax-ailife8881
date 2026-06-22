@@ -8,6 +8,8 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import com.tencent.qqnt.chats.core.adapter.itemdata.RecentContactChatItem
 import com.tencent.qqnt.kernel.nativeinterface.DeleteRecentContactInfo
 import com.tencent.qqnt.kernel.nativeinterface.IKernelRecentContactListener
 import com.tencent.qqnt.kernel.nativeinterface.NotificationCommonInfo
@@ -16,9 +18,11 @@ import com.tencent.qqnt.kernel.nativeinterface.RecentContactInfo
 import com.tencent.qqnt.kernel.nativeinterface.RecentContactListChangedInfo
 import com.tencent.qqnt.msg.KernelServiceUtil
 import com.tencent.qqnt.watch.ui.componet.tablayout.CircleIndicator
+import java.lang.ref.WeakReference
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.hook.action.RecentContacts
+import momoi.mod.qqpro.hook.view.smoothScrollToStart
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.material.MaterialSymbol
@@ -55,6 +59,17 @@ object MainNav {
     // Published by ContactListFragmentHook (friend + group notification counts). Best-effort: only
     // fresh once the contacts page has been opened.
     @JvmField var contactUnread = 0
+    @JvmField var contactFriendUnread = 0
+    @JvmField var contactGroupUnread = 0
+
+    // Live fragment refs published by the contacts / qzone page hooks so a repeat-tap on the nav can
+    // reach into the page that's currently shown and open its notification screen. WeakReference so a
+    // recreated (FragmentStateAdapter) fragment isn't leaked. See [openContactNotify]/[openQzoneNotify].
+    @JvmField var contactFragment: WeakReference<Any>? = null
+    @JvmField var qzoneFragment: WeakReference<Any>? = null
+
+    // Round-robin cursor over the chat list's unread conversations (repeat-tap on the messages page).
+    private var chatUnreadCursor = 0
 
     private var active: NavState? = null
 
@@ -262,7 +277,7 @@ object MainNav {
 
             val pos = i
             frame.isClickable = true
-            frame.setOnClickListener { runCatching { state.pager.setCurrent(pos) } }
+            frame.setOnClickListener { handleNavTap(state, pos) }
 
             // Fixed cell width (or weighted in square mode) so the pill never reflows the row.
             val lp = if (square) {
@@ -306,6 +321,89 @@ object MainNav {
                 cell.badge.visibility = View.GONE
             }
         }
+    }
+
+    /**
+     * Nav cell tapped. When [Settings.mainNavUnreadJump] is on and the tap is on the page the user is
+     * already viewing, jump to that page's pending item ([onRepeatTap]) instead of a no-op page
+     * switch. Otherwise switch pages normally (resetting the chat-unread cursor for a fresh cycle).
+     */
+    private fun handleNavTap(state: NavState, pos: Int) {
+        runCatching {
+            val onThisPage = runCatching { state.pager.current() }.getOrDefault(state.current) == pos
+            if (onThisPage && Settings.mainNavUnread.value && Settings.mainNavUnreadJump.value &&
+                onRepeatTap(state, pos)
+            ) return
+            chatUnreadCursor = 0
+            state.pager.setCurrent(pos)
+        }.onFailure { Utils.log("MainNav tap($pos) failed: $it") }
+    }
+
+    /** Per-page repeat-tap action. Returns true when the tap was consumed (no page switch needed). */
+    private fun onRepeatTap(state: NavState, pos: Int): Boolean = when (pos) {
+        0 -> cycleChatUnread(state)
+        1 -> openContactNotify()
+        2 -> openQzoneNotify()
+        else -> false
+    }
+
+    /**
+     * Messages page: scroll the next unread conversation to the top of the chat list, cycling back to
+     * the first after the last. Reads the live [ChatsListAdapter] items (RecentContactChatItem) and
+     * skips muted/DND chats — same filter the unread badge uses ([messagesUnread]).
+     */
+    private fun cycleChatUnread(state: NavState): Boolean {
+        val pagerView = state.pager.pager as? ViewGroup ?: return false
+        val ctx = pagerView.context
+        val rvId = ctx.resources.getIdentifier("chat_list", "id", ctx.packageName)
+        val rv = (if (rvId != 0) pagerView.findAll { it is RecyclerView && it.id == rvId } else null)
+            as? RecyclerView ?: run { Utils.log("MainNav: chat_list RV not found"); return false }
+        val adapter = rv.adapter ?: return false
+        val getItem = runCatching {
+            adapter.javaClass.getMethod("getItem", Int::class.javaPrimitiveType)
+        }.getOrNull() ?: run { Utils.log("MainNav: adapter.getItem not found"); return false }
+
+        val positions = ArrayList<Int>()
+        for (i in 0 until adapter.itemCount) {
+            val item = runCatching { getItem.invoke(adapter, i) }.getOrNull()
+            if (item is RecentContactChatItem &&
+                item.a.unreadCnt > 0 && !RecentContacts.isMuted(item.p, item.q)
+            ) positions.add(i)
+        }
+        if (positions.isEmpty()) { chatUnreadCursor = 0; return true }
+
+        if (chatUnreadCursor >= positions.size) chatUnreadCursor = 0
+        val target = positions[chatUnreadCursor]
+        chatUnreadCursor = (chatUnreadCursor + 1) % positions.size
+        rv.stopScroll()
+        rv.smoothScrollToStart(target)
+        Utils.log("MainNav: chat unread jump pos=$target (cursor=$chatUnreadCursor/${positions.size})")
+        return true
+    }
+
+    /**
+     * Contacts page: open the notification screen that actually has a pending count (好友通知 first,
+     * else 群通知). Delegates to the live fragment's copied-in methods via reflection — the @Mixin
+     * class type doesn't exist at runtime, so we can't reference it directly.
+     */
+    private fun openContactNotify(): Boolean {
+        val f = contactFragment?.get() ?: return false
+        val method = when {
+            contactFriendUnread > 0 -> "topFriendNotify"
+            contactGroupUnread > 0 -> "topGroupNotify"
+            else -> return true   // nothing pending — consume the tap, do nothing
+        }
+        return runCatching { f.javaClass.getMethod(method).invoke(f); true }
+            .onFailure { Utils.log("MainNav: openContactNotify failed: $it") }
+            .getOrDefault(true)
+    }
+
+    /** QZone page: open the 通知 screen (no per-page count available, so always open it). */
+    private fun openQzoneNotify(): Boolean {
+        val f = qzoneFragment?.get() ?: return false
+        return runCatching { f.javaClass.getMethod("barNotify").invoke(f); true }
+            .onFailure { Utils.log("MainNav: openQzoneNotify failed: $it") }
+            .getOrDefault(true)
     }
 
     /**

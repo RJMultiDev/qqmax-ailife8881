@@ -254,6 +254,7 @@ class 设置页 : SettingsActivity() {
             switch("方形铺开", "导航图标在整行均匀铺开，而非聚在中间", Settings.mainNavSquare)
             switch("显示所有页面图标", "每个页面都显示图标，当前页蓝色高亮；关闭则只显示当前页图标、其余为圆点", Settings.mainNavAllIcons)
             switch("显示未读数", "在导航各页面图标上显示未读数红标(设置页除外)：消息页为总未读，联系人页为好友+群通知数", Settings.mainNavUnread)
+            switch("点击当前页跳转未读", "已在某页时再次点击该页图标：消息页把下一条未读会话滚到顶部(循环)，联系人/动态页打开通知页面。需开启“显示未读数”", Settings.mainNavUnreadJump)
         },
         SettingsCategory("导航与滚动", "翻页、返回与表冠") {
             switch("返回先回首页", "不在首页时按返回先滑回第一页，已在首页才退出", Settings.backToFirstPage)

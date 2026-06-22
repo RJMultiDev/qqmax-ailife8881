@@ -25,6 +25,8 @@ class QZoneMainFrameHook : QZoneMainFrame() {
 
     override fun Y(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val orig = super.Y(inflater, container, savedInstanceState)
+        // Publish ourselves so a repeat-tap on the qzone nav cell can open the 通知 screen.
+        MainNav.qzoneFragment = java.lang.ref.WeakReference<Any>(this)
         if (!Settings.materialQZoneBar.value) return orig
         return runCatching { QZoneTopBar.wrap(this, orig) }
             .onFailure { Utils.log("QZoneMainFrameHook Y: $it") }

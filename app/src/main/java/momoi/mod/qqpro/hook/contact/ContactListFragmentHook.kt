@@ -43,6 +43,8 @@ class ContactListFragmentHook : ContactListFragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Publish ourselves so a repeat-tap on the contacts nav cell can open our notification screen.
+        momoi.mod.qqpro.hook.MainNav.contactFragment = java.lang.ref.WeakReference<Any>(this)
         if (!Settings.contactSections.value) return
         runCatching {
             val viewModel = field("h")!!
@@ -94,8 +96,11 @@ class ContactListFragmentHook : ContactListFragment() {
         @Suppress("UNCHECKED_CAST")
         val groups = state.field("b") as List<ContactBaseItem>
         val (friendCount, groupCount) = readNotifyCounts(state, viewModel)
-        // Publish to the main-page navigation so the contacts tab can show an unread badge.
+        // Publish to the main-page navigation so the contacts tab can show an unread badge, and so a
+        // repeat-tap on the contacts nav cell can open whichever notification screen has a count.
         momoi.mod.qqpro.hook.MainNav.contactUnread = friendCount + groupCount
+        momoi.mod.qqpro.hook.MainNav.contactFriendUnread = friendCount
+        momoi.mod.qqpro.hook.MainNav.contactGroupUnread = groupCount
         momoi.mod.qqpro.hook.MainNav.refresh()
 
         val out = ArrayList<ContactBaseItem>(friends.size + groups.size + 5)

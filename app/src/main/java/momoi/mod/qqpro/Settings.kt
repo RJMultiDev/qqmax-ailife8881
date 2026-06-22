@@ -113,6 +113,10 @@ object Settings {
     // Show each page's unread count as a red badge in the navigation (except the last/settings page).
     // Messages page shows total unread; contacts page shows friend+group notification counts.
     val mainNavUnread = BooleanPref("mainNavUnread", true)
+    // Tapping a nav cell for the page you're ALREADY on jumps to that page's pending item: messages
+    // page scrolls the next unread conversation to the top (cycling), contacts/qzone open their
+    // notification screen. Requires 显示未读数 (mainNavUnread). Default on.
+    val mainNavUnreadJump = BooleanPref("mainNavUnreadJump", true)
     // Use the in-app camera for 拍照. When off, launch the system camera app (third-party)
     // via an intent for photos. Video recording always uses the system app (the in-app
     // camera can't record video).
@@ -245,7 +249,7 @@ object Settings {
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
         screenCornerDiameter, titlebarSideMargin,
         hideVoiceButton, backToFirstPage, attachmentOverlay, materialAttachmentMenu, materialLongPressMenu, enableTitlebar, titlebarShowUnread,
-        floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread,
+        floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread, mainNavUnreadJump,
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         galleryQuickSend, useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
         picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo, qzoneMiniAppCard,
