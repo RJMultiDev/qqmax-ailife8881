@@ -123,6 +123,9 @@ object ContactTopBar {
         val wrap = FrameLayout(ctx).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            // M3 page surface behind the list (replaces the native light-blue page background) so the
+            // rows / section headers / top bar all read as one Material surface.
+            setBackgroundColor(M3.surface)
             addView(rv, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             addView(top, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
         }

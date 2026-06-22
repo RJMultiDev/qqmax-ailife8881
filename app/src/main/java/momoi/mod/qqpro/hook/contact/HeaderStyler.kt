@@ -4,6 +4,7 @@ import android.graphics.Typeface
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
 import com.tencent.widget.SingleLineTextView
+import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
@@ -62,16 +63,20 @@ class HeaderStyler(
                 setTextColor(M3.onSurfaceVariant)       // light gray, distinct from row text
             }
         } else {
-            // Restore defaults (this view may have been a header before recycling).
-            if (bgItem != 0) itemView.setBackgroundResource(bgItem)
             avatar?.visibility = View.VISIBLE
+            // With the Material contacts list on, give each row an M3 surface card + onSurface text to
+            // match the Material top bar; otherwise restore the native card bg + text color (this view
+            // may have been a header before recycling).
+            val material = Settings.materialContactsList.value
+            if (material) itemView.background = M3.ripple(M3.rounded(M3.surfaceContainer, M3.radiusLg))
+            else if (bgItem != 0) itemView.setBackgroundResource(bgItem)
             title?.apply {
                 // First normal row gives us the base size (in SP); reset others to it in case this
                 // view was previously a (1.35x bold) header. Don't resize the captured row itself.
                 if (baseSp <= 0f) baseSp = if (scaledDensity > 0f) textSize / scaledDensity else 0f
                 else setTextSize(baseSp)
                 setTypeface(Typeface.DEFAULT)
-                setTextColor(normalColor)
+                setTextColor(if (material) M3.onSurface else normalColor)
             }
         }
     }
