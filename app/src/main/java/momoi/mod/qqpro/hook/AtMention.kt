@@ -20,9 +20,11 @@ import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.util.linkColorOverride
 import mqq.app.MobileQQ
 
-// Link color for tappable @member spans (matches the bright nick-tag blue). Also reused
-// for clickable grey-tip member names (see GrayTipMention.kt) so they look consistent.
-internal const val AT_LINK_COLOR = 0xFF_5E97F6.toInt()
+// Default link color for tappable @member spans (also reused for clickable grey-tip member names
+// in GrayTipMention.kt). A light cyan-blue: a medium blue (the old 5E97F6) blended into the blue
+// self-bubble; this lighter tone stays legible on both the blue self-bubble and dark other-bubbles.
+// Overridden by Settings.linkColor when set.
+internal const val AT_LINK_COLOR = 0xFF_80D8FF.toInt()
 
 /**
  * Open [member]'s profile card — the same destination reached by tapping their

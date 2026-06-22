@@ -27,40 +27,45 @@ import momoi.mod.qqpro.lib.dp
  * IllegalAccessError at runtime).
  */
 object M3 {
-    // ── Primary (user-themeable) ─────────────────────────────────────────────────
-    // The accent is resolved live from Settings.themeColor (blank = DEFAULT_PRIMARY). The tonal
-    // container and on-primary tokens are DERIVED from it, so changing the one setting rethemes
-    // every materialized screen the next time it's built. See the 外观主题 settings category.
-    val DEFAULT_PRIMARY = 0xFF_4FC3F7.toInt()
+    // ── Color tokens (all user-overridable) ──────────────────────────────────────
+    // Every MD3 role below resolves LIVE from its own Settings color pref (a hex string). A blank
+    // pref falls back to the built-in default (and for the primary-derived tokens, to the value
+    // auto-derived from the accent). Editing a token in the 外观主题 settings category rethemes every
+    // materialized screen the next time it's built. The single source of truth is here.
+    // Material Blue 200 — the MD3-recommended (softer, less-saturated) accent tone for dark themes.
+    val DEFAULT_PRIMARY = 0xFF_90CAF9.toInt()
 
     val primary: Int get() = parseColor(momoi.mod.qqpro.Settings.themeColor.value, DEFAULT_PRIMARY)
     /**
-     * Label/icon color on a filled primary surface. White on a normal accent (the right look for a
-     * dark UI); only a very LIGHT accent (e.g. pale yellow) flips to a dark tone for contrast. Avoids
-     * the near-black text a blanket darken() produced on mid-bright accents.
+     * Label/icon color on a filled primary surface. Blank pref = auto: white on a normal accent (the
+     * right look for a dark UI); only a very LIGHT accent (e.g. pale yellow) flips to a dark tone for
+     * contrast. Avoids the near-black text a blanket darken() produced on mid-bright accents.
      */
-    val onPrimary: Int get() = if (luminance(primary) > 0.72f) darken(primary, 0.78f) else 0xFF_FFFFFF.toInt()
-    /** Translucent tonal container built from the accent (0x33 alpha). */
-    val primaryContainer: Int get() = (primary and 0x00FFFFFF) or 0x33_000000
-    val onPrimaryContainer: Int get() = primary
+    val onPrimary: Int get() = parseColorOrNull(momoi.mod.qqpro.Settings.themeOnPrimary.value)
+        ?: if (luminance(primary) > 0.72f) darken(primary, 0.78f) else 0xFF_FFFFFF.toInt()
+    /** Translucent tonal container; blank pref = auto (the accent at 0x33 alpha). */
+    val primaryContainer: Int get() = parseColorOrNull(momoi.mod.qqpro.Settings.themePrimaryContainer.value)
+        ?: ((primary and 0x00FFFFFF) or 0x33_000000)
+    val onPrimaryContainer: Int get() = parseColorOrNull(momoi.mod.qqpro.Settings.themeOnPrimaryContainer.value)
+        ?: primary
 
     // ── Surfaces ───────────────────────────────────────────────────────────────
-    val surface = 0xFF_1A1A1A.toInt()              // screen background
-    val surfaceContainer = 0xFF_222222.toInt()     // field / sunken surface / card
-    val surfaceContainerHigh = 0xFF_2A2A2A.toInt() // raised card / row pressed
-    val surfaceVariant = 0xFF_2E2E2E.toInt()
+    val surface: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurface.value, 0xFF_1A1A1A.toInt())              // screen background
+    val surfaceContainer: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurfaceContainer.value, 0xFF_222222.toInt())     // field / sunken surface / card
+    val surfaceContainerHigh: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurfaceContainerHigh.value, 0xFF_2A2A2A.toInt()) // raised card / row pressed
+    val surfaceVariant: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurfaceVariant.value, 0xFF_2E2E2E.toInt())
 
     // ── Content ────────────────────────────────────────────────────────────────
-    val onSurface = 0xFF_FFFFFF.toInt()
-    val onSurfaceVariant = 0xFF_C9C7CE.toInt()     // inactive icon/text
-    val onSurfaceTip = 0xFF_999999.toInt()         // secondary/hint text
-    val hint = 0xFF_777777.toInt()
-    val outline = 0xFF_444444.toInt()
-    val outlineVariant = 0xFF_333333.toInt()
+    val onSurface: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOnSurface.value, 0xFF_FFFFFF.toInt())
+    val onSurfaceVariant: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOnSurfaceVariant.value, 0xFF_C9C7CE.toInt())     // inactive icon/text
+    val onSurfaceTip: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOnSurfaceTip.value, 0xFF_999999.toInt())         // secondary/hint text
+    val hint: Int get() = parseColor(momoi.mod.qqpro.Settings.themeHint.value, 0xFF_777777.toInt())
+    val outline: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOutline.value, 0xFF_444444.toInt())
+    val outlineVariant: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOutlineVariant.value, 0xFF_333333.toInt())
 
     // ── Status ─────────────────────────────────────────────────────────────────
-    val error = 0xFF_E5443C.toInt()
-    val badge = 0xFF_E5443C.toInt()
+    val error: Int get() = parseColor(momoi.mod.qqpro.Settings.themeError.value, 0xFF_E5443C.toInt())
+    val badge: Int get() = error                   // unread/notification badge follows the error token
     val legacyBtn = 0xFF_1B9AF7.toInt()            // older link/button blue (Colors.btn)
 
     // ── Chat tokens (referenced by Colors aliases; values must stay exact) ───────
@@ -94,10 +99,13 @@ object M3 {
      * Parse a hex color string (`#RRGGBB`, `RRGGBB`, `#AARRGGBB` or `AARRGGBB`, with optional spaces);
      * a parse without an alpha component is treated as fully opaque. Returns [fallback] when blank/invalid.
      */
-    fun parseColor(raw: String?, fallback: Int): Int {
-        val s = raw?.trim()?.removePrefix("#")?.replace(" ", "") ?: return fallback
-        if (s.length != 6 && s.length != 8) return fallback
-        val v = s.toLongOrNull(16) ?: return fallback
+    fun parseColor(raw: String?, fallback: Int): Int = parseColorOrNull(raw) ?: fallback
+
+    /** Like [parseColor] but returns null (not a fallback) when the string is blank/invalid. */
+    fun parseColorOrNull(raw: String?): Int? {
+        val s = raw?.trim()?.removePrefix("#")?.replace(" ", "") ?: return null
+        if (s.length != 6 && s.length != 8) return null
+        val v = s.toLongOrNull(16) ?: return null
         return if (s.length == 6) (0xFF000000.toInt() or v.toInt()) else v.toInt()
     }
 

@@ -34,9 +34,11 @@ import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.material.M3Switch
+import momoi.mod.qqpro.lib.material.MaterialColors
 import momoi.mod.qqpro.lib.material.MaterialSymbol
 import momoi.mod.qqpro.lib.material.MaterialSymbols
 import momoi.mod.qqpro.lib.material.leadingSymbol
+import momoi.mod.qqpro.lib.material.showColorPicker
 import momoi.mod.qqpro.lib.height
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.onCheckedChange
@@ -192,9 +194,28 @@ class 设置页 : SettingsActivity() {
 
     /** The full settings tree, grouped into categories for the two-level navigation. */
     private fun buildCategories(): List<SettingsCategory> = listOf(
-        SettingsCategory("外观主题", "Material 主题色") {
-            themeColorPicker()
-            textInput("自定义主题色", "16进制如 #4FC3F7，留空恢复默认。重进页面生效", Settings.themeColor)
+        SettingsCategory("外观主题", "Material 颜色 (M3)") {
+            val note = "重进页面生效"
+            colorPicker("主题色 Primary", "主强调色：按钮/开关/链接/高亮", Settings.themeColor, MaterialColors.ACCENT, { M3.primary }, note)
+            colorPicker("主色前景 On Primary", "强调色上的文字/图标，留空自动", Settings.themeOnPrimary, MaterialColors.ON, { M3.onPrimary }, note)
+            colorPicker("主色容器 Primary Container", "次级强调表面，留空由主题色生成", Settings.themePrimaryContainer, MaterialColors.ACCENT, { M3.primaryContainer }, note)
+            colorPicker("容器前景 On Primary Container", "主色容器上的文字，留空自动", Settings.themeOnPrimaryContainer, MaterialColors.ACCENT, { M3.onPrimaryContainer }, note)
+            colorPicker("背景 Surface", "页面背景色", Settings.themeSurface, MaterialColors.SURFACE, { M3.surface }, note)
+            colorPicker("卡片 Surface Container", "卡片/输入框/下沉表面背景", Settings.themeSurfaceContainer, MaterialColors.SURFACE, { M3.surfaceContainer }, note)
+            colorPicker("凸起卡片 Surface Container High", "凸起卡片/按下态", Settings.themeSurfaceContainerHigh, MaterialColors.SURFACE, { M3.surfaceContainerHigh }, note)
+            colorPicker("表面变体 Surface Variant", "次级表面", Settings.themeSurfaceVariant, MaterialColors.SURFACE, { M3.surfaceVariant }, note)
+            colorPicker("前景文字 On Surface", "主要文字/图标", Settings.themeOnSurface, MaterialColors.ON, { M3.onSurface }, note)
+            colorPicker("次要文字 On Surface Variant", "次要文字/未激活图标", Settings.themeOnSurfaceVariant, MaterialColors.ON, { M3.onSurfaceVariant }, note)
+            colorPicker("提示文字 Tip", "副文本/提示", Settings.themeOnSurfaceTip, MaterialColors.ON, { M3.onSurfaceTip }, note)
+            colorPicker("占位文字 Hint", "输入框占位文字", Settings.themeHint, MaterialColors.ON, { M3.hint }, note)
+            colorPicker("描边 Outline", "边框/分隔线", Settings.themeOutline, MaterialColors.ON, { M3.outline }, note)
+            colorPicker("描边变体 Outline Variant", "次级边框", Settings.themeOutlineVariant, MaterialColors.SURFACE, { M3.outlineVariant }, note)
+            colorPicker("错误色 Error", "错误/危险操作/未读红标", Settings.themeError, MaterialColors.ERROR, { M3.error }, note)
+            actionCard("恢复默认配色", "清除以上所有自定义颜色，恢复内置 M3 配色") {
+                Settings.themeTokens.forEach { it.value = "" }
+                Utils.toast(this@设置页, "已恢复默认配色，重进页面生效")
+                showCategoryList()
+            }
         },
         SettingsCategory("聊天输入", "输入框、发送方式与表情") {
             switch("聊天页直接输入", "在聊天页用输入框替换键盘键，有文字时麦克风键变发送键", Settings.inlineChatInput)
@@ -222,9 +243,12 @@ class 设置页 : SettingsActivity() {
             switch("双击回复", "双击消息进入回复", Settings.doubleReply)
             slider("图片最大高度", "聊天图片最大显示高度(占屏幕高度比例)，默认 0.5", Settings.picMaxHeightRatio, min = 0.3f, max = 1f)
             slider("气泡圆角半径", "聊天气泡、合并转发/聊天记录块与回复块的圆角半径(dp)", Settings.bubbleCornerRadius, min = 0f, max = 24f)
-            textInput("我的气泡颜色", "16进制如 #2B6CF6，留空为默认", Settings.bubbleColorSelf)
-            textInput("对方气泡颜色", "16进制如 #2B6CF6，留空为默认", Settings.bubbleColorOther)
-            textInput("文字颜色", "聊天消息文字颜色，16进制如 #FFFFFF，留空为默认", Settings.textColor)
+            colorPicker("我的气泡颜色", "留空为原始气泡色", Settings.bubbleColorSelf, MaterialColors.ACCENT,
+                { M3.parseColorOrNull(Settings.bubbleColorSelf.value) ?: M3.primary })
+            colorPicker("对方气泡颜色", "留空为原始气泡色", Settings.bubbleColorOther, MaterialColors.SURFACE + MaterialColors.ACCENT,
+                { M3.parseColorOrNull(Settings.bubbleColorOther.value) ?: M3.surfaceContainer })
+            colorPicker("文字颜色", "聊天消息文字颜色，留空为默认", Settings.textColor, MaterialColors.ON,
+                { M3.parseColorOrNull(Settings.textColor.value) ?: M3.onSurface })
             slider("文字大小", "聊天消息文字大小倍率，默认 1.0", Settings.textSizeScale, min = 0.5f, max = 2.5f)
             chatBackgroundPicker()
             slider("背景变暗程度", "调暗背景图以便看清文字，重进聊天页生效", Settings.chatBgDarken, min = 0f, max = 0.9f)
@@ -296,7 +320,8 @@ class 设置页 : SettingsActivity() {
             switch("识别号码", "把消息中的 6-15 位数字(QQ号/群号)变为可点击，点击可搜索好友/群", Settings.parseNumber)
             switch("识别@成员", "群聊中把 @成员 及灰条提示中的成员名变为可点击，点击打开其资料卡(同点头像/昵称)", Settings.parseAtMember)
             switch("链接预览", "消息含链接时尝试解析网站图标、标题与简介，显示在消息下方", Settings.enableLinkPreview)
-            textInput("链接颜色", "可点击链接/号码/@成员的文字颜色，16进制如 #4FC3F7，留空为默认", Settings.linkColor)
+            colorPicker("链接颜色", "可点击链接/号码/@成员的文字颜色，留空为默认", Settings.linkColor, MaterialColors.ACCENT,
+                { M3.parseColorOrNull(Settings.linkColor.value) ?: M3.primary })
         },
         SettingsCategory("关于与更新", "版本更新") {
             switch("自动检查更新", "启动时检查 QQ Max 新版本，可在关于页手动检查", Settings.autoUpdateCheck)
@@ -536,75 +561,48 @@ class 设置页 : SettingsActivity() {
     }
 
     /**
-     * Material 主题色 picker: a preview chip plus a grid of preset accent swatches. Tapping a swatch
-     * writes [Settings.themeColor] (blank for the built-in default) — [M3.primary] reads it live, so
-     * the whole materialized UI rethemes the next time each screen is built. Updates the ring/preview
-     * in place for immediate feedback.
+     * A color-setting row: title/description on the left, the current hex (or "默认") and a round
+     * preview chip on the right. Tapping opens the full Material [showColorPicker] (HSV wheel +
+     * brightness, preset swatches, hex field). [current] returns the live effective color (for the
+     * chip + the wheel's starting point when [pref] is blank); [presets] are the offered swatches;
+     * [note] (if set) is toast on change.
      */
-    @SuppressLint("SetTextI18n")
-    private fun GroupScopeFix.themeColorPicker() = card { card ->
-        card.vertical()
-        val default = "#4FC3F7"
-        val presets = listOf(
-            "#4FC3F7", "#2196F3", "#5C6BC0", "#7E57C2", "#AB47BC", "#EC407A",
-            "#EF5350", "#FF7043", "#FFA726", "#FFCA28", "#66BB6A", "#26A69A",
-        )
-        fun norm(s: String) = (if (s.isBlank()) default else s).trim().removePrefix("#").uppercase()
-        val swatches = ArrayList<Pair<String, View>>()
-        lateinit var preview: View
-        lateinit var previewLabel: TextView
-
+    private fun GroupScopeFix.colorPicker(
+        title: String,
+        desc: String,
+        pref: Pref<String>,
+        presets: List<String>,
+        current: () -> Int,
+        note: String? = null,
+    ) = card { card ->
+        lateinit var chip: View
+        lateinit var valueLabel: TextView
         fun refresh() {
-            val cur = norm(Settings.themeColor.value)
-            for ((hex, v) in swatches) {
-                val sel = norm(hex) == cur
-                v.background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(M3.parseColor(hex, M3.DEFAULT_PRIMARY))
-                    if (sel) setStroke(3.dp, M3.onSurface)
-                }
-            }
-            preview.background = GradientDrawable().apply {
+            chip.background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(M3.primary)
+                setColor(current())
+                setStroke(2.dp, M3.outline)
             }
-            previewLabel.text = "当前主题色  #${cur}"
+            valueLabel.text = if (pref.value.isBlank()) "默认" else pref.value.trim()
         }
-
         card.content {
-            // Preview row.
-            add<LinearLayout>()
-                .width(FILL)
-                .padding(bottom = 8.dp)
-                .content {
-                    preview = add<View>().size(22.dp).margin(right = 10.dp)
-                    previewLabel = add<TextView>()
-                        .textSize(13f)
-                        .textColor(M3.onSurface)
-                        .gravity(Gravity.CENTER_VERTICAL)
-                }
-        }
-
-        // Swatch grid: rows of 6.
-        for (row in presets.chunked(6)) {
-            val rowView = LinearLayout(this@设置页)
-            rowView.layoutParams = LinearLayout.LayoutParams(FILL, WRAP).apply { topMargin = 4.dp }
-            for (hex in row) {
-                val sw = View(this@设置页)
-                sw.layoutParams = LinearLayout.LayoutParams(30.dp, 30.dp).apply {
-                    rightMargin = 8.dp
-                }
-                sw.onClick {
-                    Settings.themeColor.value = if (norm(hex) == norm(default)) "" else hex
-                    refresh()
-                    Utils.toast(this@设置页, "已设置主题色，重进页面生效")
-                }
-                swatches.add(hex to sw)
-                rowView.addView(sw)
-            }
-            card.addView(rowView)
+            titleColumn(title, desc).weight(1f)
+            valueLabel = add<TextView>()
+                .textSize(12f)
+                .textColor(M3.onSurfaceVariant)
+                .gravity(Gravity.CENTER_VERTICAL)
+            chip = add<View>()
+                .size(24.dp)
+                .margin(left = 10.dp)
         }
         refresh()
+        card.onClick {
+            showColorPicker(this@设置页, title, pref.value, current(), allowDefault = true, presets = presets) { picked ->
+                pref.value = picked
+                refresh()
+                if (note != null) Utils.toast(this@设置页, note)
+            }
+        }
     }
 
     private fun GroupScopeFix.pillButton(

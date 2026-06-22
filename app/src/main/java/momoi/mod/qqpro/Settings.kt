@@ -23,9 +23,34 @@ object Settings {
 
     // ===== QQ Max 设置 (by AILIFE) =====
     // Material 主题色 (the M3 accent/primary), as a hex string (#RRGGBB or RRGGBB). Blank = the
-    // built-in default (#4FC3F7). Read live by M3.primary, which derives the tonal/onPrimary tokens
+    // built-in default (M3.DEFAULT_PRIMARY). Read live by M3.primary, which derives the tonal/onPrimary tokens
     // from it, so a change rethemes every materialized non-chat screen the next time it's built.
     val themeColor = StringPref("themeColor", "")
+    // The rest of the M3 color tokens, each an optional hex override (blank = built-in default; the
+    // primary-derived ones auto-derive from themeColor when blank). Read live by the M3 object, so
+    // a change rethemes every materialized non-chat screen the next time it's built. Edited via the
+    // 外观主题 settings category's color pickers.
+    val themeOnPrimary = StringPref("themeOnPrimary", "")
+    val themePrimaryContainer = StringPref("themePrimaryContainer", "")
+    val themeOnPrimaryContainer = StringPref("themeOnPrimaryContainer", "")
+    val themeSurface = StringPref("themeSurface", "")
+    val themeSurfaceContainer = StringPref("themeSurfaceContainer", "")
+    val themeSurfaceContainerHigh = StringPref("themeSurfaceContainerHigh", "")
+    val themeSurfaceVariant = StringPref("themeSurfaceVariant", "")
+    val themeOnSurface = StringPref("themeOnSurface", "")
+    val themeOnSurfaceVariant = StringPref("themeOnSurfaceVariant", "")
+    val themeOnSurfaceTip = StringPref("themeOnSurfaceTip", "")
+    val themeHint = StringPref("themeHint", "")
+    val themeOutline = StringPref("themeOutline", "")
+    val themeOutlineVariant = StringPref("themeOutlineVariant", "")
+    val themeError = StringPref("themeError", "")
+    // All theme-token prefs together (for "restore defaults" — clears every custom M3 color).
+    val themeTokens: List<StringPref> get() = listOf(
+        themeColor, themeOnPrimary, themePrimaryContainer, themeOnPrimaryContainer,
+        themeSurface, themeSurfaceContainer, themeSurfaceContainerHigh, themeSurfaceVariant,
+        themeOnSurface, themeOnSurfaceVariant, themeOnSurfaceTip, themeHint,
+        themeOutline, themeOutlineVariant, themeError,
+    )
     val showGroupAvatar = BooleanPref("showGroupAvatar", true)
     // Also show avatar + two-line nick header for your own messages, like others.
     val showSelfAvatar = BooleanPref("showSelfAvatar", false)
@@ -248,7 +273,10 @@ object Settings {
     // Declared last so all the Pref properties above are already initialised.
     val all: List<Pref<*>> = listOf(
         scale, chatScale, enableSmoothScroll, encoderScrollSpeed, blockBack, disableSwipeBack, swapCenterKeyboard,
-        themeColor, showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
+        themeColor, themeOnPrimary, themePrimaryContainer, themeOnPrimaryContainer,
+        themeSurface, themeSurfaceContainer, themeSurfaceContainerHigh, themeSurfaceVariant,
+        themeOnSurface, themeOnSurfaceVariant, themeOnSurfaceTip, themeHint, themeOutline, themeOutlineVariant, themeError,
+        showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
         screenCornerDiameter, titlebarSideMargin,
         hideVoiceButton, muteHideInputBar, backToFirstPage, attachmentOverlay, materialAttachmentMenu, materialLongPressMenu, enableTitlebar, titlebarShowUnread,
