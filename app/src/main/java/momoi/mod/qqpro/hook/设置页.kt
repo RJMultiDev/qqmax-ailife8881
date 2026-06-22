@@ -300,6 +300,7 @@ class 设置页 : SettingsActivity() {
         SettingsCategory("联系人", "联系人页面") {
             switch("联系人分组", "联系人页用「好友」「群聊」标题分组，通知拆成好友/群两项各带数量，去掉群行末尾图标", Settings.contactSections)
             switch("Material 联系人页", "联系人页应用 Material 风格：顶栏含搜索/加好友/通知按钮，需同时开启「联系人分组」", Settings.materialContactsList)
+            switch("Material 消息列表", "消息列表(会话列表，第1页)应用 Material 风格：深色背景、表面卡片行、M3 文字颜色(名称/时间/预览)、置顶图标改为 Material 图章、会话长按菜单改为 Material 列表(重进消息页生效)", Settings.materialChatList)
             switch("Material 动态页顶栏", "动态页(第3页)应用 Material 顶栏：把发布/通知/我的空间三个条目替换为紧凑图标按钮", Settings.materialQZoneBar)
             switch("动态顶栏按钮分散排列", "三个图标按钮平均分布到顶栏全宽(分散)；关闭则紧靠居中排列，适合圆形表盘", Settings.qzoneBarSpread)
             switch("单视频帖子内联播放", "动态里只含一个视频的帖子，点击直接在列表内播放(再次点击暂停)，不再打开全屏播放器", Settings.qzoneInlineVideo)

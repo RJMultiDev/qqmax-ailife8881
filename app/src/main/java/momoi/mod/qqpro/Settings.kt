@@ -206,6 +206,9 @@ object Settings {
     // Apply the Material redesign to the contacts page (top bar with search/add/notify buttons,
     // M3-styled section headers and list rows). Requires contactSections. Default on.
     val materialContactsList = BooleanPref("materialContactsList", true)
+    // Apply Material colors to the message/conversation list (1st page): M3.surface page background,
+    // surface-container row cards, and M3 text colors (title/time/preview). Default on.
+    val materialChatList = BooleanPref("materialChatList", true)
     // Apply the Material top bar to the QZone feed page (动态, 3rd tab): replaces the three
     // header rows (发布/通知/我的空间) with compact icon buttons above the feed. Default on.
     val materialQZoneBar = BooleanPref("materialQZoneBar", true)
@@ -289,7 +292,7 @@ object Settings {
         floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread, mainNavUnreadJump,
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         galleryQuickSend, useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
-        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo, qzoneMiniAppCard,
+        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialChatList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo, qzoneMiniAppCard,
         profileNameMultiline, useRichProfile, useM3Settings,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
         doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,

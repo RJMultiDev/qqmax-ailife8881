@@ -268,7 +268,7 @@ class SelectDialogMargins :
         savedInstanceState: Bundle?
     ): View {
         val root = super.onCreateView(inflater, container, savedInstanceState)
-        if (Settings.useM3Settings.value && root != null) {
+        if (Settings.materialChatList.value && root != null) {
             rebuildSettingList(root, "", "setting_container", dismissTarget = this, syntheticToggles = true)
                 ?.let { return it }
         }

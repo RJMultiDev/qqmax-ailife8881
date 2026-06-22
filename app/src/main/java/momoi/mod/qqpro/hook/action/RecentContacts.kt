@@ -1,11 +1,16 @@
 package momoi.mod.qqpro.hook.action
 
+import android.os.Bundle
 import android.text.SpannableStringBuilder
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageView
 import com.tencent.qqnt.chats.core.adapter.itemdata.RecentContactChatItem
 import com.tencent.qqnt.kernel.nativeinterface.RecentContactInfo
 import com.tencent.qqnt.watch.chat.list.WatchRecentContactHolder
 import com.tencent.qqnt.watch.chat.list.WatchRecentItemBuilder
+import com.tencent.qqnt.watch.chat.ui.ChatListFragment
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.lib.material.M3
@@ -14,12 +19,41 @@ import momoi.mod.qqpro.lib.material.MaterialSymbols
 import momoi.mod.qqpro.util.Utils
 
 /**
+ * Material colors for the conversation/message list (1st page). Recolors each row's card background
+ * and its title/time/preview text to M3 tokens. Gated by [Settings.materialChatList]. The native bind
+ * only sets text content, so re-applying on every full bind keeps it correct across recycling.
+ */
+fun materializeChatRow(holder: WatchRecentContactHolder) {
+    if (!Settings.materialChatList.value) return
+    runCatching {
+        val b = holder.b
+        b.a.background = M3.ripple(M3.rounded(M3.surfaceContainer, M3.radiusLg)) // row card
+        b.c.setTextColor(M3.onSurface)         // title (name)
+        b.d.setTextColor(M3.onSurfaceTip)      // time
+        b.e.setTextColor(M3.onSurfaceVariant)  // preview / last message
+    }.onFailure { Utils.log("materializeChatRow failed: $it") }
+}
+
+/** Material background for the conversation-list page (replaces the native bg_blue with M3.surface). */
+@Mixin
+class ChatListMaterial : ChatListFragment() {
+    override fun Y(p0: LayoutInflater, p1: ViewGroup?, p2: Bundle?): View {
+        val root = super.Y(p0, p1, p2)!!
+        if (Settings.materialChatList.value) {
+            root.setBackgroundColor(M3.surface)
+            Utils.log("ChatListMaterial: list background materialized")
+        }
+        return root
+    }
+}
+
+/**
  * Replace the conversation row's native 置顶 (pin) glyph with the Material push_pin symbol, tinted to
  * the theme accent. The native bind only toggles the icon's visibility, so swapping the drawable on
  * full bind persists across show/hide. Gated by the M3 redesign toggle.
  */
 fun swapPinIcon(holder: WatchRecentContactHolder) {
-    if (!Settings.useM3Settings.value) return
+    if (!Settings.materialChatList.value) return
     runCatching {
         val root = holder.itemView
         val id = root.resources.getIdentifier("top_icon", "id", root.context.packageName)
@@ -142,6 +176,7 @@ object RecentContacts {
             sanitizeItem(item)
             super.t(item, holder)
             swapPinIcon(holder)
+            materializeChatRow(holder)
         }
 
         /**
