@@ -50,7 +50,8 @@ class ConfirmFragment(
                 .textColor(M3.onSurface)
                 .gravity(Gravity.CENTER)
                 .padding(bottom = 16.dp)
-            button(confirmLabel, if (destructive) M3.error else M3.primary, M3.onPrimary) {
+            val confirmBg = if (destructive) M3.error else M3.primary
+            button(confirmLabel, confirmBg, M3.onColor(confirmBg)) {
                 dismiss(); runCatching { onConfirm() }
             }
             button("取消", M3.surfaceContainerHigh, M3.onSurface) { dismiss() }

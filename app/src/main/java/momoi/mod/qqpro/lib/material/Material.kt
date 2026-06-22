@@ -109,6 +109,15 @@ object M3 {
         return if (s.length == 6) (0xFF000000.toInt() or v.toInt()) else v.toInt()
     }
 
+    /**
+     * Best-contrast label color (near-black or white) for content drawn ON a filled [bg] of an
+     * arbitrary color. Use for any button/badge whose background isn't a fixed token — e.g. the
+     * accent (which is now a light tone by default), error red, or a status color — so the label
+     * stays legible regardless of theme. (For a background that is exactly [primary], [onPrimary] is
+     * the equivalent purpose-built token.)
+     */
+    fun onColor(bg: Int): Int = if (luminance(bg) > 0.6f) 0xFF_111111.toInt() else 0xFF_FFFFFF.toInt()
+
     /** Perceived luminance of [color] in 0..1 (ignores alpha). */
     fun luminance(color: Int): Float {
         val r = (color shr 16 and 0xFF) / 255f

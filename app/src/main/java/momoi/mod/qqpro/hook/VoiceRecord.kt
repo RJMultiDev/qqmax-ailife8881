@@ -381,7 +381,10 @@ object VoiceRecord {
             scaleType = ImageView.ScaleType.FIT_CENTER
             val pad = 17.dp
             setPadding(pad, pad, pad, pad)
-            setImageDrawable(MaterialSymbol(symbolPath, M3.onPrimary))
+            // Icon sits on the dark idle circle (and on red/blue when a target is active), so use
+            // onSurface (white) — NOT onPrimary, which is the filled-accent label color and resolves
+            // to a dark tone on light accents (invisible on the dark circle).
+            setImageDrawable(MaterialSymbol(symbolPath, M3.onSurface))
             background = circleBg(colorIdle)
         }
 

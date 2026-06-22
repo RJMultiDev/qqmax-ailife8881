@@ -45,7 +45,7 @@ class FileMsgView(context: Context) : LinearLayout(context) {
                 .size(badgeSize)
                 .gravity(Gravity.CENTER)
                 .textSize(9f * Settings.chatScale.value)
-                .textColor(M3.onSurface)
+                .textColor(M3.onPrimary) // label sits on the primary-filled badge
                 .apply {
                     background = roundCornerDrawable(M3.primary, 4.dpf)
                 }

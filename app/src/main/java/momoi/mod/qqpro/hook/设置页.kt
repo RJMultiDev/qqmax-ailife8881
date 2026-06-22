@@ -613,7 +613,7 @@ class 设置页 : SettingsActivity() {
         val btn = add<TextView>()
             .text(label)
             .textSize(13f)
-            .textColor(M3.onSurface)
+            .textColor(M3.onColor(color)) // contrast against the pill's own fill (accent or error)
             .gravity(Gravity.CENTER)
             .padding(top = 8.dp, bottom = 8.dp)
         btn.background(GradientDrawable().apply {

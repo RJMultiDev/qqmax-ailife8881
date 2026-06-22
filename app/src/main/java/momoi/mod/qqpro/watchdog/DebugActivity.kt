@@ -193,7 +193,7 @@ class DebugActivity : Activity() {
     private fun button(label: String, color: Int, onClick: () -> Unit): TextView =
         TextView(this).apply {
             text = label
-            setTextColor(Color.WHITE)
+            setTextColor(M3.onColor(color)) // contrast against the button's own fill color
             sp(this, 12f)
             gravity = Gravity.CENTER
             setPadding(dp(8), dp(9), dp(8), dp(9))

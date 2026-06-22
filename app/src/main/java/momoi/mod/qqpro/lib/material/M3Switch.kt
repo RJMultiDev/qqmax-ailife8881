@@ -85,11 +85,12 @@ class M3Switch(ctx: Context) : View(ctx), Checkable {
         val r = th / 2f
         canvas.drawRoundRect(rect, r, r, trackPaint)
 
-        // Thumb: white circle sliding left→right.
+        // Thumb sliding left→right. Color interpolates onSurface (off, on the dark outline track) →
+        // onPrimary (on, on the accent track) so it stays legible against whichever track color.
         val thumbR = th / 2f - pad
         val travel = tw - th
         val thumbCx = cx + r + travel * pos
-        thumbPaint.color = 0xFF_FFFFFF.toInt()
+        thumbPaint.color = argb.evaluate(pos, M3.onSurface, M3.onPrimary) as Int
         canvas.drawCircle(thumbCx, cy + r, thumbR, thumbPaint)
     }
 }
