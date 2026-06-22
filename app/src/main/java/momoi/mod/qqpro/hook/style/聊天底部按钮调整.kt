@@ -18,6 +18,8 @@ import androidx.core.widget.doAfterTextChanged
 import com.tencent.mobileqq.app.ThreadManagerV2
 import com.tencent.qqnt.kernel.nativeinterface.Contact
 import com.tencent.qqnt.kernel.nativeinterface.IOperateCallback
+import com.tencent.qqnt.kernel.nativeinterface.MemberRole
+import com.tencent.watch.aio_impl.coreImpl.helper.GroupAIOHelper
 import com.tencent.watch.aio_impl.coreImpl.vb.`InputBarController$inputContent$2`
 import com.tencent.watch.aio_impl.coreImpl.vb.InputBarControllerKt
 import momoi.anno.mixin.Mixin
@@ -32,6 +34,9 @@ import momoi.mod.qqpro.hook.InlineEmojiPanel
 import momoi.mod.qqpro.hook.InlineInput
 import momoi.mod.qqpro.hook.VoiceRecord
 import momoi.mod.qqpro.hook.action.CurrentContact
+import momoi.mod.qqpro.hook.action.CurrentGroupMembers
+import momoi.mod.qqpro.hook.action.SelfContact
+import momoi.mod.qqpro.hook.action.isGroup
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.ImeEditText
 import momoi.mod.qqpro.lib.GroupScope
@@ -366,6 +371,8 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                     }
                 }
         }
+        // 全员禁言 (whole-group mute) + non-admin: hide this input bar and show a hint instead.
+        if (Settings.muteHideInputBar.value) applyGroupMuteHint(this)
     }
 
     private fun sendInline(editText: EditText) {
@@ -432,4 +439,56 @@ fun sendImeImage(uri: Uri) {
             Utils.log("IME image sent: $uri -> ${file.path}")
         }.onFailure { Utils.log("IME image send failed: $it") }
     }.start()
+}
+
+private const val MUTE_HINT_TAG = "qqpro_mute_hint"
+
+/**
+ * When the current group is under 全员禁言 (whole-group mute) and the current user is NOT owner/admin,
+ * hide [bar] (the built input row) and show a "全员禁言中" hint in its place — the user can't send
+ * anyway, so the input bar is useless and misleading.
+ *
+ * Whole-group mute comes from [GroupAIOHelper]'s per-group [com.tencent.qqnt.kernel.nativeinterface.GroupDetailInfo]
+ * cache (`shutUpAllTimestamp != 0`), populated async on chat entry — so retry a few times until it
+ * arrives. Self role comes from [CurrentGroupMembers] (waits for the member list). Both lambdas live
+ * in this top-level function (NOT the @Mixin body) so they don't crash when the hook is copied.
+ */
+// Must be public (not private): it's called from the @Mixin-copied invoke() and from lambdas, which
+// are separate classes/packages — a private static method triggers IllegalAccessError at runtime.
+fun applyGroupMuteHint(bar: ViewGroup, attempt: Int = 0) {
+    if (!CurrentContact.isGroup) return
+    val detail = runCatching { GroupAIOHelper.b[CurrentContact.peerUid] }.getOrNull()
+    if (detail == null) {
+        // Group detail not cached yet (async flow on chat entry) — retry briefly, then give up.
+        if (attempt < 10) bar.postDelayed({ applyGroupMuteHint(bar, attempt + 1) }, 300)
+        return
+    }
+    if (detail.shutUpAllTimestamp == 0) {
+        Utils.log("muteHint: group ${CurrentContact.peerUid} not 全员禁言")
+        return
+    }
+    CurrentGroupMembers.get(SelfContact.peerUid) { self ->
+        val privileged = self.role == MemberRole.OWNER || self.role == MemberRole.ADMIN
+        Utils.log("muteHint: 全员禁言 active, selfRole=${self.role}, privileged=$privileged")
+        if (!privileged) showMutedHint(bar)
+    }
+}
+
+/** Hide every child of [bar] and overlay a centered "全员禁言中" hint (idempotent). Public for the
+ *  same cross-class-access reason as [applyGroupMuteHint] (it's called from a lambda class). */
+fun showMutedHint(bar: ViewGroup) {
+    if (bar.findViewWithTag<View>(MUTE_HINT_TAG) != null) return
+    bar.forEach { it.visibility = View.GONE }
+    val hint = TextView(bar.context).apply {
+        tag = MUTE_HINT_TAG
+        text = "全员禁言中"
+        gravity = Gravity.CENTER
+        setTextColor(0x99_FFFFFF.toInt())
+        textSize = 13f
+    }
+    bar.addView(
+        hint,
+        ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+    )
+    Utils.log("muteHint: input bar hidden, showing 全员禁言中")
 }

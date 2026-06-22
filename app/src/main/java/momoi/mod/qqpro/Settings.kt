@@ -67,6 +67,9 @@ object Settings {
     // Hide the voice (microphone) button in the chat input bar entirely, in all input
     // modes (inline and non-inline) and regardless of whether text has been typed.
     val hideVoiceButton = BooleanPref("hideVoiceButton", false)
+    // When a group has 全员禁言 (whole-group mute) on and the current user is NOT owner/admin, hide
+    // the bottom input bar and show a "全员禁言中" hint instead (you can't send anyway). Default on.
+    val muteHideInputBar = BooleanPref("muteHideInputBar", true)
     val backToFirstPage = BooleanPref("backToFirstPage", true)
     // When tapping a reply to jump to its source message, drop the page-load cap (normally ~1000
     // pages) and keep paging up until the source is found or the top of history is reached. Lets
@@ -248,7 +251,7 @@ object Settings {
         themeColor, showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
         screenCornerDiameter, titlebarSideMargin,
-        hideVoiceButton, backToFirstPage, attachmentOverlay, materialAttachmentMenu, materialLongPressMenu, enableTitlebar, titlebarShowUnread,
+        hideVoiceButton, muteHideInputBar, backToFirstPage, attachmentOverlay, materialAttachmentMenu, materialLongPressMenu, enableTitlebar, titlebarShowUnread,
         floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread, mainNavUnreadJump,
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         galleryQuickSend, useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,

@@ -209,6 +209,7 @@ class 设置页 : SettingsActivity() {
             switch("单行输入", "输入框固定为单行显示", Settings.singleLineInput)
             switch("输入键居中", "在聊天页面将输入键居中放置", Settings.swapCenterKeyboard)
             switch("隐藏语音按钮", "在聊天页隐藏语音(麦克风)按钮，所有输入模式下均生效", Settings.hideVoiceButton)
+            switch("全员禁言隐藏输入栏", "群全员禁言且自己非群主/管理员时，隐藏底部输入栏，改为显示“全员禁言中”提示", Settings.muteHideInputBar)
             switch("图片随消息发送", "发送文字时一并发送已选图片", Settings.sendWithImage)
             switch("回复带艾特", "回复消息时自动艾特对方", Settings.replyWithAt)
             slider("屏幕圆角直径", "在输入框左右各留出此宽度的空白，避免圆屏圆角裁切两侧按钮", Settings.screenCornerDiameter, min = 0f, max = 48f)
