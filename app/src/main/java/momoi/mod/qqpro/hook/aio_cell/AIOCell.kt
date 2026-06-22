@@ -206,29 +206,37 @@ object AIOCell {
                 val hideHeader = Settings.hideRepeatedSender.value
                     && item.d.msgType != NTMsgType.GRAYTIPS
                     && run {
-                        val idx = CurrentMsgList.getMsgIndex(item)
-                        val prev = CurrentMsgList.msgList.value.getOrNull(idx - 1)
+                        // Use the live adapter list (not the racy mirror) to find the previous msg.
+                        val prev = CurrentMsgList.prevMsg(item)
                         prev != null && prev.d.msgType != NTMsgType.GRAYTIPS
                             && prev.d.senderUid == senderUid
                     }
                 if (hideHeader) {
-                    // Keep the view VISIBLE so the widget's onMeasure measures it
-                    // (it reads getMeasuredHeight() ignoring visibility); collapse
-                    // it to zero height instead. Using GONE would leave a stale
-                    // measured height and cause random large gaps.
+                    // The cell (AIOCellGroupWidget.onMeasure) sizes itself as
+                    //   nick.measuredHeight + content + time + nickContentDistance
+                    // reading the nick's RAW measuredHeight WITHOUT checking its visibility.
+                    // A plain GONE therefore leaves the nick's STALE measured height on a
+                    // recycled cell (super.onMeasure / FrameLayout skips GONE children, so
+                    // it's never re-measured to 0) → a phantom header-sized gap after scroll.
+                    // Fix: GONE it (so it isn't drawn) AND force its measured height to 0
+                    // ourselves. Because the parent never re-measures a GONE child, that 0
+                    // sticks. NEVER mutate layoutParams — lp persists across recycling and
+                    // corrupts the list; only visibility + a forced child measure are safe.
                     nickView?.let {
                         it.tag = null
-                        it.visibility = View.VISIBLE
                         it.text = ""
                         it.setCompoundDrawables(null, null, null, null)
-                        it.layoutParams = it.layoutParams?.apply { height = 0 }
+                        it.visibility = View.GONE
+                        it.measure(
+                            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.EXACTLY),
+                            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.EXACTLY)
+                        )
                     }
                 } else {
                     nickView?.let {
+                        // Restore visibility only — never touch layoutParams. The parent's
+                        // next onMeasure re-measures this now-VISIBLE nick to its real height.
                         it.visibility = View.VISIBLE
-                        it.layoutParams = it.layoutParams?.apply {
-                            height = ViewGroup.LayoutParams.WRAP_CONTENT
-                        }
                         it.tag = senderUid
                     }
                     // The custom avatar/nick rebind is group-only: it relies on the

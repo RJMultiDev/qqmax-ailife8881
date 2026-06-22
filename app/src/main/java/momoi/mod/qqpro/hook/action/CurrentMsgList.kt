@@ -42,6 +42,25 @@ object CurrentMsgList {
     }
 
     /**
+     * The message displayed immediately before [msg] (the older one above it), or null if [msg] is
+     * the first. Resolves against the LIVE adapter list ([uiOp].m()) — the exact list the cells are
+     * bound from — instead of our accumulated [msgList] mirror, which is rebuilt at growing sizes
+     * during scroll/history-load, so indexOf into it intermittently misses (idx=-1) and breaks the
+     * merge-header decision. Falls back to the mirror if the live list is unavailable.
+     */
+    fun prevMsg(msg: WatchAIOMsgItem): WatchAIOMsgItem? {
+        runCatching {
+            val live = uiOp?.m()
+            if (live != null) {
+                val i = live.indexOf(msg)
+                if (i >= 0) return if (i > 0) live[i - 1] as? WatchAIOMsgItem else null
+            }
+        }.onFailure { Utils.log("prevMsg live lookup failed: $it") }
+        val mi = msgList.value.indexOf(msg)
+        return if (mi > 0) msgList.value.getOrNull(mi - 1) else null
+    }
+
+    /**
      * Remove messages from the currently open chat list in place, by msgId. Native local delete
      * ("删除", not 撤回) updates the DB but doesn't refresh the open AIO list — it only shows on
      * re-entry. We submit a filtered list to the data-submit API so the row disappears live.
