@@ -37,6 +37,17 @@ class ImeEditText(context: Context) : android.widget.EditText(context) {
     var onImageUri: ((Uri) -> Unit)? = null
 
     /**
+     * Invoked when backspace is pressed while the field is already empty. Return true to consume the
+     * keypress (e.g. cancel an active reply/edit). Covers the soft-keyboard (deleteSurroundingText /
+     * sendKeyEvent) and hardware ([onKeyDown]) DEL paths.
+     */
+    var onBackspaceWhenEmpty: (() -> Boolean)? = null
+
+    /** True when DEL on an empty field was handled by [onBackspaceWhenEmpty]. */
+    private fun consumeBackspaceWhenEmpty(): Boolean =
+        editableText.isNullOrEmpty() && onBackspaceWhenEmpty?.invoke() == true
+
+    /**
      * If the caret sits immediately after an [InlineTag] span (and there is no selection),
      * delete that whole span and return true. Used so a single backspace removes an entire
      * "@nick " mention or "[图片]" token in one go.
@@ -72,7 +83,10 @@ class ImeEditText(context: Context) : android.widget.EditText(context) {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         // Hardware / fallback DEL path.
-        if (keyCode == KeyEvent.KEYCODE_DEL && deleteTagBeforeCursor()) return true
+        if (keyCode == KeyEvent.KEYCODE_DEL) {
+            if (deleteTagBeforeCursor()) return true
+            if (consumeBackspaceWhenEmpty()) return true
+        }
         return super.onKeyDown(keyCode, event)
     }
 
@@ -82,15 +96,18 @@ class ImeEditText(context: Context) : android.widget.EditText(context) {
         // key event), not onKeyDown — intercept both so inline tokens delete atomically.
         val deleting = object : InputConnectionWrapper(base, false) {
             override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
-                if (beforeLength == 1 && afterLength == 0 && deleteTagBeforeCursor()) return true
+                if (beforeLength == 1 && afterLength == 0) {
+                    if (deleteTagBeforeCursor()) return true
+                    if (consumeBackspaceWhenEmpty()) return true
+                }
                 return super.deleteSurroundingText(beforeLength, afterLength)
             }
 
             override fun sendKeyEvent(event: KeyEvent): Boolean {
-                if (event.action == KeyEvent.ACTION_DOWN &&
-                    event.keyCode == KeyEvent.KEYCODE_DEL &&
-                    deleteTagBeforeCursor()
-                ) return true
+                if (event.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_DEL) {
+                    if (deleteTagBeforeCursor()) return true
+                    if (consumeBackspaceWhenEmpty()) return true
+                }
                 return super.sendKeyEvent(event)
             }
         }

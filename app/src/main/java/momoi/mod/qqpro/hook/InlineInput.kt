@@ -219,6 +219,8 @@ object InlineInput {
         Utils.log("InlineInput.register: et=${System.identityHashCode(editText)} prev=${if (prev != null) System.identityHashCode(prev) else null} barState=${runCatching { controller.g }.getOrNull()} pendingExtraMsg=${IMEOperation.extraMsg.size}")
         editTextRef = WeakReference(editText)
         controllerRef = WeakReference(controller)
+        // Backspace on an already-empty box cancels an active 编辑/回复 (returns true to consume it).
+        editText.onBackspaceWhenEmpty = { cancelReplyOrEdit() }
         // Match the chat message text size multiplier so the inline input box scales with it.
         // Capture the native size in a tag the first time so re-registers never compound.
         val scale = Settings.textSizeScale.value
@@ -420,16 +422,24 @@ object InlineInput {
     }
 
     private fun onBannerClick() {
-        if (MessageEdit.editingMsgId != 0L) {
-            // Cancel an edit: drop edit state, the prefilled original text/@/image tokens, AND the
-            // staged reply (editing a reply message also carries the reply over).
+        cancelReplyOrEdit()
+    }
+
+    /**
+     * Cancel an active 编辑/回复. Returns true if there was something to cancel (so a caller — e.g.
+     * backspace on an empty box — can consume the gesture). Editing also clears the prefilled
+     * original text/@/image tokens; both drop the staged reply.
+     */
+    fun cancelReplyOrEdit(): Boolean {
+        val editing = MessageEdit.editingMsgId != 0L
+        if (!editing && reply == null) return false
+        if (editing) {
             MessageEdit.consume()
             editText()?.text?.clear()
-            reply = null
-        } else {
-            reply = null
         }
+        reply = null
         updateBanner()
+        return true
     }
 
     // ---- floating reply/edit banner (overlay above the input bar, so it never shrinks the box) ----
