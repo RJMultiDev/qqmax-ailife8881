@@ -261,7 +261,7 @@ class CardMsgView(context: Context) : LinearLayout(context) {
                 mIvPreview.loadPicUrl(url)
                 clickable {
                     (mIvPreview.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let {
-                        this@CardMsgView.showDialog(momoi.mod.qqpro.hook.view.ZoomableImageFragment(it))
+                        this@CardMsgView.showDialog(BigImageFragment(bmp = it))
                     }
                 }
             } else {

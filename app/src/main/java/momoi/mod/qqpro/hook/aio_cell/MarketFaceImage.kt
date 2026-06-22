@@ -5,15 +5,9 @@ import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.widget.ImageView
-import com.tencent.richframework.widget.matrix.RFWMatrixImageView
-import momoi.mod.qqpro.hook.view.MyDialogFragment
-import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.safeCacheDir
 import momoi.mod.qqpro.showDialog
 import momoi.mod.qqpro.util.Utils
@@ -77,30 +71,8 @@ object MarketFaceImage {
         override fun onClick(v: View) {
             val iv = v as? ImageView ?: return
             val bmp = drawableToBitmap(iv.drawable) ?: return
-            iv.showDialog(BitmapImageFragment(bmp))
-        }
-    }
-}
-
-/**
- * Fullscreen viewer for an already-rendered bitmap (market-face / store sticker image). Uses the same
- * zoomable [RFWMatrixImageView] as the chat photo viewer ([BigImageFragment]) so stickers pinch/double-
- * tap zoom too. A thin top strip dismisses (tapping the image itself is reserved for zoom gestures).
- */
-class BitmapImageFragment(private val bmp: Bitmap) : MyDialogFragment() {
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
-        val ctx = inflater.context
-        return FrameLayout(ctx).apply {
-            setBackgroundColor(0xCC_000000.toInt())
-            val image = RFWMatrixImageView(ctx, null).apply { setImageBitmap(bmp) }
-            addView(image, FrameLayout.LayoutParams(FILL, FILL))
-            // Dismiss strip at the top (the image area is used for zoom, not dismiss).
-            val strip = View(ctx).apply { setOnClickListener { dismiss() } }
-            addView(strip, FrameLayout.LayoutParams(FILL, 12 * resources.displayMetrics.density.toInt()))
+            // Route through the single shared image viewer (zoom + swipe-back + tap-outside dismiss).
+            iv.showDialog(BigImageFragment(bmp = bmp))
         }
     }
 }

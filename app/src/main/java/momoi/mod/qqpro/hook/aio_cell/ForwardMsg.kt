@@ -86,16 +86,21 @@ import momoi.mod.qqpro.util.linkify
 import momoi.mod.qqpro.util.runOnUi
 
 /**
- * Full-screen zoomable image viewer (native [RFWMatrixImageView]) with an M3 loading indicator.
+ * The single full-screen, non-flippable image viewer for the whole app (native [RFWMatrixImageView]
+ * with pinch/double-tap zoom, tap-outside-to-dismiss, right-swipe-back and an M3 loading indicator).
+ * Everything that shows ONE image routes here — chat photos, forward-history images, market-face /
+ * store stickers, group-bulletin and card images — so there is exactly one viewer to maintain.
  *
- * Two load paths:
- *  - [pic] only (forward-history images that carry a real URL): download via our HTTP loader.
+ * Three load paths (use the matching constructor):
+ *  - [bmp]: an already-rendered bitmap (market face, bulletin, card) — shown immediately, no spinner.
  *  - [kernelLoad] provided (live chat images, see [momoi.mod.qqpro.hook.ImagePlay]): the kernel owns
  *    the file, so we never download manually — the lambda resolves the local path (triggering the
  *    kernel download with progress if needed) and reports back the file to decode.
+ *  - [pic] only (forward-history images that carry a real URL): download via our HTTP loader.
  */
 class BigImageFragment(
-    private val pic: PicElement,
+    private val pic: PicElement? = null,
+    private val bmp: android.graphics.Bitmap? = null,
     private val kernelLoad: ((onProgress: (Float) -> Unit, onDone: (String?) -> Unit) -> Unit)? = null,
 ) : MyDialogFragment() {
     override fun onCreateView(
@@ -111,19 +116,25 @@ class BigImageFragment(
         val image = RFWMatrixImageView(ctx, null)
             .layoutParams(ViewGroup.LayoutParams(FILL, FILL))
         val onProgress = { p: Float -> spinner.indeterminate = false; spinner.progress = p }
-        if (kernelLoad != null) {
-            kernelLoad(onProgress) { path ->
-                spinner.visibility = View.GONE
-                val f = path?.let { java.io.File(it) }
-                if (f != null && f.exists() && f.length() > 0) image.bitmapDecodeFile(f)
-                else image.loadErrorImage()
+        when {
+            // Pre-rendered bitmap (market face / bulletin / card): show at once, no loading.
+            bmp != null -> { image.setImageBitmap(bmp); spinner.visibility = View.GONE }
+            kernelLoad != null -> {
+                kernelLoad(onProgress) { path ->
+                    spinner.visibility = View.GONE
+                    val f = path?.let { java.io.File(it) }
+                    if (f != null && f.exists() && f.length() > 0) image.bitmapDecodeFile(f)
+                    else image.loadErrorImage()
+                }
             }
-        } else {
-            image.loadPicElement(
-                pic,
-                onDone = { spinner.visibility = View.GONE },
-                onProgress = onProgress,
-            )
+            pic != null -> {
+                image.loadPicElement(
+                    pic,
+                    onDone = { spinner.visibility = View.GONE },
+                    onProgress = onProgress,
+                )
+            }
+            else -> spinner.visibility = View.GONE
         }
         // Observe taps without consuming them so the native matrix view keeps pinch/double-tap/pan;
         // a tap on the empty area outside the image dismisses.

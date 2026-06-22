@@ -165,7 +165,8 @@ class GroupBulletinFragment(private val groupCode: Long) : MyDialogFragment() {
                 return@downloadImage
             }
             runCatching {
-                ZoomableImageFragment(bmp).show(childFragmentManager, "bulletin_image")
+                momoi.mod.qqpro.hook.aio_cell.BigImageFragment(bmp = bmp)
+                    .show(childFragmentManager, "bulletin_image")
             }.onFailure { Utils.log("GroupBulletin: show image failed: $it") }
         }
     }
