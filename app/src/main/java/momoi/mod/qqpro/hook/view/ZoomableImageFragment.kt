@@ -13,6 +13,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import momoi.mod.qqpro.lib.FILL
+import momoi.mod.qqpro.lib.SwipeBackLayout
 
 /**
  * Full-screen image viewer with pinch-zoom, double-tap zoom and pan — mirrors the gesture model of
@@ -55,7 +56,9 @@ class ZoomableImageFragment(private val bmp: Bitmap) : MyDialogFragment() {
         })
         val gestureDetector = GestureDetector(ctx, object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                if (scale <= 1.01f) dismiss()
+                // Tap on the empty (letterbox) area outside the image always dismisses; a tap on the
+                // image dismisses only while not zoomed (mirrors the old behaviour).
+                if (isOutsideImage(e.x, e.y) || scale <= 1.01f) dismiss()
                 return true
             }
             override fun onDoubleTap(e: MotionEvent): Boolean {
@@ -77,7 +80,28 @@ class ZoomableImageFragment(private val bmp: Bitmap) : MyDialogFragment() {
             gestureDetector.onTouchEvent(e)
             true
         }
-        return root
+
+        // Right-swipe back to dismiss, but only while fully zoomed out — once zoomed, a horizontal
+        // drag pans the image instead (canSwipe is re-checked on every gesture).
+        val swipe = SwipeBackLayout(ctx)
+        swipe.onSwipeBack = { dismiss() }
+        swipe.canSwipe = { scale <= 1.01f }
+        swipe.addView(root, FrameLayout.LayoutParams(FILL, FILL))
+        return swipe
+    }
+
+    /** True if [x],[y] (root coords) fall outside the currently displayed (fit + zoomed) bitmap. */
+    private fun isOutsideImage(x: Float, y: Float): Boolean {
+        val vw = image.width.toFloat(); val vh = image.height.toFloat()
+        val bw = bmp.width.toFloat(); val bh = bmp.height.toFloat()
+        if (vw == 0f || vh == 0f || bw == 0f || bh == 0f) return false
+        val fit = minOf(vw / bw, vh / bh)
+        val dispW = bw * fit * scale
+        val dispH = bh * fit * scale
+        val cx = vw / 2f + tx
+        val cy = vh / 2f + ty
+        return x < cx - dispW / 2f || x > cx + dispW / 2f ||
+            y < cy - dispH / 2f || y > cy + dispH / 2f
     }
 
     private fun applyTransform() {

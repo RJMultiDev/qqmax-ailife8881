@@ -16,6 +16,10 @@ import com.tencent.richframework.widget.matrix.RFWMatrixImageView
 import loadPicUrl
 import momoi.mod.qqpro.lib.bitmapDecodeFile
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.imageFitsHorizontally
+import momoi.mod.qqpro.lib.isTapOutsideImage
+import momoi.mod.qqpro.lib.SwipeBackLayout
+import momoi.mod.qqpro.lib.TapObserverLayout
 import momoi.mod.qqpro.lib.material.M3CircularProgress
 import momoi.mod.qqpro.lib.material.MaterialSymbol
 import momoi.mod.qqpro.lib.material.MaterialSymbols
@@ -59,7 +63,8 @@ object MediaPager {
         // single-arg setCurrentItem(int) and an OnScrollChangedListener.
         val pager = ViewPager2(ctx)
         pager.layoutParams = ViewGroup.LayoutParams(-1, -1)
-        pager.adapter = MediaAdapter(fm, items)
+        // A tap on the empty (letterbox) area outside the current page's image dismisses the viewer.
+        pager.adapter = MediaAdapter(fm, items, onTapOutside = onBack)
         if (items.isNotEmpty()) pager.setCurrentItem(initPos.coerceIn(0, items.size - 1))
         root.addView(pager)
 
@@ -97,22 +102,41 @@ object MediaPager {
             runCatching { updateIndicator(pager.currentItem) }
         }
 
-        return root
+        // Right-swipe back to dismiss, but only on the FIRST page and only while that page's image
+        // has no horizontal pan room (fully zoomed out / fits horizontally). On later pages or while
+        // zoomed in, the horizontal drag belongs to the ViewPager2 / native matrix view instead.
+        val swipe = SwipeBackLayout(ctx)
+        swipe.onSwipeBack = onBack
+        swipe.canSwipe = {
+            pager.currentItem == 0 && (currentPageImage(pager)?.let { it.imageFitsHorizontally() } ?: true)
+        }
+        swipe.addView(root, FrameLayout.LayoutParams(-1, -1))
+        return swipe
+    }
+
+    /** The [RFWMatrixImageView] of the page currently shown by [pager], or null if not laid out yet. */
+    private fun currentPageImage(pager: ViewPager2): RFWMatrixImageView? {
+        val rv = pager.getChildAt(0) as? RecyclerView ?: return null
+        val vh = rv.findViewHolderForAdapterPosition(pager.currentItem) as? PageHolder
+        return vh?.image
     }
 
     private class MediaAdapter(
         private val fm: FragmentManager,
         private val items: List<MediaItem>,
+        private val onTapOutside: () -> Unit,
     ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
         override fun getItemCount() = items.size
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
             val ctx = parent.context
-            val page = FrameLayout(ctx).apply { layoutParams = ViewGroup.LayoutParams(-1, -1) }
+            val page = TapObserverLayout(ctx).apply { layoutParams = ViewGroup.LayoutParams(-1, -1) }
             val image = RFWMatrixImageView(ctx, null).apply {
                 layoutParams = FrameLayout.LayoutParams(-1, -1)
             }
+            // Tap on the empty area outside the image dismisses (observed, not consumed).
+            page.onSingleTap = { x, y -> if (image.isTapOutsideImage(x, y)) runCatching { onTapOutside() } }
             val spinner = M3CircularProgress(ctx).apply {
                 layoutParams = FrameLayout.LayoutParams(40.dp, 40.dp, Gravity.CENTER)
             }

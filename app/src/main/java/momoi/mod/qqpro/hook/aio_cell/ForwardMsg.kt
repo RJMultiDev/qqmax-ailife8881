@@ -60,6 +60,8 @@ import momoi.mod.qqpro.lib.dpf
 import momoi.mod.qqpro.lib.find
 import momoi.mod.qqpro.lib.gravity
 import momoi.mod.qqpro.lib.id
+import momoi.mod.qqpro.lib.imageFitsHorizontally
+import momoi.mod.qqpro.lib.isTapOutsideImage
 import momoi.mod.qqpro.lib.layoutParams
 import momoi.mod.qqpro.lib.linearLayout
 import momoi.mod.qqpro.lib.longClickable
@@ -67,6 +69,8 @@ import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.paddingHorizontal
 import momoi.mod.qqpro.lib.size
+import momoi.mod.qqpro.lib.SwipeBackLayout
+import momoi.mod.qqpro.lib.TapObserverLayout
 import momoi.mod.qqpro.lib.text
 import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
@@ -120,16 +124,23 @@ class BigImageFragment(
                 onProgress = onProgress,
             )
         }
-        return FrameLayout(ctx)
-            .content {
-                add(image)
-                add(spinner)
-                add<View>()
-                    .size(FILL, 12.dp)
-                    .clickable {
-                        this@BigImageFragment.dismiss()
-                    }
-            }
+        // Observe taps without consuming them so the native matrix view keeps pinch/double-tap/pan;
+        // a tap on the empty area outside the image dismisses.
+        val content = TapObserverLayout(ctx).content {
+            add(image)
+            add(spinner)
+        }
+        content.onSingleTap = { x, y ->
+            if (image.isTapOutsideImage(x, y)) this@BigImageFragment.dismiss()
+        }
+
+        // Right-swipe back to dismiss, but only while the image has no horizontal pan room (fully
+        // zoomed out); once zoomed, a horizontal drag pans the image instead.
+        val swipe = SwipeBackLayout(ctx)
+        swipe.onSwipeBack = { this@BigImageFragment.dismiss() }
+        swipe.canSwipe = { image.imageFitsHorizontally() }
+        swipe.addView(content, FrameLayout.LayoutParams(FILL, FILL))
+        return swipe
     }
 }
 

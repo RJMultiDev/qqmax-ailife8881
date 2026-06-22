@@ -29,6 +29,7 @@ import momoi.mod.qqpro.lib.material.MaterialSymbols
 import android.widget.SeekBar
 import android.widget.TextView
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.SwipeBackLayout
 import momoi.mod.qqpro.util.Utils
 import kotlin.math.max
 
@@ -168,7 +169,10 @@ class VideoPlayerFragment(
         })
         val gestureDetector = GestureDetector(ctx, object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                toggleControls()
+                // Tap on the black area outside the video dismisses; a tap on the video toggles controls.
+                val outside = isOutsideVideo(e.x, e.y)
+                Utils.log("Video: single tap x=${e.x} y=${e.y} outside=$outside")
+                if (outside) dismiss() else toggleControls()
                 return true
             }
             override fun onDoubleTap(e: MotionEvent): Boolean {
@@ -201,7 +205,25 @@ class VideoPlayerFragment(
             tryStart()
         }
 
-        return root
+        // Right-swipe back to dismiss, but only while fully zoomed out — once zoomed, a horizontal
+        // drag pans the video. The seek bar is exempt via SwipeBackLayout's horizontal-widget guard.
+        val swipe = SwipeBackLayout(ctx)
+        swipe.onSwipeBack = { dismiss() }
+        swipe.canSwipe = { scale <= 1.01f }
+        swipe.addView(root, FrameLayout.LayoutParams(-1, -1))
+        return swipe
+    }
+
+    /** True if [x],[y] (root coords) fall outside the currently displayed (letterboxed + zoomed) video. */
+    private fun isOutsideVideo(x: Float, y: Float): Boolean {
+        val tv = textureView ?: return false
+        val root = tv.parent as? View ?: return false
+        val tvW = tv.width.toFloat(); val tvH = tv.height.toFloat()
+        if (tvW == 0f || tvH == 0f) return false
+        val cx = root.width / 2f + tx
+        val cy = root.height / 2f + ty
+        val sw = tvW * scale; val sh = tvH * scale
+        return x < cx - sw / 2f || x > cx + sw / 2f || y < cy - sh / 2f || y > cy + sh / 2f
     }
 
     @SuppressLint("ClickableViewAccessibility")

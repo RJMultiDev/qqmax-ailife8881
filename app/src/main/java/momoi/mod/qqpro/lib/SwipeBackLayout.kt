@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.AbsSeekBar
 import android.widget.FrameLayout
 import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.util.Utils
 import kotlin.math.abs
 
 /**
@@ -29,6 +30,11 @@ class SwipeBackLayout(context: Context) : FrameLayout(context) {
     // without a hardware back button after turning the setting on.
     var ignoreDisableSetting = false
 
+    // Optional dynamic gate, evaluated on each gesture's DOWN. When set and it returns false the
+    // swipe is suppressed for that gesture. Media viewers use this to only allow swipe-back while
+    // the image/video is fully zoomed out (so a horizontal drag pans the zoomed content instead).
+    var canSwipe: (() -> Boolean)? = null
+
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private var downX = 0f
     private var downY = 0f
@@ -37,6 +43,18 @@ class SwipeBackLayout(context: Context) : FrameLayout(context) {
     // Those live inside a ScrollView, so they don't claim the gesture on DOWN — without this
     // guard our MOVE interception steals the drag before the slider can move.
     private var blockSwipe = false
+
+    override fun requestDisallowInterceptTouchEvent(disallow: Boolean) {
+        // A child that scrolls horizontally (e.g. ViewPager2 in the media gallery) calls this to lock
+        // its ancestors out of intercepting. When our dynamic gate currently allows a swipe-back we
+        // ignore that lock so we still get a shot at the gesture — our onInterceptTouchEvent only
+        // grabs a rightward-dominant drag, so leftward paging / vertical scrolls still reach the child.
+        if (disallow && canSwipe?.invoke() == true) {
+            Utils.log("SBL: ignoring disallowIntercept (canSwipe=true)")
+            return
+        }
+        super.requestDisallowInterceptTouchEvent(disallow)
+    }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
@@ -48,14 +66,18 @@ class SwipeBackLayout(context: Context) : FrameLayout(context) {
                 tracking = false
                 // Disabled globally → never intercept (settings page opts out via ignoreDisableSetting).
                 blockSwipe = (!ignoreDisableSetting && Settings.disableSwipeBack.value) ||
+                    (canSwipe?.let { !it.invoke() } ?: false) ||
                     isOnHorizontalDragWidget(this, ev.rawX, ev.rawY)
+                Utils.log("SBL: DOWN blockSwipe=$blockSwipe canSwipe=${canSwipe?.invoke()}")
             }
             MotionEvent.ACTION_MOVE -> {
-                if (blockSwipe) return false
+                // Never grab a multi-touch gesture (a pinch-zoom would otherwise look like a drag).
+                if (blockSwipe || ev.pointerCount > 1) return false
                 val dx = ev.rawX - downX
                 val dy = ev.rawY - downY
                 // Horizontal-dominant rightward drag → grab it for swipe-back.
                 if (dx > touchSlop && dx > abs(dy) * 1.5f) {
+                    Utils.log("SBL: intercept MOVE dx=$dx dy=$dy -> tracking")
                     tracking = true
                     return true
                 }
@@ -75,6 +97,7 @@ class SwipeBackLayout(context: Context) : FrameLayout(context) {
                 if (tracking) {
                     tracking = false
                     val dx = ev.rawX - downX
+                    Utils.log("SBL: UP dx=$dx width=$width fire=${dx > width * 0.3f}")
                     if (ev.actionMasked == MotionEvent.ACTION_UP && dx > width * 0.3f) {
                         // Snap back to origin before firing: if the callback doesn't finish the
                         // activity (e.g. it just swaps in new content like the settings detail→list
