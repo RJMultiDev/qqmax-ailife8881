@@ -24,9 +24,9 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import momoi.mod.qqpro.lib.material.M3CircularProgress
+import momoi.mod.qqpro.lib.material.M3Slider
 import momoi.mod.qqpro.lib.material.MaterialSymbol
 import momoi.mod.qqpro.lib.material.MaterialSymbols
-import android.widget.SeekBar
 import android.widget.TextView
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.SwipeBackLayout
@@ -59,7 +59,7 @@ class VideoPlayerFragment(
     private var spinner: M3CircularProgress? = null
     private var controls: View? = null
     private var playButton: ImageView? = null
-    private var seekBar: SeekBar? = null
+    private var seekBar: M3Slider? = null
     private var timeLabel: TextView? = null
 
     private var mp: MediaPlayer? = null
@@ -253,19 +253,17 @@ class VideoPlayerFragment(
         playButton = play
         row.addView(play, LinearLayout.LayoutParams(24.dp, 24.dp))
 
-        val seek = SeekBar(ctx)
+        val seek = M3Slider(ctx)
         seekBar = seek
-        seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
-                if (fromUser) timeLabel?.text = "${fmt(progress)} / ${fmt(mp?.duration ?: 0)}"
-            }
-            override fun onStartTrackingTouch(sb: SeekBar) { seeking = true; cancelAutoHide() }
-            override fun onStopTrackingTouch(sb: SeekBar) {
-                seeking = false
-                runCatching { mp?.seekTo(sb.progress) }
-                scheduleAutoHide()
-            }
-        })
+        seek.onStartTracking = { seeking = true; cancelAutoHide() }
+        seek.onProgressChanged = { p, fromUser ->
+            if (fromUser) timeLabel?.text = "${fmt(p)} / ${fmt(mp?.duration ?: 0)}"
+        }
+        seek.onStopTracking = {
+            seeking = false
+            runCatching { mp?.seekTo(seek.progress) }
+            scheduleAutoHide()
+        }
         row.addView(seek, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = 6.dp })
         bar.addView(row, LinearLayout.LayoutParams(-1, -2))
 

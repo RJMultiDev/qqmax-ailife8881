@@ -12,6 +12,13 @@ import momoi.mod.qqpro.util.Utils
 import kotlin.math.abs
 
 /**
+ * Marker for views that own horizontal drags (sliders / seek bars). [SwipeBackLayout] won't grab a
+ * swipe-back gesture that starts on one, so dragging the widget never dismisses the screen. Native
+ * [AbsSeekBar] is recognised too; this covers our self-drawn ones (e.g. [momoi.mod.qqpro.lib.material.M3Slider]).
+ */
+interface HorizontalDragWidget
+
+/**
  * Wraps a screen's content and detects a left-to-right "swipe back" drag, then invokes
  * [onSwipeBack] (typically `finish()`). Lets watches without a hardware back button leave a
  * plain [android.app.Activity] (e.g. the settings page) the same way the QQ fling framework
@@ -114,10 +121,10 @@ class SwipeBackLayout(context: Context) : FrameLayout(context) {
         return tracking
     }
 
-    /** True if [x],[y] (screen coords) fall on a visible [AbsSeekBar] descendant of [v]. */
+    /** True if [x],[y] (screen coords) fall on a visible horizontal-drag widget descendant of [v]. */
     private fun isOnHorizontalDragWidget(v: View, x: Float, y: Float): Boolean {
         if (v.visibility != View.VISIBLE) return false
-        if (v is AbsSeekBar) {
+        if (v is AbsSeekBar || v is HorizontalDragWidget) {
             val loc = IntArray(2)
             v.getLocationOnScreen(loc)
             // Pad the hit area so a drag started just beside the thumb still counts.
