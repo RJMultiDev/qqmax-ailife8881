@@ -1,6 +1,7 @@
 package momoi.mod.qqpro.lib.material
 
 import android.content.Context
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
@@ -20,10 +21,12 @@ class M3ListItem(ctx: Context) : LinearLayout(ctx) {
 
     private val textCol = LinearLayout(ctx).apply { orientation = VERTICAL }
     private val titleView = TextView(ctx).apply {
-        setTextColor(M3.onSurface); textSize = 15f; isSingleLine = true
+        setTextColor(M3.onSurface); textSize = 14f
+        isSingleLine = true; ellipsize = TextUtils.TruncateAt.END
     }
     private val subtitleView = TextView(ctx).apply {
-        setTextColor(M3.onSurfaceVariant); textSize = 12f; isSingleLine = true
+        setTextColor(M3.onSurfaceVariant); textSize = 11f
+        maxLines = 2; ellipsize = TextUtils.TruncateAt.END
         visibility = View.GONE
     }
     private var leadingView: View? = null

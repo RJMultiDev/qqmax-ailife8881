@@ -227,6 +227,12 @@ object Settings {
     // the contact's age / birthday / zodiac / location / signature (fetched from the kernel). When
     // off, the original page is kept (with only the minor enrich tweaks). Takes effect next open.
     val useRichProfile = BooleanPref("useRichProfile", true)
+    // Redesign the settings screens — the self/me page (主页第4页), the friend (DM) chat-settings
+    // page and the group chat-settings page — into a fully Material 3 layout (header card, M3 list
+    // rows, themed M3 switches). Also routes the "change info" text edits (改群名/备注/昵称) through
+    // a Material input dialog instead of QQ's native full-screen keyboard page. Off keeps the native
+    // screens (with only the card-margin/theming tweaks). Takes effect next time a screen opens.
+    val useM3Settings = BooleanPref("useM3Settings", true)
     // How much to darken the chat background image for readability.
     // 0 = original image, 0.9 = almost black. Applied as a black overlay on top
     // of the picked image. Takes effect the next time a chat is opened.
@@ -284,6 +290,7 @@ object Settings {
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         galleryQuickSend, useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
         picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo, qzoneMiniAppCard,
+        profileNameMultiline, useRichProfile, useM3Settings,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
         doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,
         notifyVibrateMode, voiceBtnText, watchdogEnabled, enableLog,

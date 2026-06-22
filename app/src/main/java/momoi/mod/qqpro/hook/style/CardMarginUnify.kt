@@ -149,6 +149,9 @@ fun ViewGroup.styleGenderBirthdayChipsWithRetry(tries: Int = 0) {
 class SettingFrameMargins : SettingFrame() {
     override fun Y(p0: LayoutInflater, p1: ViewGroup?, p2: Bundle?): View {
         val root = super.Y(p0, p1, p2)!!
+        if (Settings.useM3Settings.value) {
+            rebuildSettingFrame(root)?.let { return it }
+        }
         (root as? ViewGroup)?.let {
             it.normalizeListCards()
             it.fixGenderBirthdayGap()
@@ -173,6 +176,9 @@ class SettingFrameMargins : SettingFrame() {
 class SelfInfoMargins : SelfFragment() {
     override fun Y(p0: LayoutInflater, p1: ViewGroup?, p2: Bundle?): View {
         val root = super.Y(p0, p1, p2)!!
+        if (Settings.useM3Settings.value) {
+            rebuildSelfPage(root)?.let { return it }
+        }
         (root as? ViewGroup)?.let {
             it.normalizeListCards()
             it.fixGenderBirthdayGap()
@@ -208,6 +214,9 @@ fun fixSideBySide(left: View, right: View) {
 class SelfEditProfileMargins : SelfEditProfileFragment() {
     override fun Y(p0: LayoutInflater, p1: ViewGroup?, p2: Bundle?): View {
         val root = super.Y(p0, p1, p2)!!
+        if (Settings.useM3Settings.value) {
+            rebuildSettingList(root, "修改资料", "edit_item_container", swipeBack = true)?.let { return it }
+        }
         (root as? ViewGroup)?.normalizeListCards()
         Utils.log("CardMarginUnify: edit profile normalized")
         return root
@@ -219,6 +228,9 @@ class SelfEditProfileMargins : SelfEditProfileFragment() {
 class EditAvatarMargins : EditAvatarFragment() {
     override fun Y(p0: LayoutInflater, p1: ViewGroup?, p2: Bundle?): View {
         val root = super.Y(p0, p1, p2)!!
+        if (Settings.useM3Settings.value) {
+            rebuildAvatarPage(root)?.let { return it }
+        }
         (root as? ViewGroup)?.let { rootVg ->
             val buttons = ArrayList<View>()
             rootVg.forEachAll { if (it.javaClass.simpleName == "WatchButton") buttons.add(it) }
@@ -291,6 +303,9 @@ class MediaBrowserLongClickMenuMargins :
 class FriendSettingMargins : FriendSettingFragment() {
     override fun Y(p0: LayoutInflater, p1: ViewGroup?, p2: Bundle?): View {
         val root = super.Y(p0, p1, p2)!!
+        if (Settings.useM3Settings.value) {
+            rebuildSettingList(root, "聊天设置", swipeBack = true)?.let { return it }
+        }
         (root as? ViewGroup)?.normalizeListCards()
         Utils.log("CardMarginUnify: friend settings normalized")
         return root
@@ -302,6 +317,9 @@ class FriendSettingMargins : FriendSettingFragment() {
 class GroupSettingMargins : TroopSettingFragment() {
     override fun Y(p0: LayoutInflater, p1: ViewGroup?, p2: Bundle?): View {
         val root = super.Y(p0, p1, p2)!!
+        if (Settings.useM3Settings.value) {
+            rebuildSettingList(root, "群聊设置", swipeBack = true)?.let { return it }
+        }
         (root as? ViewGroup)?.normalizeListCards()
         Utils.log("CardMarginUnify: group settings normalized")
         return root

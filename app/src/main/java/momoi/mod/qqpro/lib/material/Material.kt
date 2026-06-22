@@ -2,7 +2,9 @@ package momoi.mod.qqpro.lib.material
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
@@ -150,9 +152,13 @@ object M3 {
             setStroke(strokeWidthDp.dp, strokeColor)
         }
 
-    /** Wrap a content drawable with an M3 ripple (pressed feedback). */
+    /**
+     * Wrap a content drawable with an M3 ripple (pressed feedback). The mask BOUNDS the ripple: when
+     * no [content] is given we still pass an opaque mask so the ripple is clipped to the view's bounds
+     * instead of spilling out as an unbounded full circle.
+     */
     fun ripple(content: Drawable?, rippleColor: Int = 0x33_FFFFFF): RippleDrawable =
-        RippleDrawable(ColorStateList.valueOf(rippleColor), content, content)
+        RippleDrawable(ColorStateList.valueOf(rippleColor), content, content ?: ColorDrawable(Color.WHITE))
 
     /** A rounded, sunken M3 search/text field. */
     fun searchField(ctx: Context, hint: String): EditText = EditText(ctx).apply {

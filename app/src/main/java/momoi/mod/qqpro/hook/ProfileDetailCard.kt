@@ -174,6 +174,24 @@ object ProfileDetailCard {
     fun shengXiaoText(info: Info): String? = shengXiao(info.birthYear)?.let { "属$it" }
     fun birthdayText(info: Info): String? = birthday(info)
 
+    private fun profileService() =
+        (MobileQQ.sMobileQQ?.peekAppRuntime()?.getRuntimeService(IKernelService::class.java, "") as? IKernelService)?.profileService
+
+    /** Logged-in user's current QQ nickname from the local cache, or null. (Pre-fills 修改昵称.) */
+    fun selfNick(): String? = runCatching {
+        val uid = MobileQQ.sMobileQQ?.peekAppRuntime()?.currentUid ?: return null
+        profileService()?.getCoreAndBaseInfo("qqpro_prefill", arrayListOf(uid))
+            ?.get(uid)?.coreInfo?.nick?.takeIf { it.isNotEmpty() }
+    }.onFailure { Utils.log("ProfileDetailCard.selfNick error: $it") }.getOrNull()
+
+    /** Current buddy remark for [uin] from the local cache (uin→uid→coreInfo.remark), or null. */
+    fun remarkByUin(uin: Long): String? = runCatching {
+        val ps = profileService() ?: return null
+        val uid = ps.getUidByUin("qqpro_prefill", arrayListOf(uin))?.get(uin) ?: return null
+        ps.getCoreAndBaseInfo("qqpro_prefill", arrayListOf(uid))
+            ?.get(uid)?.coreInfo?.remark?.takeIf { it.isNotEmpty() }
+    }.onFailure { Utils.log("ProfileDetailCard.remarkByUin error: $it") }.getOrNull()
+
     /** Resolve uin → uid (sync) then [fetch] the detail by uid. */
     fun fetchByUin(uin: Long, cb: (Info?) -> Unit) {
         runCatching {

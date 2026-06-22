@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.tencent.watch.aio_impl.ui.frames.SettingFrame
+import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.hook.style.CARD_MARGIN_DP
 import momoi.mod.qqpro.lib.dp
@@ -65,6 +66,18 @@ fun addDmExtraInfo(fragment: SettingFrame) {
             box.post {
                 if (info == null) return@post
                 box.removeAllViews()
+
+                if (Settings.useM3Settings.value) {
+                    // M3 redesign: render one clean divider-separated list (性别/生日/年龄/星座/地区/签名)
+                    // instead of separate chip cards with mismatched margins. bindInto already includes
+                    // gender & birthday, so hide the native CustomInfoView chips to avoid duplication.
+                    anchor.visibility = View.GONE
+                    ProfileDetailCard.bindInto(ctx, box, info)
+                    box.visibility = View.VISIBLE
+                    Utils.log("ProfileExtraInfo: M3 info rows shown for uid=$uid")
+                    return@post
+                }
+
                 val age = if (info.age > 0) "${info.age}岁" else UNKNOWN
                 val zodiac = ProfileDetailCard.zodiacText(info) ?: UNKNOWN
                 val location = ProfileDetailCard.locationText(info) ?: UNKNOWN

@@ -306,6 +306,7 @@ class 设置页 : SettingsActivity() {
             switch("小程序卡片渲染", "动态里的小程序(轻应用)分享不再显示「请在手机QQ查看」，改为抓取分享页解析出真实的名称/图标/简介并渲染成卡片(联网)", Settings.qzoneMiniAppCard)
             switch("资料页姓名多行可复制", "好友/群资料设置页及成员资料卡的名称过长时换行显示，长按名称可复制；设置页内QQ号与昵称分两行、可分别长按复制(重进资料页生效)", Settings.profileNameMultiline)
             switch("使用增强资料卡", "用全新 Material 风格资料卡替换原资料页，额外显示年龄/生日/星座/地区/签名(从内核获取)，关闭则保留原页面(重进资料页生效)", Settings.useRichProfile)
+            switch("Material 设置页面", "把自我页(主页第4页)、好友/群聊设置页重绘为全新 Material 风格(头部卡片+M3列表+主题色开关)，并把改群名/备注/昵称改为 Material 输入弹窗，不再打开全屏键盘页(重进对应页面生效)", Settings.useM3Settings)
         },
         SettingsCategory("相机与媒体", "拍照、相册与音频") {
             switch("使用应用内相机", "开启后拍照/录像都用应用内相机，关闭后改用系统/第三方相机", Settings.useInAppCamera)
