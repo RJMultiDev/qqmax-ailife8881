@@ -8,6 +8,7 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.findAll
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.ListAdapter
@@ -166,6 +167,23 @@ object ListSearchBar {
         @Suppress("UNCHECKED_CAST")
         val adapter = rv.adapter as? ListAdapter<Any, RecyclerView.ViewHolder> ?: return false  // not bound yet → retry
         val ctx = view.context
+
+        // Material-ize the selector: M3.surface page background, M3 surface-container row cards, M3
+        // title text and the M3 checkbox graphic. Installed once here (before this list is tagged).
+        if (Settings.useM3Settings.value) {
+            view.setBackgroundColor(M3.surface)
+            rv.setBackgroundColor(M3.surface)
+            val titleId = view.resources.getIdentifier("title", "id", view.context.packageName)
+            rv.onChildAttached { row ->
+                row.background = M3.ripple(M3.rounded(M3.surfaceContainer, M3.radiusLg))
+                (if (titleId != 0) row.findViewById<View>(titleId) else null)?.let { tv ->
+                    runCatching {
+                        tv.javaClass.getMethod("setTextColor", Int::class.javaPrimitiveType).invoke(tv, M3.onSurface)
+                    }
+                }
+                // The checkboxes themselves are materialized app-wide by the QUICheckBox @Mixin.
+            }
+        }
 
         // Per-install state held in closures (no shared object fields → multiple instances are safe).
         var fullList: List<Any> = runCatching { adapter.currentList.toList() }.getOrDefault(emptyList())
