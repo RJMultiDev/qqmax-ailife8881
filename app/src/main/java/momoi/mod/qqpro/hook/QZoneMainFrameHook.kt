@@ -4,9 +4,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import com.tencent.watch.qzone_impl.feed.model.BusinessFeedData
 import com.tencent.watch.qzone_impl.frame.QZoneMainFrame
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.hook.qzone.QzoneFeedM3
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -27,14 +29,32 @@ class QZoneMainFrameHook : QZoneMainFrame() {
         val orig = super.Y(inflater, container, savedInstanceState)
         // Publish ourselves so a repeat-tap on the qzone nav cell can open the 通知 screen.
         MainNav.qzoneFragment = java.lang.ref.WeakReference<Any>(this)
+        if (Settings.materializeQzone.value) {
+            runCatching { QzoneFeedM3.installMain(this) }
+                .onFailure { Utils.log("QZoneMainFrameHook install: $it") }
+        }
         if (!Settings.materialQZoneBar.value) return orig
         return runCatching { QZoneTopBar.wrap(this, orig) }
             .onFailure { Utils.log("QZoneMainFrameHook Y: $it") }
             .getOrDefault(orig)
     }
 
-    /** Delegates publish bar-tap to the original item_publish row click listener. */
+    /** Native feed-data callback — mirror the native adapter list into the M3 adapter. */
+    override fun O(p0: MutableList<BusinessFeedData>, p1: Boolean) {
+        super.O(p0, p1)
+        if (Settings.materializeQzone.value) {
+            runCatching { QzoneFeedM3.feedMain(this) }
+                .onFailure { Utils.log("QZoneMainFrameHook O: $it") }
+        }
+    }
+
+    /** Publish bar-tap: open the from-scratch single-page compose when materialized, else the native flow. */
     fun barPublish() {
+        if (Settings.materializeQzone.value) {
+            runCatching { momoi.mod.qqpro.hook.qzone.QzoneCompose.open(this) }
+                .onFailure { Utils.log("QZoneMainFrameHook compose: $it") }
+            return
+        }
         runCatching { QZoneTopBar.publishRow?.performClick() }
             .onFailure { Utils.log("QZoneMainFrameHook barPublish: $it") }
     }

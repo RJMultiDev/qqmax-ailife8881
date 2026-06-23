@@ -43,6 +43,9 @@ import java.net.URLDecoder
 class ContentSummeryMiniApp(viewType: Int, host: IAdapterHost) :
     ContentSummeryViewHolder(viewType, host) {
     override fun k(data: BusinessFeedData) {
+        // Native (non-materialized) QZone: substitute QZone emoji codes into the summary first.
+        runCatching { momoi.mod.qqpro.hook.qzone.QzoneEmoji.patchSummary(data) }
+            .onFailure { Utils.log("ContentSummeryMiniApp emoji: $it") }
         super.k(data)
         QZoneMiniApp.bind(this, data)
     }
@@ -58,21 +61,30 @@ object QZoneMiniApp {
     private val DESC_RE = Regex("gotoqq-wrap__txt-desc\"[^>]*>([^<]+)<")
 
     fun bind(holder: ContentSummeryViewHolder, data: BusinessFeedData) {
-        if (!Settings.qzoneMiniAppCard.value) return
         val tv = runCatching { holder.h() }.getOrNull() as? TextView ?: return
+        bindText(tv, data)
+    }
 
-        // Only act on the post the holder actually renders, and only when it's a placeholder.
+    /**
+     * Render the mini-app card into an arbitrary [tv] (reused by the materialized feed card, where the
+     * native ContentSummeryViewHolder no longer runs). Returns true if [data] is a mini-app share (so
+     * the caller knows to keep this TextView even though the post has no normal summary text).
+     */
+    fun bindText(tv: TextView, data: BusinessFeedData): Boolean {
+        if (!Settings.qzoneMiniAppCard.value) return false
+        // Only a placeholder post (no renderable summary) carrying a fakeUrl is a mini-app share.
         val t = runCatching { data.originalInfo }.getOrNull() ?: data
-        if (runCatching { t.getCellSummaryV2() }.getOrNull() != null) { clear(tv); return }
-        val op = runCatching { t.cellOperationInfo }.getOrNull() ?: run { clear(tv); return }
-        val fakeUrl = extractFakeUrl(op.busiParam) ?: run { clear(tv); return }
+        if (runCatching { t.getCellSummaryV2() }.getOrNull() != null) { clear(tv); return false }
+        val op = runCatching { t.cellOperationInfo }.getOrNull() ?: run { clear(tv); return false }
+        val fakeUrl = extractFakeUrl(op.busiParam) ?: run { clear(tv); return false }
 
         tv.tag = fakeUrl
         val cached = cache[fakeUrl]
-        if (cached != null) { render(tv, fakeUrl, cached); return }
+        if (cached != null) { render(tv, fakeUrl, cached); return true }
         tv.setCompoundDrawables(null, null, null, null)
         tv.text = "小程序加载中…"
         fetch(tv, fakeUrl)
+        return true
     }
 
     private fun clear(tv: TextView) {

@@ -4,8 +4,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import com.tencent.watch.qzone_impl.feed.model.BusinessFeedData
 import com.tencent.watch.qzone_impl.frame.QZoneMineFragment
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.hook.qzone.QzoneFeedM3
 import momoi.mod.qqpro.util.Utils
 
 /**
@@ -26,7 +29,20 @@ class QZoneMineFragmentHook : QZoneMineFragment() {
         val root = super.Y(inflater, container, savedInstanceState)
         runCatching { QZoneEmptyState.materialize(this, root) }
             .onFailure { Utils.log("QZoneMineFragmentHook Y: $it") }
+        if (Settings.materializeQzone.value) {
+            runCatching { QzoneFeedM3.installMine(this) }
+                .onFailure { Utils.log("QZoneMineFragmentHook install: $it") }
+        }
         return root
+    }
+
+    /** Native feed-data callback — after super updates the native adapter list, mirror it into the M3 adapter. */
+    override fun O(p0: MutableList<BusinessFeedData>, p1: Boolean) {
+        super.O(p0, p1)
+        if (Settings.materializeQzone.value) {
+            runCatching { QzoneFeedM3.feedMine(this) }
+                .onFailure { Utils.log("QZoneMineFragmentHook O: $it") }
+        }
     }
 
     override fun o(hasMore: Boolean) {

@@ -17,3 +17,5 @@ local.properties
 app/dist/mixin.apk
 app/dist/output-metadata.json
 app/decompiled/
+# QQPro investigation scratch (pulled device artifacts)
+work/

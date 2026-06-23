@@ -221,6 +221,17 @@ object Settings {
     // QZone mini-app (小程序) shares: instead of the "请在手机QQ查看" placeholder, fetch the share
     // landing page and render the real app name/icon/description as a card. Default on.
     val qzoneMiniAppCard = BooleanPref("qzoneMiniAppCard", true)
+    // Fully materialize QZone (空间): replace the entire stock frontend — feed cards (main + per-user
+    // space), the per-user profile header, the comment/reply thread screen and the publish/compose
+    // page — with a from-scratch Material 3 implementation. Off keeps the native screens (with only
+    // the in-place tweaks like the top bar / like icons / mini-app card above). Default off; opt-in
+    // escape hatch since it owns the whole feed rendering. Takes effect next time a QZone screen opens.
+    val materializeQzone = BooleanPref("materializeQzone", false)
+    // QZone feed: truncate long post text to 5 lines with a 查看全文 expander. Off shows full text.
+    val qzoneTruncatePost = BooleanPref("qzoneTruncatePost", true)
+    // QZone feed: truncate a multi-image post to two square thumbnails (2nd darkened with +N) instead
+    // of the full 3-column square grid. Off shows the 3-wide grid.
+    val qzoneTruncateImages = BooleanPref("qzoneTruncateImages", true)
     // Chat-settings panel (好友/群资料页 header name): show the contact/group name on multiple
     // lines instead of truncating to one, and allow long-pressing it to copy. Replaces the
     // single-line nick view with a multiline TextView that mirrors the original's (async) text.
@@ -292,7 +303,7 @@ object Settings {
         floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread, mainNavUnreadJump,
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         galleryQuickSend, useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
-        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialChatList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo, qzoneMiniAppCard,
+        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialChatList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo, qzoneMiniAppCard, materializeQzone, qzoneTruncatePost, qzoneTruncateImages,
         profileNameMultiline, useRichProfile, useM3Settings,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
         doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,

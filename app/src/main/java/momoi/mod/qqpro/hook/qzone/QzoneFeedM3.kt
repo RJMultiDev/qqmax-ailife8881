@@ -1,0 +1,554 @@
+package momoi.mod.qqpro.hook.qzone
+
+import android.content.Context
+import android.graphics.Outline
+import android.graphics.Typeface
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.view.ViewOutlineProvider
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import com.scwang.smart.refresh.layout.SmartRefreshLayout
+import com.tencent.watch.qzone_impl.feed.model.BusinessFeedData
+import com.tencent.watch.qzone_impl.feed.model.Comment
+import com.tencent.watch.qzone_impl.feed.model.User
+import com.tencent.watch.qzone_impl.frame.IAdapterHost
+import com.tencent.watch.qzone_impl.frame.QZoneFeedAdapter
+import com.tencent.watch.qzone_impl.frame.QZoneMainFrame
+import com.tencent.watch.qzone_impl.frame.QZoneMineFragment
+import com.tencent.watch.qzone_impl.utils.StringUtil
+import loadPicUrl
+import momoi.mod.qqpro.hook.view.InlineVideoView
+import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.hook.QZoneMiniApp
+import momoi.mod.qqpro.hook.openUserQzone
+import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.MaterialSymbols
+import momoi.mod.qqpro.lib.material.leadingSymbol
+import momoi.mod.qqpro.lib.material.symbolImage
+import momoi.mod.qqpro.util.Utils
+import java.util.WeakHashMap
+
+/**
+ * From-scratch Material 3 QZone feed ([Settings.materializeQzone]). Rather than reparent the native
+ * fragment (fragile — see the no-tree-rebuild rule), we keep the native fragment, SmartRefreshLayout
+ * and feed engine and only swap the RecyclerView's adapter to our own [FeedAdapter], fed by reading
+ * the native adapter's list after each native [QZoneMineFragment.O]/[QZoneMainFrame.O] data callback.
+ *
+ * Shared by both feed hosts (per-user [QZoneMineFragment] and the main page [QZoneMainFrame]); both
+ * implement [IAdapterHost] (so `this` is the action host) and expose a public SmartRefreshLayout +
+ * [QZoneFeedAdapter] field. NOT a @Mixin class — anonymous classes are fine here.
+ */
+object QzoneFeedM3 {
+
+    private val adapters = WeakHashMap<Any, FeedAdapter>()
+
+    fun installMine(f: QZoneMineFragment) = install(f, f as IAdapterHost, "i", "k", perUser = true)
+    fun installMain(f: QZoneMainFrame) = install(f, f as IAdapterHost, "n", "o", perUser = false)
+    fun feedMine(f: QZoneMineFragment) = feed(f, "k")
+    fun feedMain(f: QZoneMainFrame) = feed(f, "o")
+
+    private fun install(key: Any, host: IAdapterHost, srlField: String, adapterField: String, perUser: Boolean) {
+        runCatching {
+            val srl = key.javaClass.getField(srlField).get(key) as? SmartRefreshLayout ?: run {
+                Utils.log("QzoneFeedM3: no SmartRefreshLayout ($srlField)"); return
+            }
+            val rv = (0 until srl.childCount).mapNotNull { srl.getChildAt(it) as? RecyclerView }.firstOrNull()
+                ?: run { Utils.log("QzoneFeedM3: no RecyclerView in SmartRefreshLayout"); return }
+            // The native window behind the list is pure black; give the feed an M3 surface.
+            runCatching { srl.setBackgroundColor(M3.surface); rv.setBackgroundColor(M3.surface) }
+            val adapter = FeedAdapter(host, perUser)
+            adapters[key] = adapter
+            rv.adapter = adapter
+            // Seed from any data the native adapter already holds (e.g. after a config change).
+            nativeList(key, adapterField)?.let { adapter.submit(it) }
+            Utils.log("QzoneFeedM3: installed M3 feed adapter (perUser=$perUser)")
+        }.onFailure { Utils.log("QzoneFeedM3 install: $it") }
+    }
+
+    private fun feed(key: Any, adapterField: String) {
+        runCatching {
+            val list = nativeList(key, adapterField) ?: return
+            adapters[key]?.submit(list)
+        }.onFailure { Utils.log("QzoneFeedM3 feed: $it") }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun nativeList(key: Any, adapterField: String): List<BusinessFeedData>? = runCatching {
+        val adapter = key.javaClass.getField(adapterField).get(key) as? QZoneFeedAdapter ?: return null
+        adapter.c as? List<BusinessFeedData>
+    }.getOrNull()
+
+    // ===================================================================================
+
+    class VH(val container: FrameLayout) : RecyclerView.ViewHolder(container)
+
+    class FeedAdapter(val host: IAdapterHost, val perUser: Boolean) : RecyclerView.Adapter<VH>() {
+        private var items: List<BusinessFeedData> = emptyList()
+
+        fun submit(list: List<BusinessFeedData>) {
+            items = ArrayList(list)
+            notifyDataSetChanged()
+        }
+
+        private fun hasHeader() = perUser && items.isNotEmpty()
+        private fun dataPos(pos: Int) = if (hasHeader()) pos - 1 else pos
+
+        override fun getItemCount() = items.size + if (hasHeader()) 1 else 0
+
+        override fun getItemViewType(position: Int) = if (hasHeader() && position == 0) 0 else 1
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            val container = FrameLayout(parent.context).apply {
+                layoutParams = RecyclerView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                )
+            }
+            return VH(container)
+        }
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            holder.container.removeAllViews()
+            val view = runCatching {
+                if (getItemViewType(position) == 0) QzoneFeedCard.buildHeader(host, items[0])
+                else QzoneFeedCard.buildCard(host, items[dataPos(position)])
+            }.onFailure { Utils.log("QzoneFeedM3 bind $position: $it") }.getOrNull() ?: return
+            holder.container.addView(
+                view,
+                FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+            )
+        }
+    }
+}
+
+/** Builds the M3 feed-card and per-user profile-header views. Separate object so it can host the
+ *  anonymous click lambdas the @Mixin hooks must not. */
+object QzoneFeedCard {
+
+    private fun circleAvatar(ctx: Context, sizeDp: Int): ImageView = ImageView(ctx).apply {
+        scaleType = ImageView.ScaleType.CENTER_CROP
+        maxHeight = sizeDp.dp
+        clipToOutline = true
+        outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) = outline.setOval(0, 0, view.width, view.height)
+        }
+    }
+
+    fun buildHeader(host: IAdapterHost, data: BusinessFeedData): View {
+        val ctx = host.requireContext()
+        val user: User? = runCatching { data.user }.getOrNull()
+        val card = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            background = M3.rounded(M3.surfaceContainer, M3.radiusLg)
+            setPadding(16.dp, 20.dp, 16.dp, 18.dp)
+        }
+        val avatar = circleAvatar(ctx, 72)
+        card.addView(avatar, LinearLayout.LayoutParams(72.dp, 72.dp))
+        runCatching {
+            val uin = user?.uin ?: 0L
+            avatar.loadPicUrl(user?.avatarPath?.takeIf { it.isNotEmpty() } ?: QzoneActions.avatarUrl(uin), "qzhdr_$uin")
+        }
+        card.addView(TextView(ctx).apply {
+            text = user?.nickName ?: "TA"
+            setTextColor(M3.onSurface)
+            textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = 10.dp })
+        user?.qzoneDesc?.takeIf { it.isNotBlank() }?.let { sig ->
+            card.addView(TextView(ctx).apply {
+                text = sig
+                setTextColor(M3.onSurfaceVariant)
+                textSize = 12f
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = 6.dp })
+        }
+        val stats = StringBuilder()
+        user?.let {
+            if (it.fansCount > 0) stats.append("粉丝 ${it.fansCount}")
+            if (it.visitorCount > 0) { if (stats.isNotEmpty()) stats.append("  ·  "); stats.append("访客 ${it.visitorCount}") }
+        }
+        if (stats.isNotEmpty()) card.addView(TextView(ctx).apply {
+            text = stats.toString()
+            setTextColor(M3.onSurfaceTip)
+            textSize = 12f
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = 8.dp })
+        return wrapMargins(card)
+    }
+
+    fun buildCard(host: IAdapterHost, data: BusinessFeedData): View {
+        val ctx = host.requireContext()
+        dumpRepostDebug(data)
+        val card = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            background = M3.rounded(M3.surfaceContainer, M3.radiusLg)
+            setPadding(12.dp, 12.dp, 12.dp, 8.dp)
+        }
+        val user: User? = runCatching { data.user }.getOrNull()
+
+        // --- header: avatar | nick / time (tap avatar/name → that user's space) ---
+        val header = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val avatar = circleAvatar(ctx, 31)
+        header.addView(avatar, LinearLayout.LayoutParams(31.dp, 31.dp))
+        runCatching {
+            val uin = user?.uin ?: 0L
+            avatar.loadPicUrl(user?.avatarPath?.takeIf { it.isNotEmpty() } ?: QzoneActions.avatarUrl(uin), "qzav_$uin")
+        }
+        val openSpace = View.OnClickListener {
+            val uin = user?.uin ?: 0L
+            if (uin > 0) runCatching { openUserQzone(avatar, uin) }.onFailure { Utils.log("QzoneFeedCard openSpace: $it") }
+        }
+        avatar.isClickable = true; avatar.setOnClickListener(openSpace)
+        val nameCol = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; isClickable = true; setOnClickListener(openSpace) }
+        nameCol.addView(TextView(ctx).apply {
+            text = user?.nickName ?: ""
+            setTextColor(M3.onSurface); textSize = 12.5f; typeface = Typeface.DEFAULT_BOLD
+            isSingleLine = true
+        }, LinearLayout.LayoutParams(MATCH, WRAP))
+        nameCol.addView(TextView(ctx).apply {
+            text = runCatching { data.feedCommInfo?.displayTimeString }.getOrNull() ?: ""
+            setTextColor(M3.onSurfaceTip); textSize = 10f; isSingleLine = true
+        }, LinearLayout.LayoutParams(MATCH, WRAP))
+        header.addView(nameCol, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = 10.dp })
+        card.addView(header, LinearLayout.LayoutParams(MATCH, WRAP))
+
+        // --- body text (parsed: resolves [em] faces / @mentions) or mini-app card ---
+        val bodyTv = TextView(ctx).apply {
+            setTextColor(M3.onSurface); textSize = 13f
+            setLineSpacing(2.dp.toFloat(), 1f)
+        }
+        val isMiniApp = runCatching { QZoneMiniApp.bindText(bodyTv, data) }.getOrDefault(false)
+        if (!isMiniApp) {
+            val parsed = parsedBody(data, bodyTv)
+            if (!parsed.isNullOrBlank()) {
+                bodyTv.text = parsed
+                card.addView(buildBody(ctx, bodyTv), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = 8.dp })
+            }
+        } else {
+            card.addView(bodyTv, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = 8.dp })
+        }
+
+        // --- forwarded original quote ---
+        runCatching {
+            val orig = data.originalInfo
+            val on = runCatching { orig?.user?.nickName }.getOrNull()
+            if (on != null) card.addView(TextView(ctx).apply {
+                setText("@$on")
+                setTextColor(M3.onSurfaceVariant); textSize = 11f
+                background = M3.rounded(M3.surfaceContainerHigh, M3.radiusMd)
+                setPadding(8.dp, 6.dp, 8.dp, 6.dp)
+            }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = 6.dp })
+        }
+
+        // --- media grid ---
+        val media = QzoneActions.mediaItems(data)
+        if (media.isNotEmpty()) card.addView(buildMediaGrid(host, data, media), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = 8.dp })
+
+        // --- action row: like ........ ⋮ ---
+        card.addView(buildActionRow(host, data), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = 6.dp })
+
+        // --- comments: preview when present, otherwise a "no comments yet" add button ---
+        val comments = runCatching { data.cellCommentInfo?.c }.getOrNull().orEmpty()
+        if (comments.isNotEmpty()) {
+            card.addView(buildCommentPreview(host, data, comments), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = 6.dp })
+        } else {
+            card.addView(TextView(ctx).apply {
+                text = "还没有评论，点击添加评论"
+                setTextColor(M3.onSurfaceTip); textSize = 12f
+                background = M3.rounded(M3.surfaceContainerHigh, M3.radiusMd)
+                setPadding(10.dp, 8.dp, 10.dp, 8.dp); isClickable = true
+                setOnClickListener { QzoneActions.openComments(host, data) }
+            }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = 6.dp })
+        }
+
+        return wrapMargins(card)
+    }
+
+    /** The post body, optionally truncated to 5 lines with a 查看全文 expander ([Settings.qzoneTruncatePost]). */
+    private fun buildBody(ctx: Context, tv: TextView): View {
+        if (!Settings.qzoneTruncatePost.value) return tv
+        tv.maxLines = 5
+        tv.ellipsize = android.text.TextUtils.TruncateAt.END
+        val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        col.addView(tv, LinearLayout.LayoutParams(MATCH, WRAP))
+        val more = TextView(ctx).apply {
+            text = "查看全文"; setTextColor(M3.primary); textSize = 12.5f
+            setPadding(0, 4.dp, 0, 0); visibility = View.GONE; isClickable = true
+            setOnClickListener {
+                tv.maxLines = Integer.MAX_VALUE
+                tv.ellipsize = null
+                visibility = View.GONE
+            }
+        }
+        col.addView(more, LinearLayout.LayoutParams(WRAP, WRAP))
+        // After layout, reveal the expander only if the text actually overflowed 5 lines.
+        tv.post {
+            runCatching {
+                val l = tv.layout ?: return@post
+                val overflow = l.lineCount > 5 || (0 until l.lineCount).any { l.getEllipsisCount(it) > 0 }
+                if (overflow) more.visibility = View.VISIBLE
+            }
+        }
+        return col
+    }
+
+    /** Parsed summary (resolves QQ `[em]` faces + @mentions); falls back to raw text. */
+    private fun parsedBody(data: BusinessFeedData, tv: TextView): CharSequence? {
+        val cs = runCatching { data.cellSummaryV2 }.getOrNull() ?: return null
+        val summary = cs.summary?.takeIf { it.isNotEmpty() } ?: return null
+        Utils.log("QzoneBody raw=$summary")
+        // getParsedSummary(nick, view) PREPENDS nick to the body and CACHES the result against that
+        // view (stale after our card rebuilds → emoji placeholder). Parse fresh via StringUtil.a against
+        // the live view. Only prepend the author name in the native niche case (summary starts with "：").
+        val nick = runCatching { data.user?.nickName }.getOrNull()
+        val prefix = if (!nick.isNullOrEmpty() && !summary.startsWith(":") && summary.startsWith("：")) nick else ""
+        // Swap Unicode-emoji [em] codes for their chars first, then let StringUtil.a do @mentions +
+        // classic image sysfaces.
+        val full = QzoneEmoji.substitute(prefix + summary)
+        return runCatching { StringUtil.a(full, tv) }.getOrNull() ?: full
+    }
+
+    /** Dump candidate forward/repost fields so we can discover whether reposter data is available. */
+    private fun dumpRepostDebug(data: BusinessFeedData) {
+        runCatching {
+            val fc = data.feedCommInfo
+            val busi = runCatching { data.operationInfo?.busiParam }.getOrNull()
+            Utils.log("QzoneRepost: feedskey=${fc?.feedskey} isForward=${data.isForwardFeedData} owner=${data.owner_uin} busiParam=$busi")
+        }
+    }
+
+    private fun buildActionRow(host: IAdapterHost, data: BusinessFeedData): View {
+        val ctx = host.requireContext()
+        val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val liked = runCatching { data.likeInfo?.isLiked == true }.getOrDefault(false)
+        val likeNum = runCatching { data.likeInfo?.likeNum ?: 0 }.getOrDefault(0)
+
+        val likeTv = TextView(ctx).apply {
+            text = if (likeNum > 0) likeNum.toString() else "赞"
+            setTextColor(if (liked) M3.primary else M3.onSurfaceVariant); textSize = 12f
+            leadingSymbol(MaterialSymbols.thumb_up, if (liked) M3.primary else M3.onSurfaceVariant, 17)
+            setPadding(2.dp, 8.dp, 16.dp, 8.dp); isClickable = true
+        }
+        likeTv.setOnClickListener {
+            val nowLiked = QzoneActions.toggleLike(host, data)
+            val n = runCatching { data.likeInfo?.likeNum ?: 0 }.getOrDefault(0)
+            likeTv.text = if (n > 0) n.toString() else "赞"
+            likeTv.setTextColor(if (nowLiked) M3.primary else M3.onSurfaceVariant)
+            likeTv.leadingSymbol(MaterialSymbols.thumb_up, if (nowLiked) M3.primary else M3.onSurfaceVariant, 17)
+        }
+        row.addView(likeTv, LinearLayout.LayoutParams(WRAP, WRAP))
+        // spacer pushes the ⋮ to the right of the same row as 赞
+        row.addView(View(ctx), LinearLayout.LayoutParams(0, 1, 1f))
+        row.addView(TextView(ctx).apply {
+            text = "⋮"; setTextColor(M3.onSurfaceVariant); textSize = 20f; gravity = Gravity.CENTER
+            setPadding(12.dp, 4.dp, 4.dp, 4.dp); isClickable = true
+            setOnClickListener { QzoneActions.showOverflowMenu(host, data) }
+        }, LinearLayout.LayoutParams(WRAP, WRAP))
+        return row
+    }
+
+    /** Comment preview truncated by total text length (one very long comment is enough), not a fixed count. */
+    private fun buildCommentPreview(host: IAdapterHost, data: BusinessFeedData, comments: List<Comment>): View {
+        val ctx = host.requireContext()
+        val box = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            background = M3.rounded(M3.surfaceContainerHigh, M3.radiusMd)
+            setPadding(10.dp, 8.dp, 10.dp, 8.dp)
+        }
+        var chars = 0
+        var shown = 0
+        for (c in comments) {
+            if (shown > 0 && (chars > 60 || shown >= 3)) break
+            // Cap each preview comment to 4 lines so one very long comment can't fill the card.
+            box.addView(commentRow(ctx, c.user, c.user?.nickName, null, c.comment, small = false, maxLines = 4))
+            chars += (c.comment?.length ?: 0)
+            shown++
+        }
+        val total = runCatching { data.cellCommentInfo?.b?.takeIf { it > 0 } ?: comments.size }.getOrDefault(comments.size)
+        box.addView(TextView(ctx).apply {
+            text = "查看全部 $total 条评论"
+            setTextColor(M3.primary); textSize = 12f
+            setPadding(0, 8.dp, 0, 2.dp); isClickable = true
+            setOnClickListener { QzoneActions.openComments(host, data) }
+        }, LinearLayout.LayoutParams(MATCH, WRAP))
+        return box
+    }
+
+    /**
+     * One structured comment/reply row (M3 list-item style): leading circular avatar + an author
+     * headline; replies carry a compact "回复 〈target〉" overline on its own line; the body text
+     * wraps full-width below (never inline-prefixed, so it can't turn into a wrapped mess).
+     */
+    fun commentRow(ctx: Context, author: User?, authorNick: String?, replyTarget: String?, content: String?, small: Boolean, maxLines: Int = 0): View {
+        val row = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 5.dp, 0, 5.dp)
+        }
+        val av = circleAvatar(ctx, if (small) 22 else 26)
+        row.addView(av, LinearLayout.LayoutParams((if (small) 22 else 26).dp, (if (small) 22 else 26).dp).apply { topMargin = 1.dp })
+        runCatching {
+            val uin = author?.uin ?: 0L
+            av.loadPicUrl(author?.avatarPath?.takeIf { it.isNotEmpty() } ?: QzoneActions.avatarUrl(uin), "qzcm_$uin")
+        }
+        val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        if (replyTarget != null) col.addView(TextView(ctx).apply {
+            text = "回复 $replyTarget"
+            setTextColor(M3.onSurfaceTip); textSize = 10f; isSingleLine = true
+        }, LinearLayout.LayoutParams(MATCH, WRAP))
+        col.addView(TextView(ctx).apply {
+            text = authorNick ?: ""
+            setTextColor(M3.onSurfaceVariant); textSize = 11f; typeface = Typeface.DEFAULT_BOLD; isSingleLine = true
+        }, LinearLayout.LayoutParams(MATCH, WRAP))
+        col.addView(TextView(ctx).apply {
+            val withEmoji = QzoneEmoji.substitute(content ?: "")
+            setText(runCatching { StringUtil.a(withEmoji, this) }.getOrNull() ?: withEmoji)
+            setTextColor(M3.onSurface); textSize = 12f
+            if (maxLines > 0) { this.maxLines = maxLines; ellipsize = android.text.TextUtils.TruncateAt.END }
+        }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = 1.dp })
+        row.addView(col, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = 8.dp })
+        return row
+    }
+
+    private fun buildMediaGrid(host: IAdapterHost, data: BusinessFeedData, media: List<momoi.mod.qqpro.hook.view.MediaItem>): View {
+        val ctx = host.requireContext()
+        val videoUrl = if (media.size == 1) media[0].videoUrl else null
+        // Single VIDEO → cover thumbnail + inline player (tap to play in place), 16:9 box.
+        if (videoUrl != null) {
+            val dm = ctx.resources.displayMetrics
+            val h = ((dm.widthPixels - 36.dp) * 9 / 16).coerceIn(120.dp, 280.dp)
+            val frame = FrameLayout(ctx).apply {
+                clipToOutline = true
+                background = M3.rounded(M3.surfaceContainerHigh, M3.radiusMd)
+                outlineProvider = roundOutline(M3.radiusMd)
+            }
+            val vi = runCatching { (data.originalInfo ?: data).videoInfo }.getOrNull()
+            val cover = runCatching { (vi?.coverUrl ?: vi?.currentUrl ?: vi?.bigUrl ?: vi?.originUrl)?.url }.getOrNull()
+            Utils.log("QzoneVideo: url=$videoUrl cover=$cover")
+            // Cover image at rest (InlineVideoView is transparent until it plays).
+            val coverIv = ImageView(ctx).apply { scaleType = ImageView.ScaleType.CENTER_CROP; maxHeight = h }
+            runCatching { coverIv.loadPicUrl(cover, "qzv_${cover.hashCode()}") }
+            frame.addView(coverIv, FrameLayout.LayoutParams(MATCH, h))
+            frame.addView(symbolImage(ctx, MaterialSymbols.play_arrow, android.graphics.Color.WHITE, 48),
+                FrameLayout.LayoutParams(48.dp, 48.dp, Gravity.CENTER))
+            // Give the player a fixed height via the child (the caller sets the frame to WRAP).
+            frame.addView(InlineVideoView(ctx, videoUrl), FrameLayout.LayoutParams(MATCH, h))
+            return frame
+        }
+        // Single IMAGE → one thumbnail cropped to between 4:3 and 16:9.
+        if (media.size == 1) {
+            val frame = FrameLayout(ctx)
+            val iv = ImageView(ctx).apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                maxHeight = 400.dp
+                clipToOutline = true
+                background = M3.rounded(M3.surfaceContainerHigh, M3.radiusMd)
+                outlineProvider = roundOutline(M3.radiusMd)
+            }
+            val cover = media[0].imageUrl
+            // Provisional height until the bitmap loads, then clamp to the real (bounded) aspect.
+            runCatching {
+                iv.loadPicUrl(cover, "qzm_${cover.hashCode()}", onDone = { ok -> if (ok) iv.post { clampSingleAspect(iv) } })
+            }
+            frame.addView(iv, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.CENTER))
+            frame.isClickable = true
+            frame.setOnClickListener { QzoneActions.openMedia(host, data, 0) }
+            return frame
+        }
+
+        // Truncate mode: only two square thumbnails (2nd darkened with +N).
+        if (Settings.qzoneTruncateImages.value) {
+            val dm = ctx.resources.displayMetrics
+            val square = ((dm.widthPixels - 36.dp - 6.dp) / 2).coerceAtLeast(60.dp)
+            val rowLl = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+            for (idx in 0 until minOf(2, media.size)) {
+                val cell = squareCell(ctx, media[idx].imageUrl, M3.radiusMd)
+                if (idx == 1 && media.size > 2) cell.addView(TextView(ctx).apply {
+                    text = "+${media.size - 2}"
+                    setTextColor(android.graphics.Color.WHITE); textSize = 18f; gravity = Gravity.CENTER
+                    setBackgroundColor(0x80_000000.toInt())
+                }, FrameLayout.LayoutParams(MATCH, MATCH))
+                cell.isClickable = true; cell.setOnClickListener { QzoneActions.openMedia(host, data, idx) }
+                rowLl.addView(cell, LinearLayout.LayoutParams(square, square).apply { marginEnd = if (idx == 0) 6.dp else 0 })
+            }
+            return rowLl
+        }
+
+        // Full mode: 3-column grid of square thumbnails (cap 9, +N overlay on the last).
+        val grid = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        val show = minOf(media.size, 9)
+        var i = 0
+        while (i < show) {
+            val rowLl = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+            var col = 0
+            while (col < 3 && i < show) {
+                val idx = i
+                val cell = squareCell(ctx, media[idx].imageUrl, M3.radiusSm)
+                if (idx == show - 1 && media.size > show) cell.addView(TextView(ctx).apply {
+                    text = "+${media.size - show}"
+                    setTextColor(android.graphics.Color.WHITE); textSize = 16f; gravity = Gravity.CENTER
+                    setBackgroundColor(0x66_000000.toInt())
+                }, FrameLayout.LayoutParams(MATCH, MATCH))
+                cell.isClickable = true
+                cell.setOnClickListener { QzoneActions.openMedia(host, data, idx) }
+                rowLl.addView(cell, LinearLayout.LayoutParams(0, 96.dp, 1f).apply {
+                    marginEnd = if (col < 2) 4.dp else 0; bottomMargin = 4.dp
+                })
+                col++; i++
+            }
+            while (col < 3) { rowLl.addView(View(ctx), LinearLayout.LayoutParams(0, 1, 1f)); col++ }
+            grid.addView(rowLl, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+        return grid
+    }
+
+    private fun squareCell(ctx: Context, url: String?, radius: Float): FrameLayout {
+        // Clip the CELL (not just the image) so the +N overlay also respects the rounded corners.
+        val cell = FrameLayout(ctx).apply {
+            clipToOutline = true
+            background = M3.rounded(M3.surfaceContainerHigh, radius)
+            outlineProvider = roundOutline(radius)
+        }
+        val iv = ImageView(ctx).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            maxHeight = 400.dp
+        }
+        runCatching { iv.loadPicUrl(url, "qzm_${url.hashCode()}") }
+        cell.addView(iv, FrameLayout.LayoutParams(MATCH, MATCH))
+        return cell
+    }
+
+    /** Clamp a single image/video thumbnail to a height between 4:3 and 16:9 of its current width. */
+    private fun clampSingleAspect(iv: ImageView) {
+        val w = iv.width.takeIf { it > 0 } ?: return
+        val d = iv.drawable ?: return
+        val iw = d.intrinsicWidth.takeIf { it > 0 } ?: return
+        val ih = d.intrinsicHeight.takeIf { it > 0 } ?: return
+        val ratio = (iw.toFloat() / ih.toFloat()).coerceIn(4f / 3f, 16f / 9f) // w/h within [1.33, 1.78]
+        val h = (w / ratio).toInt()
+        if (iv.layoutParams.height != h) { iv.layoutParams.height = h; iv.requestLayout() }
+    }
+
+    private fun roundOutline(radius: Float) = object : ViewOutlineProvider() {
+        override fun getOutline(view: View, outline: Outline) =
+            outline.setRoundRect(0, 0, view.width, view.height, radius)
+    }
+
+    /** Wrap a card body so it gets uniform list margins. */
+    private fun wrapMargins(card: View): View {
+        val ctx = card.context
+        return FrameLayout(ctx).apply {
+            setPadding(6.dp, 4.dp, 6.dp, 4.dp)
+            addView(card, FrameLayout.LayoutParams(MATCH, WRAP))
+        }
+    }
+
+    private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
+    private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
+}
