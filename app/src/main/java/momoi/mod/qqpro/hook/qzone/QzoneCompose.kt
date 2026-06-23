@@ -27,7 +27,10 @@ import androidx.core.content.FileProvider
 import com.tencent.mobileqq.activity.photo.LocalMediaInfo
 import com.tencent.watch.qzone_impl.feed.model.BusinessFeedData
 import com.tencent.watch.qzone_impl.frame.IAdapterHost
+import com.tencent.watch.qzone_impl.publish.business.model.ImageInfo
+import com.tencent.watch.qzone_impl.publish.business.model.MediaWrapper
 import com.tencent.watch.qzone_impl.publish.business.model.QzoneShuoShuoParams
+import com.tencent.watch.qzone_impl.publish.business.model.ShuoshuoVideoInfo
 import com.tencent.watch.qzone_impl.publish.business.publishqueue.QZonePublishQueue
 import com.tencent.watch.qzone_impl.publish.business.task.QZoneUploadShuoShuoTask
 import com.tencent.watch.qzone_impl.service.QZoneWriteOperationService
@@ -97,6 +100,7 @@ class ComposeFragment(
     private var draftText: String = prefill
     private var locationName: String? = null
     private var captureFile: File? = null
+    private val atUins = HashMap<String, Long>()   // uid → uin, for @{uin:..,nick:..} on send
 
     private var input: M3QQEditText? = null
     private var thumbStrip: LinearLayout? = null
@@ -275,14 +279,16 @@ class ComposeFragment(
     private fun onAt() {
         draftText = currentText()
         runCatching {
-            QzoneFriendPicker { uid, _, nick -> insertAtToken(uid, nick) }
+            QzoneFriendPicker { uid, uin, nick -> insertAtToken(uid, uin, nick) }
                 .show(childFragmentManager, "qzfriend")
         }.onFailure { Utils.log("QzoneCompose onAt: $it"); Utils.toast(requireContext(), "无法打开好友列表") }
     }
 
     /** Insert "@nick " as an atomic [AtTag] token (ImeEditText snaps the caret out of it and a single
-     *  backspace removes the whole mention — same behaviour as the chat input). */
-    private fun insertAtToken(uid: String, nick: String) {
+     *  backspace removes the whole mention — same behaviour as the chat input). The uin is remembered
+     *  so [onSend] can encode a real @{uin:..,nick:..} mention. */
+    private fun insertAtToken(uid: String, uin: Long, nick: String) {
+        atUins[uid] = uin
         val et = input?.editText
         val label = "@$nick "
         if (et == null) { draftText = currentText() + label; return }
@@ -432,7 +438,9 @@ class ComposeFragment(
     }
 
     private fun onSend() {
-        val text = currentText().trim()
+        // Encode @ tokens as real @{uin:..,nick:..} mentions (plain "@nick" text doesn't notify).
+        val ed = input?.editText?.text
+        val text = (if (ed != null) buildTextWithMentions(ed) else currentText()).trim()
         if (text.isBlank() && media.isEmpty()) { Utils.toast(requireContext(), "发布内容为空"); return }
         val ok = runCatching {
             val params = QzoneShuoShuoParams()
@@ -441,6 +449,7 @@ class ComposeFragment(
             if (media.isNotEmpty()) {
                 params.c = ArrayList(media)
                 params.b = media.mapNotNull { it.c }
+                params.e = buildMediaWrappers(text)   // the list the uploader actually reads
                 val task = QZoneUploadShuoShuoTask(6, 1, params)
                 task.uploadEntrance = 0
                 task.refer = null
@@ -453,5 +462,42 @@ class ComposeFragment(
         }.onFailure { Utils.log("QzoneCompose send: $it") }.isSuccess
         if (ok) { Utils.toast(requireContext(), "已发表"); runCatching { dismiss() } }
         else Utils.toast(requireContext(), "发表失败")
+    }
+
+    /** Walk the editor text, replacing each atomic [AtTag] run with @{uin:..,nick:..}. */
+    private fun buildTextWithMentions(ed: android.text.Editable): String {
+        val sb = StringBuilder()
+        var i = 0
+        while (i < ed.length) {
+            val tag = ed.getSpans(i, i + 1, AtTag::class.java).firstOrNull { ed.getSpanStart(it) == i }
+            if (tag != null) {
+                val uin = atUins[tag.uid] ?: 0L
+                sb.append("@{uin:$uin,nick:${tag.nick}}")
+                i = ed.getSpanEnd(tag)
+            } else { sb.append(ed[i]); i++ }
+        }
+        return sb.toString()
+    }
+
+    /** Build the MediaWrapper list the publish task uploads (image → ImageInfo, video → ShuoshuoVideoInfo). */
+    private fun buildMediaWrappers(desc: String): ArrayList<MediaWrapper> {
+        val out = ArrayList<MediaWrapper>()
+        media.forEach { mi ->
+            val path = mi.c ?: return@forEach
+            if (mi.C == 1) {
+                val v = ShuoshuoVideoInfo()
+                v.mVideoPath = path
+                v.mSize = runCatching { File(path).length() }.getOrDefault(0L)
+                v.mVideoType = 1
+                v.mIsNew = 102
+                v.mEstimateSize = runCatching { File(path).length().toDouble() }.getOrDefault(0.0)
+                out.add(MediaWrapper(v))
+            } else {
+                val img = ImageInfo(path)
+                img.mDescription = desc
+                out.add(MediaWrapper(img))
+            }
+        }
+        return out
     }
 }
