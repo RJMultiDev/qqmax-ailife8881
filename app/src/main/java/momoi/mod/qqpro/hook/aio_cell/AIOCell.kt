@@ -18,6 +18,8 @@ import com.tencent.watch.aio_impl.ui.widget.AIOCellGroupWidget
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.enums.NTMsgType
 import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.fitEmojiSpans
+import momoi.mod.qqpro.renderQQFaces
 import momoi.mod.qqpro.hook.action.CurrentContact
 import momoi.mod.qqpro.hook.action.CurrentGroupMembers
 import momoi.mod.qqpro.hook.action.CurrentMsgList
@@ -190,8 +192,20 @@ object AIOCell {
             // not an AIOCellGroupWidget — and the native cell sets no movement method, so
             // the member-name spans built into tipsContent (see GrayTipMention.kt) are
             // inert. Enable them here; the spans themselves are created at decode time.
-            if (Settings.parseAtMember.value && view is TextView) {
-                if (view.movementMethod !is LinkMovementMethod) {
+            if (view is TextView) {
+                // Grey-tip cells keep raw QQ sysface codes on this watch build (they render as □
+                // boxes); parse them into face spans, preserving the clickable member-name spans
+                // (QQText copies existing spans, and sysface parsing is length-preserving so their
+                // offsets stay valid). Skip when already rendered (recycled view).
+                val t = view.text
+                val hasFace = (t as? Spanned)
+                    ?.getSpans(0, t.length, EmoticonSpan::class.java)?.isNotEmpty() == true
+                if (!t.isNullOrEmpty() && !hasFace) {
+                    val rendered = renderQQFaces(t, 14)
+                    fitEmojiSpans(rendered, view.textSize)
+                    view.text = rendered
+                }
+                if (Settings.parseAtMember.value && view.movementMethod !is LinkMovementMethod) {
                     view.movementMethod = LinkMovementMethod.getInstance()
                     view.highlightColor = 0x33888888
                 }

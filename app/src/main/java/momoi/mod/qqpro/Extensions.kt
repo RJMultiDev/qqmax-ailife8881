@@ -7,6 +7,7 @@ import android.view.ViewParent
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.view.forEach
+import com.tencent.mobileqq.text.QQText
 import com.tencent.mobileqq.text.style.EmoticonSpan
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.create
@@ -22,6 +23,17 @@ import java.lang.reflect.Method
  * a touch taller than the cap height. Absolute (not multiplicative), so re-running it never compounds
  * — safe to call on every (re)bind / text change.
  */
+/**
+ * Parse QQ sysface codes in [text] into [EmoticonSpan]s so they render as glyphs instead of □ boxes
+ * (this watch build leaves raw codes in plain TextViews — titlebar names, grey tips). QQText copies
+ * any existing spans (e.g. clickable grey-tip name spans) and sysface parsing is length-preserving,
+ * so their offsets stay valid. [sizeSp] sets the face glyph size. Returns [text] unchanged on failure.
+ */
+fun renderQQFaces(text: CharSequence?, sizeSp: Int): CharSequence {
+    if (text.isNullOrEmpty()) return text ?: ""
+    return runCatching { QQText(text, 19, sizeSp, null) as CharSequence }.getOrDefault(text)
+}
+
 fun fitEmojiSpans(cs: CharSequence?, textPx: Float, ratio: Float = 1.25f) {
     if (cs !is Spanned || textPx <= 0f) return
     val target = (textPx * ratio).toInt()

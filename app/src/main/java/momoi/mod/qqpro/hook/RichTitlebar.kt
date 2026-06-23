@@ -23,6 +23,7 @@ import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.enums.ChatType
 import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.hook.action.RecentContacts
+import momoi.mod.qqpro.renderQQFaces
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.lib.dp
@@ -121,7 +122,9 @@ object RichTitlebar {
                 } else {
                     ellipsize = TextUtils.TruncateAt.END
                 }
-                text = name
+                // Render QQ sysface codes in the name into face glyphs (a plain TextView shows the
+                // raw codes as □ boxes), sized to the 13sp title.
+                text = renderQQFaces(name, 13)
             }
             val countTv = TextView(ctx).apply {
                 setTextColor(M3.onSurface)
