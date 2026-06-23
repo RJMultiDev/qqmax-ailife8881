@@ -27,6 +27,10 @@ class SearchResultName :
     QQSearchFriendFragment(FriendDetailData("", "", "", false, "", false)) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // When the contacts-list materialization is on, QQSearchFriendMaterial rebuilds this whole page
+        // (re-parenting self_name into a LinearLayout). Setting width=0 here would then mean 0px (no
+        // weight) and collapse the name — so leave it to the materializer.
+        if (Settings.materialContactsList.value) return
         if (!Settings.profileNameMultiline.value) return
         try {
             val id = resources.getIdentifier("self_name", "id", requireContext().packageName)

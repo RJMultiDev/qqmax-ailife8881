@@ -10,6 +10,7 @@ import android.widget.TextView
 import java.lang.ref.WeakReference
 import com.tencent.qqnt.watch.add.QQAddFriendFragment
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.util.Utils
 
 /** Bundle key carrying a number to prefill into the add/search numeric pad. */
@@ -79,6 +80,9 @@ internal fun View.findNavControllerFromTree(): Any? {
 class AddFriendPrefill : QQAddFriendFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // The Material add-by-number page (QQAddFriendMaterial) rebuilds this screen and handles the
+        // prefill itself against its own field; this native-field wiring would just fight it.
+        if (Settings.materialContactsList.value) return
         // Enable pasting a number into the search field. The numeric pad drives `curString` (g),
         // which is what the search reads; the EditText (e) is just display — so a raw paste never
         // reached the search. setupPaste keeps g synced with the field and adds a long-press paste.

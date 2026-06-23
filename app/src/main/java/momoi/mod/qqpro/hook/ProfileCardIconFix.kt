@@ -41,7 +41,7 @@ class ProfileCardIconFix : ProfileCardFragment() {
         // page is already built), so the displayed profile is unaffected.
         runCatching { super.onViewCreated(view, savedInstanceState) }
             .onFailure { Utils.log("ProfileCardFragment super.onViewCreated threw (likely at_btn null on view reuse): ${it.message}") }
-        if (Settings.useRichProfile.value) {
+        if (Settings.useRichProfile.value || Settings.materialContactsList.value) {
             // Full Material rebuild: re-parents the native views into a new tree (own scroll + info card).
             try {
                 val ctx = requireContext()

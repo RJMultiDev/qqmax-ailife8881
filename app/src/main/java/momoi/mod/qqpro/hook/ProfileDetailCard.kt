@@ -9,6 +9,7 @@ import android.widget.TextView
 import com.tencent.qqnt.kernel.api.IKernelService
 import com.tencent.qqnt.kernel.nativeinterface.ProfileBizType
 import com.tencent.qqnt.kernel.nativeinterface.Source
+import com.tencent.qqnt.msg.KernelServiceUtil
 import momoi.mod.qqpro.lib.dp
 import android.widget.ImageView
 import momoi.mod.qqpro.lib.material.M3
@@ -192,17 +193,42 @@ object ProfileDetailCard {
             ?.get(uid)?.coreInfo?.remark?.takeIf { it.isNotEmpty() }
     }.onFailure { Utils.log("ProfileDetailCard.remarkByUin error: $it") }.getOrNull()
 
-    /** Resolve uin → uid (sync) then [fetch] the detail by uid. */
+    /** Resolve uin → uid from the local cache, or null. A non-null result means the user is in the
+     *  local contact cache (i.e. an existing friend) — strangers don't resolve. */
+    fun uidByUin(uin: Long): String? = runCatching {
+        profileService()?.getUidByUin("qqpro_prefill", arrayListOf(uin))?.get(uin)?.takeIf { it.isNotEmpty() }
+    }.onFailure { Utils.log("ProfileDetailCard.uidByUin error: $it") }.getOrNull()
+
+    /** Resolve uin → uid then [fetch] the detail by uid. Tries the local cache first (instant for
+     *  friends); on a miss falls back to the kernel server resolver ([resolveUidServer]) so strangers
+     *  (not in the local contact cache) can also be fetched. */
     fun fetchByUin(uin: Long, cb: (Info?) -> Unit) {
         runCatching {
             val app = MobileQQ.sMobileQQ?.peekAppRuntime()
             val ks = app?.getRuntimeService(IKernelService::class.java, "") as? IKernelService
             val ps = ks?.profileService
             val uid = ps?.getUidByUin("qqpro_profile", arrayListOf(uin))?.get(uin)
-            Utils.log("ProfileDetailCard.fetchByUin uin=$uin uid=$uid")
-            if (uid.isNullOrEmpty()) { cb(null); return }
-            fetch(uid, cb)
+            Utils.log("ProfileDetailCard.fetchByUin uin=$uin uid=$uid (local)")
+            if (!uid.isNullOrEmpty()) { fetch(uid, cb); return }
+            // Local cache miss (stranger) → resolve via server, then fetch.
+            resolveUidServer(uin) { serverUid ->
+                if (serverUid.isNullOrEmpty()) cb(null) else fetch(serverUid, cb)
+            }
         }.onFailure { Utils.log("ProfileDetailCard.fetchByUin error: $it"); cb(null) }
+    }
+
+    /** Resolve uin → uid via the kernel UixConvert service (a server call that works for any uin,
+     *  including strangers not in the local cache). [cb] runs on a binder thread. */
+    private fun resolveUidServer(uin: Long, cb: (String?) -> Unit) {
+        runCatching {
+            val uix = KernelServiceUtil.g()?.uixConvertService
+            if (uix == null) { cb(null); return }
+            uix.getUid(hashSetOf(uin)) { map ->
+                val uid = map?.get(uin)?.takeIf { it.isNotEmpty() }
+                Utils.log("ProfileDetailCard.resolveUidServer uin=$uin uid=$uid (server)")
+                cb(uid)
+            }
+        }.onFailure { Utils.log("ProfileDetailCard.resolveUidServer error: $it"); cb(null) }
     }
 
     /** Async server fetch; parses into [Info]; invokes [cb] (possibly on a binder thread → caller posts). */

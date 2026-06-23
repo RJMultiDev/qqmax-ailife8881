@@ -35,6 +35,8 @@ class ConfirmFragment(
     private val destructive: Boolean = false,
     private val cancelLabel: String = "取消",
     private val onCancel: () -> Unit = {},
+    // Info mode: show only the confirm button (e.g. a 返回/重试 acknowledgement dialog).
+    private val singleButton: Boolean = false,
     private val onConfirm: () -> Unit,
 ) : MyDialogFragment() {
     override fun onCreateView(
@@ -56,7 +58,7 @@ class ConfirmFragment(
             button(confirmLabel, confirmBg, M3.onColor(confirmBg)) {
                 dismiss(); runCatching { onConfirm() }
             }
-            button(cancelLabel, M3.surfaceContainerHigh, M3.onSurface) {
+            if (!singleButton) button(cancelLabel, M3.surfaceContainerHigh, M3.onSurface) {
                 dismiss(); runCatching { onCancel() }
             }
         }
