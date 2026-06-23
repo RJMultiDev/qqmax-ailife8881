@@ -21,7 +21,7 @@ import momoi.mod.qqpro.lib.dp
  */
 class M3Button(ctx: Context) : TextView(ctx) {
 
-    enum class Variant { FILLED, TONAL, TEXT, OUTLINED }
+    enum class Variant { FILLED, TONAL, TEXT, OUTLINED, ERROR }
 
     init {
         gravity = Gravity.CENTER
@@ -40,6 +40,8 @@ class M3Button(ctx: Context) : TextView(ctx) {
             Variant.TONAL    -> M3.primaryContainer to M3.onPrimaryContainer
             Variant.TEXT     -> 0 to M3.primary
             Variant.OUTLINED -> 0 to M3.primary
+            // Destructive: translucent error container with an error-colored label.
+            Variant.ERROR    -> ((M3.error and 0x00FFFFFF) or 0x33_000000) to M3.error
         }
         setTextColor(label)
         val base = when (v) {

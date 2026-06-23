@@ -132,6 +132,7 @@ class ComposeFragment(
         val edit = M3QQEditText(ctx).apply {
             setHint("这一刻的想法…")
             setMultiline(true)
+            setFieldTextSize(12)
             editText.maxLines = Integer.MAX_VALUE   // grow infinitely; the page ScrollView handles overflow
             editText.isVerticalScrollBarEnabled = false
             permissionFragmentProvider = { this@ComposeFragment }

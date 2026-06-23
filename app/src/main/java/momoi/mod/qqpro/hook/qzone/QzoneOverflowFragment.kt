@@ -25,6 +25,7 @@ import momoi.mod.qqpro.util.Utils
  */
 class QzoneOverflowFragment(
     private val rows: List<Pair<String, () -> Unit>>,
+    private val destructive: Set<String> = emptySet(),
 ) : MyDialogFragment() {
 
     constructor() : this(emptyList())
@@ -51,7 +52,7 @@ class QzoneOverflowFragment(
         for ((label, action) in rows) {
             column.addView(M3Button(ctx).apply {
                 text = label
-                variant(M3Button.Variant.TONAL)
+                variant(if (label in destructive) M3Button.Variant.ERROR else M3Button.Variant.TONAL)
                 setOnClickListener {
                     dismiss()
                     runCatching { action() }.onFailure { Utils.log("QzoneOverflow row '$label': $it") }

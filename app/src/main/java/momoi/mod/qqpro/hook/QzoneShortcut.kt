@@ -68,27 +68,36 @@ fun addQzoneEntry(fragment: SettingFrame) {
 
 /** Navigate to the QZone home feed of [uin] via the (obfuscated) androidx NavController. */
 fun openUserQzone(anchor: View, uin: Long) {
-    runCatching {
+    // zone_main_fragment maps to QZoneMineFragment, which reads its owner from `key_uin`.
+    val ok = navigateDest(anchor, "zone_main_fragment", Bundle().apply { putLong("key_uin", uin) })
+    if (ok) Utils.log("Qzone: navigate to zone_main_fragment uin=$uin")
+}
+
+/**
+ * Generic helper: navigate to the destination named [destName] (a resource id under R.id) with
+ * [args], via the obfuscated androidx NavController resolved from [anchor]'s view tree. Returns true
+ * on success. Used for QZone home (zone_main_fragment) and the report page (reportFragment).
+ */
+fun navigateDest(anchor: View, destName: String, args: Bundle): Boolean {
+    return runCatching {
         val nav = anchor.findNavControllerFromTree() ?: run {
             Utils.log("Qzone: NavController not found in view tree")
-            return
+            return false
         }
-        // zone_main_fragment maps to QZoneMineFragment, which reads its owner from `key_uin`.
-        val destId = anchor.resources.getIdentifier("zone_main_fragment", "id", anchor.context.packageName)
+        val destId = anchor.resources.getIdentifier(destName, "id", anchor.context.packageName)
         if (destId == 0) {
-            Utils.log("Qzone: zone_main_fragment id not found")
-            return
+            Utils.log("Qzone: $destName id not found")
+            return false
         }
-        val navArgs = Bundle().apply { putLong("key_uin", uin) }
         // navigate(int destId, Bundle args, NavOptions options) — name obfuscated.
         val navigate = nav.javaClass.methods.firstOrNull { m ->
             val p = m.parameterTypes
             p.size == 3 && p[0] == Int::class.javaPrimitiveType && p[1] == Bundle::class.java
         } ?: run {
             Utils.log("Qzone: navigate(int,Bundle,..) not found on ${nav.javaClass.name}")
-            return
+            return false
         }
-        navigate.invoke(nav, destId, navArgs, null)
-        Utils.log("Qzone: navigate to zone_main_fragment uin=$uin")
-    }.onFailure { Utils.log("Qzone: open failed: $it") }
+        navigate.invoke(nav, destId, args, null)
+        true
+    }.getOrElse { Utils.log("Qzone: navigateDest($destName) failed: $it"); false }
 }

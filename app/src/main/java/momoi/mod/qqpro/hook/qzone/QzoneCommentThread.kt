@@ -15,8 +15,12 @@ import com.tencent.watch.qzone_impl.feed.model.Comment
 import com.tencent.watch.qzone_impl.frame.IAdapterHost
 import com.tencent.watch.qzone_impl.protocol.request.QZoneAddCommentRequest
 import com.tencent.watch.qzone_impl.protocol.request.QZoneAddReplyRequest
+import com.tencent.watch.qzone_impl.protocol.request.QzoneDeleteCommentRequest
+import com.tencent.watch.qzone_impl.protocol.request.QzoneDeleteReplyRequest
 import com.tencent.watch.qzone_impl.service.QZoneWriteOperationService
 import com.tencent.watch.qzone_impl.utils.UinUtils
+import NS_MOBILE_FEEDS.Reply
+import momoi.mod.qqpro.hook.openUserQzone
 import momoi.mod.qqpro.hook.view.MyDialogFragment
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.material.M3
@@ -76,6 +80,7 @@ class QzoneCommentThread(
         val edit = M3QQEditText(ctx).apply {
             setHint("评论…")
             setMultiline(true)
+            setFieldTextSize(12)
             permissionFragmentProvider = { this@QzoneCommentThread }
         }
         input = edit
@@ -106,7 +111,9 @@ class QzoneCommentThread(
         comments.forEach { c ->
             val rowView = QzoneFeedCard.commentRow(ctx, c.user, c.user?.nickName, null, c.comment, small = false)
             rowView.isClickable = true
-            rowView.setOnClickListener { setReplyTarget(c) }
+            // Tap → open the author's QZone; long-press → 回复 / 删除 menu.
+            rowView.setOnClickListener { openAuthor(c.user?.uin) }
+            rowView.setOnLongClickListener { showCommentMenu(c, c); true }
             column.addView(rowView)
             // replies, indented
             runCatching {
@@ -114,11 +121,101 @@ class QzoneCommentThread(
                     val rr = QzoneFeedCard.commentRow(ctx, r.user, r.user?.nickName, r.targetUser?.nickName, r.content, small = true)
                     rr.setPadding(20.dp, rr.paddingTop, 0, rr.paddingBottom)
                     rr.isClickable = true
-                    rr.setOnClickListener { setReplyTarget(c) }
+                    rr.setOnClickListener { openAuthor(r.user?.uin) }
+                    rr.setOnLongClickListener { showCommentMenu(c, r); true }
                     column.addView(rr)
                 }
             }
         }
+    }
+
+    /** Open the QZone home of [uin]; the navigation closes this thread (one-shot, like the phone). */
+    private fun openAuthor(uin: Long?) {
+        val h = host ?: return
+        if (uin == null || uin <= 0L) return
+        val v = runCatching { h.b().requireView() }.getOrNull() ?: return
+        runCatching { dismiss() }
+        openUserQzone(v, uin)
+    }
+
+    /** Long-press action sheet for a comment or reply: 回复 always, 删除 when deletable. [parent] is
+     *  the top-level comment a reply belongs to (reply targets reply to its parent comment). */
+    private fun showCommentMenu(parent: Comment, target: Any) {
+        val rows = ArrayList<Pair<String, () -> Unit>>()
+        rows.add("回复" to { setReplyTarget(parent) })
+        if (canDelete(target)) rows.add("删除" to {
+            QzoneConfirmDialog("确定删除？", "删除", destructive = true) { deleteCommentOrReply(parent, target) }
+                .show(childFragmentManager, "qzdelcr")
+        })
+        runCatching { QzoneOverflowFragment(rows, destructive = setOf("删除")).show(childFragmentManager, "qzcrmenu") }
+            .onFailure { Utils.log("QzoneCommentThread menu: $it") }
+    }
+
+    /** Deletable when it isn't a pending fake and either the post is mine or I authored it. */
+    private fun canDelete(target: Any): Boolean {
+        val d = data ?: return false
+        val self = UinUtils.b()
+        val postMine = QzoneActions.isSelf(d)
+        return when (target) {
+            is Comment -> !target.isFake && (postMine || target.user?.uin == self)
+            is Reply -> !target.isFake && (postMine || target.user?.uin == self)
+            else -> false
+        }
+    }
+
+    private fun deleteCommentOrReply(parent: Comment, target: Any) {
+        val d = data ?: return
+        runCatching {
+            when (target) {
+                is Comment -> deleteComment(d, target)
+                is Reply -> deleteReply(d, target)
+            }
+            // Optimistic local removal so the thread updates immediately.
+            runCatching {
+                when (target) {
+                    is Comment -> d.cellCommentInfo?.c?.remove(target)
+                    is Reply -> parent.replies?.remove(target)
+                }
+            }
+            rebuildList(d)
+            Utils.toast(requireContext(), "已删除")
+        }.onFailure { Utils.log("QzoneCommentThread delete: $it"); Utils.toast(requireContext(), "删除失败") }
+    }
+
+    private fun deleteComment(d: BusinessFeedData, c: Comment) {
+        if (c.isFake) return
+        val fc = d.feedCommInfo
+        val appid = fc.appid.toLong()
+        val postOwner = d.user?.uin ?: d.owner_uin
+        val cellId = runCatching { d.idInfo?.cellId }.getOrNull() ?: ""
+        val commentAuthor = c.user?.uin ?: 0L
+        val commentId = c.commentid ?: ""
+        val busi = runCatching { d.operationInfo?.busiParam }.getOrNull()
+        val req = QzoneDeleteCommentRequest(appid, postOwner, cellId, commentAuthor, commentId, 0, busi)
+        val task = QZoneTask(req, null, QZoneWriteOperationService.h(), 10)
+        task.addParameter("ugckey", fc.ugckey)
+        task.addParameter("position", 0)
+        QZoneBusinessLooper.a().c(task)
+        Utils.log("QzoneCommentThread: delete comment $commentId on ${fc.feedskey}")
+    }
+
+    private fun deleteReply(d: BusinessFeedData, r: Reply) {
+        if (r.isFake) return
+        val fc = d.feedCommInfo
+        val appid = fc.appid.toLong()
+        val postOwner = d.user?.uin ?: d.owner_uin
+        val cellId = runCatching { d.idInfo?.cellId }.getOrNull() ?: ""
+        val commentUin = r.commentUin ?: 0L
+        val commentId = r.commentId ?: ""
+        val replyAuthor = r.user?.uin ?: 0L
+        val replyId = r.replyId ?: ""
+        val busi = runCatching { d.operationInfo?.busiParam }.getOrNull()
+        val req = QzoneDeleteReplyRequest(appid, postOwner, cellId, commentUin, commentId, replyAuthor, replyId, 0, busi)
+        val task = QZoneTask(req, null, QZoneWriteOperationService.h(), 11)
+        task.addParameter("ugckey", fc.ugckey)
+        task.addParameter("position", 0)
+        QZoneBusinessLooper.a().c(task)
+        Utils.log("QzoneCommentThread: delete reply $replyId on ${fc.feedskey}")
     }
 
     private fun setReplyTarget(c: Comment?) {

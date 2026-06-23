@@ -312,7 +312,9 @@ object QzoneFeedCard {
         // Swap Unicode-emoji [em] codes for their chars first, then let StringUtil.a do @mentions +
         // classic image sysfaces.
         val full = QzoneEmoji.substitute(prefix + summary)
-        return runCatching { StringUtil.a(full, tv) }.getOrNull() ?: full
+        val rendered = runCatching { StringUtil.a(full, tv) }.getOrNull() ?: full
+        // Re-attach the uin StringUtil.a discards, so @mentions open the mentioned user's QZone.
+        return runCatching { QzoneMentions.linkify(full, rendered, tv) }.getOrNull() ?: rendered
     }
 
     /** Dump candidate forward/repost fields so we can discover whether reposter data is available. */

@@ -54,6 +54,9 @@ class M3QQEditText(context: Context) : LinearLayout(context) {
     /** The underlying field. Public so callers can read/observe it or tweak input type directly. */
     val editText: ImeEditText = ImeEditText(context)
 
+    /** Current field text size (sp); overridable via [setFieldTextSize], drives emoji glyph sizing too. */
+    private var fieldTextSp: Int = FIELD_TEXT_SP
+
     private val emojiBtn: ImageView
     private val micBtn: ImageView
 
@@ -125,13 +128,19 @@ class M3QQEditText(context: Context) : LinearLayout(context) {
         // the raw face codes, so re-submitting round-trips the emoji unchanged.
         val rendered: CharSequence? =
             if (value.isNullOrEmpty()) value
-            else runCatching { QQText(value, 19, FIELD_TEXT_SP, null) as CharSequence }.getOrDefault(value)
+            else runCatching { QQText(value, 19, fieldTextSp, null) as CharSequence }.getOrDefault(value)
         editText.setText(rendered)
         editText.setSelection(editText.text?.length ?: 0)
         refreshMic()
     }
 
     fun setHint(value: CharSequence?) { editText.hint = value }
+
+    /** Override the field text size (sp); also drives emoji glyph sizing in [setText]. */
+    fun setFieldTextSize(sp: Int) {
+        fieldTextSp = sp
+        editText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sp.toFloat())
+    }
 
     /** Trimmed text content (what the change-info callbacks want to write). */
     fun trimmedText(): String = editText.text?.toString()?.trim().orEmpty()
