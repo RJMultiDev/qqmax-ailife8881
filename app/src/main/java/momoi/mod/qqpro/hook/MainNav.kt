@@ -1,7 +1,10 @@
 package momoi.mod.qqpro.hook
 
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.animation.PathInterpolator
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -73,6 +76,11 @@ object MainNav {
 
     private var active: NavState? = null
 
+    // M3 motion: emphasized-decelerate easing for the active-indicator reveal + icon transitions.
+    private val EMPHASIZED = PathInterpolator(0.2f, 0f, 0f, 1f)
+    private const val DUR_IN = 300L     // indicator/icon appearing (selected)
+    private const val DUR_OUT = 200L    // indicator/icon disappearing (deselected)
+
     class NavState(
         val nav: LinearLayout,
         val pager: PagerCtl,
@@ -84,9 +92,17 @@ object MainNav {
         // Last fully-rendered (page, unread-signature) so the high-frequency scroll listener only
         // re-styles when something actually changed.
         var renderedKey = ""
+        // Last selected page actually rendered — distinguishes a pure page switch (animate) from a
+        // settings/badge change or first paint (instant).
+        var lastCurrent = -1
     }
 
-    class Cell(val frame: FrameLayout, val pill: View, val icon: ImageView, val dot: View, val badge: TextView)
+    class Cell(val frame: FrameLayout, val pill: View, val icon: ImageView, val dot: View, val badge: TextView) {
+        // The icon's currently-displayed tint, so a selection change can crossfade from it.
+        var iconColor = 0
+        // Running icon color crossfade, cancelled before starting a new one.
+        var colorAnim: ValueAnimator? = null
+    }
 
     /** Live unread updates pushed by the kernel; recompute badges in place. */
     class UnreadListener : IKernelRecentContactListener {
@@ -291,7 +307,7 @@ object MainNav {
                 }
             }
             nav.addView(frame, lp)
-            state.cells.add(Cell(frame, pill, icon, dot, badge))
+            state.cells.add(Cell(frame, pill, icon, dot, badge).apply { iconColor = IDLE_ICON })
         }
     }
 
@@ -302,20 +318,18 @@ object MainNav {
         val counts = if (showUnread) (0 until state.pageCount).map { unreadFor(state, it) } else emptyList()
         val key = "${state.current}|$allIcons|$showUnread|$counts"
         if (!force && key == state.renderedKey) return
+        val prevKey = state.renderedKey
         state.renderedKey = key
+        // Animate only a pure page-selection change: not the first paint / a rebuild (force), and only
+        // when everything but the selected index is unchanged (so settings + badge updates stay instant).
+        val animate = !force && prevKey.isNotEmpty() && state.lastCurrent != state.current &&
+            prevKey.substringAfter('|') == key.substringAfter('|')
+        state.lastCurrent = state.current
         state.cells.forEachIndexed { i, cell ->
             val selected = i == state.current
             val hasIcon = state.iconMap[i] != null
             val showIcon = hasIcon && (allIcons || selected)
-            cell.icon.visibility = if (showIcon) View.VISIBLE else View.GONE
-            cell.dot.visibility = if (showIcon) View.GONE else View.VISIBLE
-            // M3 active indicator: pill only behind the selected page's icon.
-            cell.pill.visibility = if (selected && showIcon) View.VISIBLE else View.GONE
-            if (showIcon) {
-                cell.icon.setColorFilter(if (selected) ACCENT else IDLE_ICON)
-            } else {
-                (cell.dot.background as? GradientDrawable)?.setColor(if (selected) ACCENT else DOT_COLOR)
-            }
+            applyCell(cell, selected, showIcon, animate)
             val count = if (showUnread) counts[i] else 0
             if (count > 0) {
                 cell.badge.text = if (count > 99) "99+" else count.toString()
@@ -324,6 +338,78 @@ object MainNav {
                 cell.badge.visibility = View.GONE
             }
         }
+    }
+
+    /** Apply a cell's selected/icon state, with M3 motion when [animate] (else instant). */
+    private fun applyCell(cell: Cell, selected: Boolean, showIcon: Boolean, animate: Boolean) {
+        // Icon ↔ dot crossfade (only matters in single-icon mode, where the non-selected pages show a dot).
+        crossfade(cell.icon, showIcon, animate)
+        crossfade(cell.dot, !showIcon, animate)
+
+        // M3 active indicator: the pill scales + fades in behind the selected icon, out otherwise.
+        val pillShown = selected && showIcon
+        if (pillShown) {
+            if (cell.pill.visibility != View.VISIBLE || cell.pill.alpha < 1f) {
+                cell.pill.visibility = View.VISIBLE
+                if (animate) {
+                    cell.pill.alpha = 0f; cell.pill.scaleX = 0.55f; cell.pill.scaleY = 0.85f
+                    cell.pill.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                        .setDuration(DUR_IN).setInterpolator(EMPHASIZED).start()
+                } else {
+                    cell.pill.alpha = 1f; cell.pill.scaleX = 1f; cell.pill.scaleY = 1f
+                }
+            }
+        } else if (cell.pill.visibility == View.VISIBLE) {
+            if (animate) {
+                cell.pill.animate().alpha(0f).scaleX(0.55f).scaleY(0.85f)
+                    .setDuration(DUR_OUT).setInterpolator(EMPHASIZED)
+                    .withEndAction { cell.pill.visibility = View.GONE }.start()
+            } else {
+                cell.pill.visibility = View.GONE
+                cell.pill.alpha = 1f; cell.pill.scaleX = 1f; cell.pill.scaleY = 1f
+            }
+        }
+
+        // Colors: icon tint crossfades idle↔accent (+ a small scale pop when newly selected); the dot
+        // (single-icon mode) is set instantly.
+        if (showIcon) {
+            animateIconColor(cell, if (selected) ACCENT else IDLE_ICON, animate)
+            if (selected && animate) {
+                cell.icon.scaleX = 0.8f; cell.icon.scaleY = 0.8f
+                cell.icon.animate().scaleX(1f).scaleY(1f).setDuration(DUR_IN).setInterpolator(EMPHASIZED).start()
+            }
+        } else {
+            (cell.dot.background as? GradientDrawable)?.setColor(if (selected) ACCENT else DOT_COLOR)
+        }
+    }
+
+    /** Show/hide [v] with an alpha crossfade when [animate], else instantly. */
+    private fun crossfade(v: View, show: Boolean, animate: Boolean) {
+        if (show) {
+            if (v.visibility != View.VISIBLE) {
+                v.visibility = View.VISIBLE
+                if (animate) { v.alpha = 0f; v.animate().alpha(1f).setDuration(DUR_IN).start() } else v.alpha = 1f
+            }
+        } else if (v.visibility == View.VISIBLE) {
+            if (animate) v.animate().alpha(0f).setDuration(DUR_OUT).withEndAction { v.visibility = View.GONE }.start()
+            else { v.visibility = View.GONE; v.alpha = 1f }
+        }
+    }
+
+    /** Crossfade [cell]'s icon tint to [target] (ARGB) when [animate], else set instantly. */
+    private fun animateIconColor(cell: Cell, target: Int, animate: Boolean) {
+        cell.colorAnim?.cancel()
+        if (!animate || cell.iconColor == target) {
+            cell.icon.setColorFilter(target); cell.iconColor = target; return
+        }
+        val anim = ValueAnimator.ofObject(ArgbEvaluator(), cell.iconColor, target).apply {
+            duration = DUR_IN
+            interpolator = EMPHASIZED
+            addUpdateListener { cell.icon.setColorFilter(it.animatedValue as Int) }
+        }
+        cell.iconColor = target
+        cell.colorAnim = anim
+        anim.start()
     }
 
     /**
