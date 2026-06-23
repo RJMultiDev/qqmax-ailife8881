@@ -6,8 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
-import android.location.Geocoder
-import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -35,6 +33,7 @@ import com.tencent.watch.qzone_impl.publish.business.publishqueue.QZonePublishQu
 import com.tencent.watch.qzone_impl.publish.business.task.QZoneUploadShuoShuoTask
 import com.tencent.watch.qzone_impl.service.QZoneWriteOperationService
 import com.tencent.qqnt.watch.contact.api.IContactRuntimeService
+import com.tencent.qqnt.watch.ui.componet.permission.PermissionUtils
 import downloadExecutor
 import mqq.app.MobileQQ
 import momoi.mod.qqpro.Settings
@@ -320,30 +319,43 @@ class ComposeFragment(
 
     private fun pickLocation() {
         val ctx = requireContext()
-        if (ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQ_LOCATION_PERM)
+        if (ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            openLocationPicker()
             return
         }
+        // Not granted: this watch ROM has no OS permission dialog — and QQ's Soso also gates on its own
+        // internal QQLocationSetting consent (a bare `pm grant` of the Android permission isn't enough).
+        // QQ's PermissionUtils drives both via the in-app permissionFragment. It navigates (destroying
+        // this compose dialog), which is fine — permission is a one-time grant.
+        val navFragment = host?.b()
+        if (navFragment == null) { Utils.toast(ctx, "无法请求位置权限"); return }
+        val appCtx = ctx.applicationContext
+        Utils.log("QzoneCompose pickLocation: requesting permission via PermissionUtils")
         runCatching {
-            val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            @Suppress("MissingPermission")
-            val loc = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                ?: lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-            if (loc == null) { Utils.toast(ctx, "无法获取位置，请稍后再试"); return }
-            val name = runCatching {
-                @Suppress("DEPRECATION")
-                Geocoder(ctx).getFromLocation(loc.latitude, loc.longitude, 1)?.firstOrNull()
-                    ?.let { it.featureName ?: it.subLocality ?: it.locality }
-            }.getOrNull()?.takeIf { it.isNotBlank() } ?: "当前位置"
-            locationName = name
-            refreshLocationChip()
-            Utils.toast(ctx, "已添加位置：$name")
-        }.onFailure { Utils.log("QzoneCompose pickLocation: $it") }
+            PermissionUtils.a.a(
+                "位置功能需要获取位置权限",
+                navFragment,
+                listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION),
+            ) { ok ->
+                Utils.log("QzoneLocation perm result: $ok")
+                Utils.toast(appCtx, if (ok) "已获取位置权限，请重新选择位置" else "未获得位置权限")
+            }
+        }.onFailure { Utils.log("QzoneCompose pickLocation perm: $it"); Utils.toast(ctx, "无法请求位置权限") }
+    }
+
+    private fun openLocationPicker() {
+        Utils.log("QzoneCompose pickLocation: opening picker")
+        runCatching {
+            QzoneLocationPicker { name ->
+                locationName = name
+                refreshLocationChip()
+            }.show(childFragmentManager, "qzloc")
+        }.onFailure { Utils.log("QzoneCompose openLocationPicker: $it") }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQ_LOCATION_PERM && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) pickLocation()
+        // location: picker already opened in pickLocation(); nothing to re-trigger here.
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
