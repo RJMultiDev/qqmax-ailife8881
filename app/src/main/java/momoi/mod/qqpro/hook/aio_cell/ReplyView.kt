@@ -12,6 +12,7 @@ import momoi.mod.qqpro.MsgUtil
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.drawable.roundCornerDrawable
 import momoi.mod.qqpro.util.Utils
+import momoi.mod.qqpro.fitEmojiSpans
 import momoi.mod.qqpro.join
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.WRAP
@@ -87,6 +88,10 @@ class ReplyView(context: Context) : LinearLayout(context) {
             }
         }
         mTvName.text = reply.senderName
+        // The summary's face emoji are baked at QQ's default chat size; shrink them to match this
+        // smaller quote text so they don't tower over the words. Absolute fit → no compounding even
+        // though reply.content is cached and re-bound on recycle.
+        fitEmojiSpans(reply.content, mTvContent.textSize)
         mTvContent.text = reply.content
     }
 }

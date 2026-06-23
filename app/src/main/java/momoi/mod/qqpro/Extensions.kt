@@ -1,15 +1,66 @@
 package momoi.mod.qqpro
 
+import android.text.Spanned
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewParent
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.core.view.forEach
+import com.tencent.mobileqq.text.style.EmoticonSpan
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.create
 import momoi.mod.qqpro.lib.vertical
 import java.io.File
 import java.lang.reflect.Method
+
+/**
+ * QQ bakes inline face emoji as fixed-size [EmoticonSpan]s (sized to QQ's default chat text size),
+ * so they don't follow a smaller/larger surrounding text — e.g. a reply quote or a re-sized settings
+ * title where the faces end up far bigger than the words. Resize every face span in [cs] to an
+ * ABSOLUTE target derived from [textPx] (the host TextView's text size) times [ratio], so a face sits
+ * a touch taller than the cap height. Absolute (not multiplicative), so re-running it never compounds
+ * — safe to call on every (re)bind / text change.
+ */
+fun fitEmojiSpans(cs: CharSequence?, textPx: Float, ratio: Float = 1.25f) {
+    if (cs !is Spanned || textPx <= 0f) return
+    val target = (textPx * ratio).toInt()
+    if (target <= 0) return
+    cs.getSpans(0, cs.length, EmoticonSpan::class.java).forEach { it.h(target) }
+}
+
+/** Resize this view's face spans to match its own text size, and keep doing so as the text changes. */
+fun TextView.keepEmojiFitToText(ratio: Float = 1.25f) {
+    fitEmojiSpans(text, textSize, ratio)
+    addTextChangedListener(object : android.text.TextWatcher {
+        override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+        override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+        override fun afterTextChanged(s: android.text.Editable?) { fitEmojiSpans(text, textSize, ratio) }
+    })
+}
+
+/**
+ * Same as the [TextView] overload but for QQ's [com.tencent.widget.SingleLineTextView] — which is a
+ * plain [View] (no TextWatcher), reused as the name/title in the M3 settings header. The name arrives
+ * async, so re-fit on every pre-draw: resize the face spans to the view's text size and, when one
+ * actually changed, force a layout rebuild. setText() short-circuits on an *equal* instance, so we
+ * hand it a fresh SpannableString wrapper (which carries the same, already-resized span objects).
+ */
+fun com.tencent.widget.SingleLineTextView.keepEmojiFitToText(ratio: Float = 1.25f) {
+    fun fit(): Boolean {
+        val cs = text as? Spanned ?: return false
+        val target = (textSize * ratio).toInt()
+        if (target <= 0) return false
+        var changed = false
+        cs.getSpans(0, cs.length, EmoticonSpan::class.java).forEach {
+            if (it.c != target) { it.h(target); changed = true }
+        }
+        return changed
+    }
+    viewTreeObserver.addOnPreDrawListener {
+        if (fit()) { setText(android.text.SpannableString(text)); false } else true
+    }
+}
 
 fun View.asGroupOrNull() = this as? ViewGroup
 fun ViewParent.asGroup() = this as ViewGroup

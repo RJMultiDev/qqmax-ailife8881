@@ -13,7 +13,9 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.tencent.widget.SingleLineTextView
 import momoi.mod.qqpro.forEachAll
+import momoi.mod.qqpro.keepEmojiFitToText
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.lib.dp
@@ -532,7 +534,19 @@ private fun buildSettingFrameHeader(ctx: Context, avatar: View?, nick: View?, pe
     }
     nick?.let {
         detach(it)
-        (it as? TextView)?.apply { textSize = 16f; setTextColor(M3.onSurface); gravity = Gravity.CENTER }
+        // The name's face emoji are baked at QQ's default size; shrink them to match the 16sp title
+        // (and re-fit when the async name update lands) so they don't dwarf the text. The name view
+        // is usually QQ's SingleLineTextView (a plain View, NOT a TextView), so handle both.
+        when (it) {
+            is SingleLineTextView -> {
+                it.setTextSize(16f); it.setTextColor(M3.onSurface)
+                it.keepEmojiFitToText()
+            }
+            is TextView -> it.apply {
+                textSize = 16f; setTextColor(M3.onSurface); gravity = Gravity.CENTER
+                keepEmojiFitToText()
+            }
+        }
         card.addView(it, LinearLayout.LayoutParams(FILL, WRAP).apply {
             topMargin = 10.dp; gravity = Gravity.CENTER_HORIZONTAL
         })
