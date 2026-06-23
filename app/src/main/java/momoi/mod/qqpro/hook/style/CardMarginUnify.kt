@@ -27,6 +27,7 @@ import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.forEachAll
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.onChildAttached
+import momoi.mod.qqpro.lib.rippleTouch
 import momoi.mod.qqpro.util.Utils
 
 /** The single, unified gap used between every card across the app. */
@@ -123,6 +124,11 @@ fun ViewGroup.styleGenderBirthdayChips(): Boolean {
 
     val gCard = gIcon?.nearestClickableAncestor()
     val bCard = bDate?.nearestClickableAncestor()
+    // Touch response: ripple the tappable 性别/生日 cards (they open the gender/birthday selectors).
+    if (Settings.useM3Settings.value) {
+        gCard?.rippleTouch(clip = false)
+        bCard?.rippleTouch(clip = false)
+    }
     if (gCard != null && bCard != null && gCard !== bCard && gCard.parent === bCard.parent) {
         (gCard.layoutParams as? ViewGroup.MarginLayoutParams)?.apply {
             rightMargin = CARD_MARGIN_DP.dp; marginEnd = CARD_MARGIN_DP.dp
