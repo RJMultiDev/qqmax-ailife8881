@@ -27,6 +27,7 @@ import momoi.mod.qqpro.hook.action.isGroup
 import momoi.mod.qqpro.lib.create
 import momoi.mod.qqpro.hook.parseAtMembers
 import momoi.mod.qqpro.util.linkify
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.parseHexColor
 import momoi.mod.qqpro.util.Utils
 import momoi.mod.qqpro.warpOnce
@@ -58,14 +59,13 @@ object AIOCell {
      * (recursively). Used for all message bodies — plain text, text+image and the special-cell
      * views (reply/forward/card/struct/file) — so the style is consistent everywhere.
      */
-    fun applyMsgTextStyle(view: View?) {
+    fun applyMsgTextStyle(view: View?, loc: Int) {
         view ?: return
-        val color = parseHexColor(Settings.textColor.value)
+        val color = resolveMsgTextColor(loc)
         val scale = Settings.textSizeScale.value
-        if (color == null && scale == 1.0f) return
         fun walk(v: View) {
             if (v is TextView) {
-                color?.let { v.setTextColor(it) }
+                v.setTextColor(color)
                 if (scale != 1.0f) {
                     val base = baseTextSize.getOrPut(v) { v.textSize }
                     v.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, base * scale)
@@ -84,6 +84,17 @@ object AIOCell {
             if (v is ViewGroup) for (i in 0 until v.childCount) walk(v.getChildAt(i))
         }
         walk(view)
+    }
+
+    /**
+     * The message text color for a bubble side [loc] (0 = other/对方, else self/我的): the per-side
+     * override (other = [Settings.textColor], self = [Settings.textColorSelf]), else auto-contrast
+     * against that side's bubble color so light bubbles get dark text and dark bubbles light text.
+     */
+    private fun resolveMsgTextColor(loc: Int): Int {
+        val side = if (loc == 0) Settings.textColor else Settings.textColorSelf
+        parseHexColor(side.value)?.let { return it }
+        return M3.onColor(BubbleCorner.resolvedBubbleColor(loc))
     }
 
     init {
@@ -349,8 +360,9 @@ object AIOCell {
             // plain-text bubbles: recurse the content body (covers text+image and other mixed
             // cells) and the matched special-cell view (reply/forward/card/struct/file). The
             // nick/time header lives outside contentWidget, so it's left untouched.
-            applyMsgTextStyle(runCatching { widget.contentWidget }.getOrNull())
-            applyMsgTextStyle(matchedView)
+            val loc = runCatching { widget.locationType }.getOrDefault(0)
+            applyMsgTextStyle(runCatching { widget.contentWidget }.getOrNull(), loc)
+            applyMsgTextStyle(matchedView, loc)
             BubbleCorner.apply(widget)
             // Same guard as linkify: don't run link preview off a special message's
             // hidden contentWidget text (e.g. a file extension matched as a URL).

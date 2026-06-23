@@ -24,6 +24,7 @@ import com.tencent.widget.Switch
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Pref
 import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.hook.aio_cell.BubbleCorner
 import momoi.mod.qqpro.hook.aio_cell.GroupAvatarHook
 import momoi.mod.qqpro.hook.style.CARD_MARGIN_DP
 import momoi.mod.qqpro.lib.FILL
@@ -243,12 +244,14 @@ class 设置页 : SettingsActivity() {
             switch("双击回复", "双击消息进入回复", Settings.doubleReply)
             slider("图片最大高度", "聊天图片最大显示高度(占屏幕高度比例)，默认 0.5", Settings.picMaxHeightRatio, min = 0.3f, max = 1f)
             slider("气泡圆角半径", "聊天气泡、合并转发/聊天记录块与回复块的圆角半径(dp)", Settings.bubbleCornerRadius, min = 0f, max = 24f)
-            colorPicker("我的气泡颜色", "留空为原始气泡色", Settings.bubbleColorSelf, MaterialColors.ACCENT,
+            colorPicker("我的气泡颜色", "留空为材料色", Settings.bubbleColorSelf, MaterialColors.ACCENT,
                 { M3.parseColorOrNull(Settings.bubbleColorSelf.value) ?: M3.primary })
-            colorPicker("对方气泡颜色", "留空为原始气泡色", Settings.bubbleColorOther, MaterialColors.SURFACE + MaterialColors.ACCENT,
+            colorPicker("对方气泡颜色", "留空为材料色", Settings.bubbleColorOther, MaterialColors.SURFACE + MaterialColors.ACCENT,
                 { M3.parseColorOrNull(Settings.bubbleColorOther.value) ?: M3.surfaceContainer })
-            colorPicker("文字颜色", "聊天消息文字颜色，留空为默认", Settings.textColor, MaterialColors.ON,
-                { M3.parseColorOrNull(Settings.textColor.value) ?: M3.onSurface })
+            colorPicker("我的文字颜色", "留空为自动对比我的气泡色", Settings.textColorSelf, MaterialColors.ON,
+                { M3.parseColorOrNull(Settings.textColorSelf.value) ?: M3.onColor(BubbleCorner.resolvedBubbleColor(1)) })
+            colorPicker("对方文字颜色", "留空为自动对比对方气泡色", Settings.textColor, MaterialColors.ON,
+                { M3.parseColorOrNull(Settings.textColor.value) ?: M3.onColor(BubbleCorner.resolvedBubbleColor(0)) })
             slider("文字大小", "聊天消息文字大小倍率，默认 1.0", Settings.textSizeScale, min = 0.5f, max = 2.5f)
             chatBackgroundPicker()
             slider("背景变暗程度", "调暗背景图以便看清文字，重进聊天页生效", Settings.chatBgDarken, min = 0f, max = 0.9f)

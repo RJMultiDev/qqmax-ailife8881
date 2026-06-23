@@ -7,10 +7,9 @@ import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
 import android.view.View
 import android.widget.TextView
-import momoi.mod.qqpro.hook.AT_LINK_COLOR
 import momoi.mod.qqpro.hook.openUserQzone
 import momoi.mod.qqpro.util.Utils
-import momoi.mod.qqpro.util.linkColorOverride
+import momoi.mod.qqpro.util.linkColorResolved
 
 /**
  * Makes `@` mentions in a QZone post body tappable (→ that user's QZone home).
@@ -61,7 +60,7 @@ object QzoneMentions {
                 .onFailure { Utils.log("QzoneMentions click uin=$uin: $it") }
         }
         override fun updateDrawState(ds: TextPaint) {
-            ds.color = linkColorOverride() ?: AT_LINK_COLOR
+            ds.color = linkColorResolved()
             ds.isUnderlineText = false
         }
     }

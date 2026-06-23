@@ -31,6 +31,16 @@ object BubbleCorner {
     // locationType -> sampled bubble style
     private val styles = HashMap<Int, Style>()
 
+    /**
+     * The effective bubble fill color for a side: the user's per-side override, else the Material
+     * token (loc==0 → other → surfaceContainer; else → self → primary). Shared so the message text
+     * color can auto-contrast against it (see [AIOCell.applyMsgTextStyle]).
+     */
+    fun resolvedBubbleColor(loc: Int): Int {
+        val override = if (loc == 0) Settings.bubbleColorOther else Settings.bubbleColorSelf
+        return parseHexColor(override.value) ?: (if (loc == 0) M3.surfaceContainer else M3.primary)
+    }
+
     fun apply(widget: AIOCellGroupWidget) {
         val wrapper = runCatching { widget.getLongClickWrapper<View>() }.getOrNull()
         Utils.log("BubbleCorner: wrapper=${wrapper?.javaClass?.simpleName} bg=${wrapper?.background?.javaClass?.simpleName} loc=${runCatching { widget.locationType }.getOrNull()}")
@@ -44,9 +54,9 @@ object BubbleCorner {
             bg.getPadding(pad)
             Style(sampleColor(bg), pad)
         }
-        // Optional per-side color override from settings; blank/invalid keeps the sampled color.
-        val override = if (loc == 0) Settings.bubbleColorOther else Settings.bubbleColorSelf
-        val color = parseHexColor(override.value) ?: style.color
+        // Per-side color override from settings; blank/invalid falls back to the Material token the
+        // 气泡颜色 settings preview shows (other→surfaceContainer, self→primary) so chat matches it.
+        val color = resolvedBubbleColor(loc)
         val r = Settings.bubbleCornerRadius.value.dpf
         wrapper.background = roundCornerDrawable(color, r)
         // Keep the original text inset and add ~half the radius horizontally so glyphs near

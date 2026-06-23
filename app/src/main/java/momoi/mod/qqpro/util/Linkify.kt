@@ -10,6 +10,7 @@ import android.widget.TextView
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.confirmOpenUrl
 import momoi.mod.qqpro.confirmSearchNumber
+import momoi.mod.qqpro.lib.material.M3
 import java.util.regex.Pattern
 
 // CJK punctuation (and brackets) that should terminate a URL match.
@@ -68,14 +69,36 @@ fun parseHexColor(s: String): Int? {
 fun linkColorOverride(): Int? = parseHexColor(Settings.linkColor.value)
 
 /**
- * A clickable span that, when [linkColorOverride] is set, draws in that color (and keeps the
- * underline). The default [ClickableSpan.updateDrawState] uses the TextView's linkTextColor, which
- * on some of QQ's custom text widgets is ignored — coloring the span directly is reliable.
+ * The actual link color to paint: the user's override, or — when the pref is blank — the Material
+ * accent [M3.primary]. This is what the 链接颜色 settings preview shows for an empty value, so chat
+ * and settings stay consistent (an empty pref means "use the material color", not a hardcoded one).
+ */
+fun linkColorResolved(): Int = linkColorOverride() ?: M3.primary
+
+// Link accents chosen to stay legible on either bubble. A single color can't contrast both a light
+// self-bubble and a dark other-bubble, so we pick per-bubble: cyan on dark, strong blue on light.
+private const val LINK_ON_DARK = 0xFF_80D8FF.toInt()   // light cyan — for dark bubbles
+private const val LINK_ON_LIGHT = 0xFF_0B57D0.toInt()  // strong blue — for light bubbles
+
+/**
+ * Link/mention color resolved against the body text color [baseTextColor] (which is already the
+ * correct contrast for its bubble): the user override wins; otherwise light body text ⇒ dark bubble
+ * ⇒ a light cyan link, dark body text ⇒ light bubble ⇒ a dark blue link. So links stay visible on
+ * BOTH the (light) self bubble and the (dark) other bubble.
+ */
+fun resolveLinkColor(baseTextColor: Int): Int =
+    linkColorOverride() ?: if (M3.luminance(baseTextColor) > 0.5f) LINK_ON_DARK else LINK_ON_LIGHT
+
+/**
+ * A clickable span that draws in [resolveLinkColor] (override, else a bubble-aware accent), keeping
+ * the underline. The base text color is read BEFORE super (which would overwrite it with the
+ * TextView's linkTextColor) so the bubble can be inferred from it.
  */
 private abstract class ColoredClickableSpan : ClickableSpan() {
     override fun updateDrawState(ds: android.text.TextPaint) {
+        val base = ds.color
         super.updateDrawState(ds)
-        linkColorOverride()?.let { ds.color = it }
+        ds.color = resolveLinkColor(base)
     }
 }
 

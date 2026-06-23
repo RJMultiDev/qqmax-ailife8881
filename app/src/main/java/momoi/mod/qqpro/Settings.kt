@@ -190,9 +190,11 @@ object Settings {
     // without the leading #). Blank keeps the original bubble color (sampled per side).
     val bubbleColorSelf = StringPref("bubbleColorSelf", "")
     val bubbleColorOther = StringPref("bubbleColorOther", "")
-    // Override the chat message text color, as a hex string (#RRGGBB or #AARRGGBB / with or
-    // without the leading #). Blank keeps the original (native) text color.
+    // Chat message text color per side, as a hex string (#RRGGBB or #AARRGGBB / with or without the
+    // leading #). Blank = auto: contrast against that side's bubble color. `textColor` is the OTHER
+    // (对方) side (kept under the old key so existing values carry over); `textColorSelf` is 我的.
     val textColor = StringPref("textColor", "")
+    val textColorSelf = StringPref("textColorSelf", "")
     // Override the color of tappable links/numbers/@mentions in chat text. Blank keeps the
     // platform default link color.
     val linkColor = StringPref("linkColor", "")
@@ -303,7 +305,7 @@ object Settings {
         floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread, mainNavUnreadJump,
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         galleryQuickSend, useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
-        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, linkColor, textSizeScale, contactSections, materialContactsList, materialChatList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo, qzoneMiniAppCard, materializeQzone, qzoneTruncatePost, qzoneTruncateImages,
+        picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, textColorSelf, linkColor, textSizeScale, contactSections, materialContactsList, materialChatList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo, qzoneMiniAppCard, materializeQzone, qzoneTruncatePost, qzoneTruncateImages,
         profileNameMultiline, useRichProfile, useM3Settings,
         chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
         doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,

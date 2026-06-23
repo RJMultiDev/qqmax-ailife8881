@@ -338,9 +338,10 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
     // live chat does: bubble fill follows 气泡颜色(对方), text color follows 文字颜色, and the body
     // size follows both chatScale and 字体大小. Blank/invalid overrides fall back to the defaults.
     private val bubbleColor: Int
-        get() = parseHexColor(Settings.bubbleColorOther.value) ?: 0xFF_515151.toInt()
+        get() = parseHexColor(Settings.bubbleColorOther.value) ?: M3.surfaceContainer
     private val msgTextColor: Int
-        get() = parseHexColor(Settings.textColor.value) ?: M3.onSurface
+        // Forward card is styled like an "other" bubble: 对方 override (textColor), else auto-contrast.
+        get() = parseHexColor(Settings.textColor.value) ?: M3.onColor(bubbleColor)
 
     @SuppressLint("NotifyDataSetChanged")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
