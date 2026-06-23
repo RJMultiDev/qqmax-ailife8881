@@ -11,6 +11,7 @@ import com.tencent.qqnt.kernel.nativeinterface.ProfileBizType
 import com.tencent.qqnt.kernel.nativeinterface.Source
 import com.tencent.qqnt.msg.KernelServiceUtil
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.rippleTouch
 import android.widget.ImageView
 import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.material.MaterialSymbol
@@ -91,6 +92,10 @@ object ProfileDetailCard {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             )
+            // Long-press anywhere on the field to copy it, with an M3 press ripple as touch response.
+            isLongClickable = true
+            rippleTouch(clip = false)
+            setOnLongClickListener { Utils.copyToClipboard(ctx, value, "已复制"); true }
         }
         if (iconPath != null) {
             row.addView(ImageView(ctx).apply {
@@ -103,8 +108,7 @@ object ProfileDetailCard {
             textSize = 12.5f
             setTextColor(M3.onSurface)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            isLongClickable = true
-            setOnLongClickListener { Utils.copyToClipboard(ctx, value, "已复制"); true }
+            // Long-press is handled by the parent row (so the whole field shows a ripple) — see addRow.
         })
         rows.addView(row)
     }

@@ -1,6 +1,7 @@
 package momoi.mod.qqpro.lib
 
 import android.graphics.drawable.Drawable
+import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams
@@ -57,6 +58,20 @@ fun <T : View> T.width(value: Int) = size(width = value)
 fun <T : View> T.height(value: Int) = size(height = value)
 fun <T : View> T.id(value: Int) = apply {
     id = value
+}
+
+/**
+ * Add an M3 press ripple as a FOREGROUND overlay, so it layers over the view's existing background
+ * (rounded card fill, pill color, …) without replacing it — giving tappable rows a touch response.
+ * When [clip] (default) the ripple is clipped to the view's outline so it follows rounded corners;
+ * pass clip=false for views with no rounded background (a plain row), where outline-clipping would
+ * clip the content away. Foreground on arbitrary views needs API 23 — a no-op below that.
+ */
+fun <T : View> T.rippleTouch(clip: Boolean = true) = apply {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        foreground = momoi.mod.qqpro.lib.material.M3.ripple(null)
+        if (clip) clipToOutline = true
+    }
 }
 
 inline fun <T : View> T.clickable(crossinline onClick: ()->Unit) = apply {

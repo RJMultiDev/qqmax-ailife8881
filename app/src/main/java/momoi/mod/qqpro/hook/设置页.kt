@@ -44,6 +44,7 @@ import momoi.mod.qqpro.lib.height
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.onCheckedChange
 import momoi.mod.qqpro.lib.onClick
+import momoi.mod.qqpro.lib.rippleTouch
 import momoi.mod.qqpro.lib.onProgressChanged
 import momoi.mod.qqpro.lib.padding
 import momoi.mod.qqpro.lib.SwipeBackLayout
@@ -170,6 +171,7 @@ class 设置页 : SettingsActivity() {
             .width(FILL)
             .padding(left = 2.dp, top = 6.dp, right = 4.dp, bottom = 8.dp)
         row.gravity(Gravity.CENTER_VERTICAL)
+        row.rippleTouch(clip = false)
         row.onClick { onBack() }
         row.content {
             add<TextView>()
@@ -406,6 +408,7 @@ class 设置页 : SettingsActivity() {
                 .gravity(Gravity.CENTER_VERTICAL)
                 .leadingSymbol(MaterialSymbols.chevron_right, ACCENT, sizeDp = 18, gap = 0)
         }
+        card.rippleTouch()
         card.onClick { onTap() }
     }
 
@@ -437,6 +440,7 @@ class 设置页 : SettingsActivity() {
             )
             valueLabel.compoundDrawablePadding = 2.dp
         }
+        card.rippleTouch()
         card.onClick {
             showOptionPicker(title, options, pref.value) { which ->
                 pref.value = which
@@ -506,6 +510,7 @@ class 设置页 : SettingsActivity() {
                         .textColor(if (isSel) ACCENT else M3.onSurface)
                         .margin(left = 14.dp)
                 }
+                row.rippleTouch(clip = isSel)
                 row.onClick {
                     onPick(index)
                     dialog.dismiss()
@@ -604,6 +609,7 @@ class 设置页 : SettingsActivity() {
                 .margin(left = 10.dp)
         }
         refresh()
+        card.rippleTouch()
         card.onClick {
             showColorPicker(this@设置页, title, pref.value, current(), allowDefault = true, presets = presets) { picked ->
                 pref.value = picked
@@ -628,6 +634,7 @@ class 设置页 : SettingsActivity() {
             setColor(color)
             cornerRadius = 18.dp.toFloat()
         })
+        btn.rippleTouch()
         btn.onClick(onTap)
         return btn
     }
