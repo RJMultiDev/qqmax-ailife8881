@@ -73,12 +73,16 @@ object QZoneTopBar {
         bar.post {
             runCatching {
                 val srl = host.javaClass.getField("n").get(host) as SmartRefreshLayout
+                // Inset the pull-refresh header below the pinned bar (E0 = mHeaderInsetStart, px) so the
+                // spinner pulls down from under the bar instead of overlapping it.
+                runCatching { srl.E0 = bar.height; srl.requestLayout() }
+                    .onFailure { Utils.log("QZoneTopBar: header inset failed: $it") }
                 val rv = (0 until srl.childCount).mapNotNull { srl.getChildAt(it) as? RecyclerView }.firstOrNull()
                     ?: run { Utils.log("QZoneTopBar: RecyclerView not found in SmartRefreshLayout"); return@runCatching }
                 rv.clipToPadding = false
                 rv.setPadding(rv.paddingLeft, bar.height, rv.paddingRight, rv.paddingBottom)
                 installHideOnScroll(rv)
-                Utils.log("QZoneTopBar: RV paddingTop=${bar.height}")
+                Utils.log("QZoneTopBar: RV paddingTop=${bar.height} headerInset=${bar.height}")
             }.onFailure { Utils.log("QZoneTopBar wrap post: $it") }
         }
 

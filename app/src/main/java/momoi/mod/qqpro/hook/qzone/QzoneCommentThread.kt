@@ -85,13 +85,14 @@ class QzoneCommentThread(
         }
         input = edit
         bar.addView(edit, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        // Send button scaled to match the reduced field (≈80%): 40→32dp, padding proportional.
         val send = ImageView(ctx).apply {
             setImageDrawable(MaterialSymbol(MaterialSymbols.send, M3.primary))
-            setPadding(8.dp, 8.dp, 4.dp, 8.dp)
+            setPadding(6.dp, 6.dp, 3.dp, 6.dp)
             isClickable = true
             setOnClickListener { onSend() }
         }
-        bar.addView(send, LinearLayout.LayoutParams(40.dp, 40.dp).apply { marginStart = 4.dp })
+        bar.addView(send, LinearLayout.LayoutParams(32.dp, 32.dp).apply { marginStart = 4.dp })
         root.addView(bar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 4.dp })
 
         return swipeBackWrap(root)

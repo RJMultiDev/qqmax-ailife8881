@@ -73,8 +73,12 @@ class M3QQEditText(context: Context) : LinearLayout(context) {
 
     init {
         orientation = HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        minimumHeight = 48.dp
+        // Bottom-align: the icons stay on the baseline row and don't drift up as the field grows
+        // multiline. isBaselineAligned=false stops the EditText's text baseline from being aligned
+        // against the (baseline-less) icon buttons, which otherwise shifts the text up off-center.
+        gravity = Gravity.BOTTOM
+        isBaselineAligned = false
+        minimumHeight = 40.dp
         // Material outlined text-field container (same look as the dialog's plain field).
         background = M3.outlined(M3.outline, M3.radiusMd).apply { setColor(M3.surfaceContainerHigh) }
 
@@ -93,14 +97,17 @@ class M3QQEditText(context: Context) : LinearLayout(context) {
             setTextColor(M3.onSurface)
             setHintTextColor(M3.hint)
             textSize = FIELD_TEXT_SP.toFloat()
+            // Center text within a single-line height that equals the icon button height, so the
+            // bottom-aligned icons sit exactly on the text line (and stay there when multiline grows).
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(2.dp, 8.dp, 2.dp, 8.dp)
+            minimumHeight = 40.dp
+            setPadding(2.dp, 4.dp, 2.dp, 4.dp)
             inputType = InputType.TYPE_CLASS_TEXT
             isSingleLine = true
             maxLines = 1
         }
         addView(editText, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply {
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.BOTTOM
         })
 
         micBtn = iconButton(MaterialSymbols.mic).also {
@@ -136,10 +143,29 @@ class M3QQEditText(context: Context) : LinearLayout(context) {
 
     fun setHint(value: CharSequence?) { editText.hint = value }
 
-    /** Override the field text size (sp); also drives emoji glyph sizing in [setText]. */
+    /**
+     * Override the field text size (sp), scaling the WHOLE field proportionally — the leading/trailing
+     * icon buttons, their padding, the field's vertical padding and min height all shrink/grow with the
+     * text so the bar height tracks the text instead of being pinned by the 40dp icons. Also drives
+     * emoji glyph sizing in [setText].
+     */
     fun setFieldTextSize(sp: Int) {
         fieldTextSp = sp
+        val scale = sp.toFloat() / FIELD_TEXT_SP
         editText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sp.toFloat())
+        val vpad = (4 * scale).toInt().dp
+        editText.setPadding(editText.paddingLeft, vpad, editText.paddingRight, vpad)
+        val btn = (40 * scale).toInt().dp
+        val ipad = (9 * scale).toInt().dp
+        // Keep the row, the editText single-line box, and the icon buttons all the SAME height so the
+        // bottom-aligned icons line up exactly with the centered text.
+        minimumHeight = btn
+        editText.minimumHeight = btn
+        for (b in listOf(emojiBtn, micBtn)) {
+            b.layoutParams = (b.layoutParams ?: LayoutParams(btn, btn)).apply { width = btn; height = btn }
+            b.setPadding(ipad, ipad, ipad, ipad)
+        }
+        requestLayout()
     }
 
     /** Trimmed text content (what the change-info callbacks want to write). */
@@ -175,7 +201,7 @@ class M3QQEditText(context: Context) : LinearLayout(context) {
         context.getSystemService(InputMethodManager::class.java)
 
     private fun iconButton(symbolPath: String): ImageView = ImageView(context).apply {
-        layoutParams = LayoutParams(40.dp, 40.dp)
+        layoutParams = LayoutParams(40.dp, 40.dp).apply { gravity = Gravity.BOTTOM }
         scaleType = ImageView.ScaleType.FIT_CENTER
         val pad = 9.dp
         setPadding(pad, pad, pad, pad)
