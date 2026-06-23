@@ -8,10 +8,10 @@ class MyImageView(context: Context) : ImageView(context) {
     init {
         adjustViewBounds = true
         scaleType = ScaleType.FIT_CENTER
-        maxHeight = (heightLimit * 1.5f).toInt()
+        maxHeight = heightLimit.toInt()
     }
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        maxHeight = (heightLimit * 1.5f).toInt()
+        maxHeight = heightLimit.toInt()
         maxWidth = drawable?.takeIf { it.intrinsicHeight > 0 }?.let {
             (heightLimit / it.intrinsicHeight * it.intrinsicWidth).toInt()
         } ?: Int.MAX_VALUE
