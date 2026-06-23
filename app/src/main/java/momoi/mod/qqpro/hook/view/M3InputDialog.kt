@@ -2,13 +2,13 @@ package momoi.mod.qqpro.hook.view
 
 import android.content.Context
 import android.os.Bundle
-import android.text.InputType
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
+import momoi.mod.qqpro.hook.InlineEmojiPanel
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -25,6 +25,7 @@ import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.width
 import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.material.M3Button
+import momoi.mod.qqpro.lib.material.M3QQEditText
 
 /**
  * A Material 3 single/short-multi-line text input dialog for the round watch screen. Replaces QQ's
@@ -52,7 +53,7 @@ class M3InputDialog(
         val root = LinearLayout(ctx).vertical().padding(20.dp)
         root.gravity = Gravity.CENTER
 
-        lateinit var edit: EditText
+        lateinit var input: M3QQEditText
         root.content {
             add<TextView>()
                 .text(title)
@@ -62,14 +63,23 @@ class M3InputDialog(
                 .width(FILL)
                 .padding(bottom = 14.dp)
 
-            edit = field(ctx).also { add(it) }
+            // Material field with a leading emoji picker + trailing 转文字 mic (shared with the chat
+            // input), so these dialogs regain emoji/voice that the native keyboard page used to give.
+            input = M3QQEditText(ctx).apply {
+                setText(initial)
+                setHint(placeholder)
+                setMultiline(multiline)
+                permissionFragmentProvider = { this@M3InputDialog }
+                layoutParams = LinearLayout.LayoutParams(FILL, WRAP)
+            }
+            add(input)
 
             val confirm = M3Button(ctx).variant(M3Button.Variant.FILLED).apply {
                 text = confirmLabel
                 layoutParams = LinearLayout.LayoutParams(FILL, WRAP).apply { topMargin = 12.dp }
                 setOnClickListener {
-                    val value = edit.text?.toString()?.trim().orEmpty()
-                    hideKeyboard(edit)
+                    val value = input.trimmedText()
+                    hideKeyboard(input.editText)
                     dismiss()
                     runCatching { onConfirm(value) }
                 }
@@ -79,17 +89,23 @@ class M3InputDialog(
             val cancel = M3Button(ctx).variant(M3Button.Variant.TONAL).apply {
                 text = "取消"
                 layoutParams = LinearLayout.LayoutParams(FILL, WRAP).apply { topMargin = 8.dp }
-                setOnClickListener { hideKeyboard(edit); dismiss() }
+                setOnClickListener { hideKeyboard(input.editText); dismiss() }
             }
             add(cancel)
         }
 
         // Auto-focus and raise the keyboard so the user can type straight away.
-        edit.post {
-            edit.requestFocus()
-            edit.setSelection(edit.text?.length ?: 0)
-            (ctx.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
-                ?.showSoftInput(edit, InputMethodManager.SHOW_IMPLICIT)
+        input.focusAndShowKeyboard()
+
+        // Back closes the emoji picker first (and restores the keyboard) instead of the dialog.
+        dialog?.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP &&
+                InlineEmojiPanel.isShowing
+            ) {
+                InlineEmojiPanel.dismiss()
+                input.focusAndShowKeyboard()
+                true
+            } else false
         }
 
         val scroll = ScrollView(ctx).apply {
@@ -99,23 +115,6 @@ class M3InputDialog(
             addView(root, ViewGroup.LayoutParams(FILL, WRAP))
         }
         return swipeBackWrap(scroll)
-    }
-
-    private fun field(ctx: Context): EditText = EditText(ctx).apply {
-        setText(initial)
-        hint = placeholder
-        setTextColor(M3.onSurface)
-        setHintTextColor(M3.hint)
-        textSize = 15f
-        background = M3.outlined(M3.outline, M3.radiusMd).apply { setColor(M3.surfaceContainerHigh) }
-        setPadding(14.dp, 12.dp, 14.dp, 12.dp)
-        inputType = if (multiline) {
-            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-        } else {
-            InputType.TYPE_CLASS_TEXT
-        }
-        if (multiline) { isSingleLine = false; maxLines = 4 } else isSingleLine = true
-        layoutParams = LinearLayout.LayoutParams(FILL, WRAP)
     }
 
     private fun hideKeyboard(view: View) {

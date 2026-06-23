@@ -15,6 +15,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.fragment.app.Fragment
 import com.tencent.mobileqq.ptt.IQQRecorder
 import com.tencent.mobileqq.ptt.IQQRecorderUtils
 import com.tencent.mobileqq.qroute.QRoute
@@ -58,7 +59,55 @@ import momoi.mod.qqpro.lib.material.MaterialSymbols
  *
  * This is a normal package object (NOT a @Mixin body), so the anonymous recorder/STT listener
  * classes it creates are fine.
+ *
+ * The recorder engine itself is context-agnostic: everything chat-specific (where the overlay is
+ * hosted, which fragment requests RECORD_AUDIO, whether release-on-mic sends a PTT, and where STT
+ * text streams to) is funnelled through a [VoiceHost]. The chat input bar uses [ChatVoiceHost]
+ * (the default); other callers — e.g. the reusable [momoi.mod.qqpro.lib.material.M3QQEditText]
+ * field — supply their own host so the same hold-to-record / slide-to-STT UI works in a plain
+ * dialog with no chat context (release-on-mic just转文字 into the field).
  */
+interface VoiceHost {
+    /** Full-bounds container the recording overlay (scrim + slide targets) is attached to. */
+    fun overlayContainer(anchor: View): ViewGroup?
+
+    /** AndroidX fragment used to request RECORD_AUDIO (PermissionUtils navigates from it). */
+    fun permissionFragment(anchor: View): Fragment?
+
+    /** group flag passed to [ITranslateTextService.translateText]. */
+    val isGroup: Boolean
+
+    /** When false, releasing on the mic does STT (转文字) instead of sending a PTT message. */
+    val supportsPtt: Boolean
+
+    /** Send a finished recording as a PTT voice message. Only called when [supportsPtt]. */
+    fun sendPtt(path: String, durationMs: Long)
+
+    /** Streaming STT sink — begin/update(cumulative)/end, mirroring the native progressive fill. */
+    fun beginStreaming()
+    fun updateStreaming(text: String)
+    fun endStreaming()
+}
+
+/** Default host: records/sends/STT-streams against the current chat ([CurrentContact] / inline box). */
+object ChatVoiceHost : VoiceHost {
+    override fun overlayContainer(anchor: View): ViewGroup? = AttachmentOverlay.aioContainer(anchor)
+    override fun permissionFragment(anchor: View): Fragment? = AttachmentOverlay.aioFragment(anchor)
+    override val isGroup: Boolean get() = CurrentContact.isGroup
+    override val supportsPtt: Boolean get() = true
+    override fun sendPtt(path: String, durationMs: Long) {
+        runCatching {
+            val element = buildPttElement(path, durationMs)
+            val contact = Contact(CurrentContact.chatType, CurrentContact.peerUid, CurrentContact.guildId)
+            MsgUtil.msgService.sendMsg(contact, 0L, arrayListOf(element),
+                IOperateCallback { code, msg -> Utils.log("voice send result=$code msg=$msg") })
+        }.onFailure { Utils.log("ChatVoiceHost sendPtt failed: $it") }
+    }
+    override fun beginStreaming() = InlineInput.beginStreamingText()
+    override fun updateStreaming(text: String) = InlineInput.updateStreamingText(text)
+    override fun endStreaming() = InlineInput.endStreamingText(null)
+}
+
 object VoiceRecord {
     private val main = Handler(Looper.getMainLooper())
 
@@ -76,6 +125,12 @@ object VoiceRecord {
     private var startUptime = 0L
     private var target = Target.SEND
     private var pendingTarget = Target.SEND
+
+    // The host driving the in-flight gesture (where the overlay lives, how it sends / streams STT).
+    // Captured on ACTION_DOWN from the attached button's closure so several buttons (chat bar + a
+    // dialog field) can be wired at once without one stealing the other's context. Only one
+    // recording happens at a time, so a single shared field is sufficient.
+    private var activeHost: VoiceHost = ChatVoiceHost
 
     // The inline mic button + its idle icon, so STT can swap it to a spinner while converting.
     private var buttonRef: WeakReference<ImageView>? = null
@@ -114,9 +169,12 @@ object VoiceRecord {
         if (recording) { target = Target.SEND; finish() }
     }
 
-    /** Wire the inline voice button to hold-to-record. Replaces the native PTT delegate. */
+    /**
+     * Wire a voice button to hold-to-record. Replaces the native PTT delegate. [host] decides where
+     * the overlay lives and what release-on-mic does (chat: send a PTT; a plain field: 转文字 into it).
+     */
     @SuppressLint("ClickableViewAccessibility")
-    fun attach(button: ImageView) {
+    fun attach(button: ImageView, host: VoiceHost = ChatVoiceHost) {
         buttonRef = WeakReference(button)
         button.setOnTouchListener { v, e ->
             // While a previous recording is being converted to text, the mic shows a spinner —
@@ -124,6 +182,9 @@ object VoiceRecord {
             if (sttRunning) return@setOnTouchListener true
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    // Adopt this button's host for the whole gesture (and the async STT that follows).
+                    activeHost = host
+                    buttonRef = WeakReference(button)
                     // The custom recorder talks to the mic directly (no native VoiceInputFragment),
                     // so RECORD_AUDIO must be granted first. If it isn't, kick off the same
                     // permission request the native PTT button uses and abort this gesture — the
@@ -157,7 +218,7 @@ object VoiceRecord {
      * same gesture (the request is async), so just toast guidance; the next press records.
      */
     private fun requestRecordPermission(anchor: View) {
-        val fragment = AttachmentOverlay.aioFragment(anchor)
+        val fragment = activeHost.permissionFragment(anchor)
         if (fragment == null) {
             Utils.log("VoiceRecord: no AIO fragment for permission request")
             Utils.toast(Utils.application, "无法请求录音权限")
@@ -268,7 +329,11 @@ object VoiceRecord {
             return
         }
         when (t) {
-            Target.SEND -> Thread { sendVoice(path, totalTimeMs.toLong()) }.start()
+            // Release on the mic: send a PTT where the host supports it (chat), otherwise fall back
+            // to 转文字 so a voiceless field (e.g. a nickname dialog) still gets the spoken text.
+            Target.SEND ->
+                if (activeHost.supportsPtt) Thread { sendVoice(path, totalTimeMs.toLong()) }.start()
+                else startStt(path)
             Target.STT -> startStt(path)
             Target.CANCEL -> {}
         }
@@ -277,12 +342,8 @@ object VoiceRecord {
     // ---- outcomes ----
 
     private fun sendVoice(path: String, durationMs: Long) {
-        runCatching {
-            val element = buildPttElement(path, durationMs)
-            val contact = Contact(CurrentContact.chatType, CurrentContact.peerUid, CurrentContact.guildId)
-            MsgUtil.msgService.sendMsg(contact, 0L, arrayListOf(element),
-                IOperateCallback { code, msg -> Utils.log("voice send result=$code msg=$msg") })
-        }.onFailure { Utils.log("VoiceRecord sendVoice failed: $it") }
+        runCatching { activeHost.sendPtt(path, durationMs) }
+            .onFailure { Utils.log("VoiceRecord sendVoice failed: $it") }
     }
 
     private fun startStt(audioFile: String) {
@@ -294,11 +355,11 @@ object VoiceRecord {
         // Spinner on the mic + a live streaming insertion, so the recognized text fills in
         // progressively (same as the native VoiceInputFragment) and the button can't be re-pressed.
         beginSttUi()
-        InlineInput.beginStreamingText()
+        activeHost.beginStreaming()
         runCatching {
             val app = MobileQQ.sMobileQQ.peekAppRuntime()
             val svc = app.getRuntimeService(ITranslateTextService::class.java, "")
-            svc.translateText(CurrentContact.isGroup, File(pcm), File(audioFile),
+            svc.translateText(activeHost.isGroup, File(pcm), File(audioFile),
                 object : ITranslateTextService.AbsTranslateTextCallback() {
                     override fun b(isSuccess: Boolean, isLast: Boolean, text: String, curKey: String) {
                         if (!isSuccess) {
@@ -307,9 +368,9 @@ object VoiceRecord {
                         }
                         main.post {
                             // text is cumulative — keep replacing the streamed range in real time.
-                            InlineInput.updateStreamingText(text)
+                            activeHost.updateStreaming(text)
                             if (isLast) {
-                                InlineInput.endStreamingText(null)
+                                activeHost.endStreaming()
                                 if (text.isEmpty()) Utils.toast(Utils.application, "没有识别到内容")
                                 endStt()
                                 runCatching { File(audioFile).delete() }
@@ -337,7 +398,7 @@ object VoiceRecord {
     /** Restore the mic icon and re-enable presses; also resets any half-finished stream state. */
     private fun endStt() {
         sttRunning = false
-        InlineInput.endStreamingText(null)
+        activeHost.endStreaming()
         val btn = buttonRef?.get()
         if (btn != null) {
             (btn.drawable as? M3ProgressDrawable)?.setVisible(false, false)
@@ -389,8 +450,8 @@ object VoiceRecord {
         }
 
     private fun showOverlay(anchor: View) {
-        val container = AttachmentOverlay.aioContainer(anchor) ?: run {
-            Utils.log("VoiceRecord: no aio container"); return
+        val container = activeHost.overlayContainer(anchor) ?: run {
+            Utils.log("VoiceRecord: no overlay container"); return
         }
         hideOverlay()
         anchorContainerRef = WeakReference(container)
