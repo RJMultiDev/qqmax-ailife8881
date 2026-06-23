@@ -22,6 +22,7 @@ import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.RecyclerView
 import com.tencent.qqnt.kernel.nativeinterface.ReqType
+import com.tencent.qqnt.msg.KernelServiceUtil
 import com.tencent.qqnt.watch.add.QQAddFriendFragment
 import com.tencent.qqnt.watch.add.result.FriendDetailData
 import com.tencent.qqnt.watch.contact.api.IContactRuntimeService
@@ -35,6 +36,7 @@ import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.hook.EXTRA_SEARCH_PREFILL
 import momoi.mod.qqpro.hook.ProfileDetailCard
+import momoi.mod.qqpro.hook.openUserQzone
 import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.forEachAll
 import momoi.mod.qqpro.lib.dp
@@ -78,6 +80,21 @@ private fun recolorRowText(view: View) {
 }
 
 private fun cardBg(): android.graphics.drawable.Drawable = M3.ripple(M3.rounded(M3.surfaceContainer, M3.radiusLg))
+
+/**
+ * Inline "TA的空间" action button (same shape as the rich profile page's QZone button): a full-width
+ * filled M3 pill with a leading star, opening [uin]'s own QZone home via [openUserQzone]. Added to the
+ * per-user pages (search result card, friend-request detail) below their other action buttons. Returns
+ * null when [uin] isn't a valid QQ number (nothing to open).
+ */
+private fun qzoneButton(ctx: Context, uin: Long): View =
+    M3Button(ctx).variant(M3Button.Variant.FILLED).apply {
+        text = "TA的空间"
+        leadingSymbol(MaterialSymbols.star, M3.onPrimary, sizeDp = 18, gap = 6)
+        setOnClickListener { openUserQzone(it, uin) }
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 40.dp)
+            .apply { topMargin = 10.dp }
+    }
 
 /**
  * Materialize a contacts-style list screen: M3.surface page background, surface-container row cards,
@@ -141,6 +158,7 @@ private const val TAG_ND_BTNS   = "qqpro_nd_btns"
 private const val TAG_ND_REJECT = "qqpro_nd_reject"
 private const val TAG_ND_AGREE  = "qqpro_nd_agree"
 private const val TAG_ND_GOTO   = "qqpro_nd_goto"
+private const val TAG_ND_QZONE  = "qqpro_nd_qzone"
 
 @Mixin
 class ContactNotifyDetailMaterial : ContactNotifyDetailFragment() {
@@ -259,7 +277,13 @@ private fun buildNotifyDetailPage(native: ViewGroup): View {
         setPadding(14.dp, 26.dp, 14.dp, 26.dp)
         layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
-    column.addView(card); column.addView(btnsRow); column.addView(gotoChatBtn)
+    // Holder for the TA的空间 button — filled in syncNotifyDetail once the requestor's uid is known.
+    val qzoneHolder = LinearLayout(ctx).apply {
+        tag = TAG_ND_QZONE; orientation = LinearLayout.VERTICAL
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+    }
+    column.addView(card); column.addView(btnsRow); column.addView(gotoChatBtn); column.addView(qzoneHolder)
 
     native.visibility = View.GONE
     native.tag = TAG_ND_NATIVE
@@ -323,6 +347,19 @@ private fun syncNotifyDetail(frag: ContactNotifyDetailFragment, frame: View) {
         }
         // else: leave everything GONE.
     }
+    // TA的空间 — resolve this requestor's QQ number (uid→uin via kernel, else from the shown uin text)
+    // and add the QZone button once. Idempotent: onViewCreated may run again on back-navigation.
+    val qzoneHolder = frame.findViewWithTag<LinearLayout>(TAG_ND_QZONE)
+    if (qzoneHolder != null && qzoneHolder.childCount == 0) {
+        val qzoneUin = runCatching {
+            KernelServiceUtil.f()?.uixConvertService?.y(uid)?.takeIf { it > 0L }
+        }.getOrNull() ?: uin.filter { it.isDigit() }.toLongOrNull()?.takeIf { it > 0L }
+        if (qzoneUin != null) {
+            qzoneHolder.addView(qzoneButton(ctx, qzoneUin))
+            Utils.log("syncNotifyDetail: TA的空间 button added (uin=$qzoneUin)")
+        }
+    }
+
     Utils.log("syncNotifyDetail: nick='$nick' uin='$uin' uid='$uid' reqType=$reqType")
 
     // Extended profile info — fetch by the requestor's uid (carried by the request; works for strangers).
@@ -472,6 +509,8 @@ private fun buildSearchCard(native: ViewGroup, uid: String, uin: String, isChat:
     }
     column.addView(card)
     column.addView(actionBtn)
+    // TA的空间 — open this searched user's QZone (same button as the rich profile page).
+    uin.trim().toLongOrNull()?.takeIf { it > 0 }?.let { column.addView(qzoneButton(ctx, it)) }
 
     val scroll = ScrollView(ctx).apply {
         isFillViewport = false
