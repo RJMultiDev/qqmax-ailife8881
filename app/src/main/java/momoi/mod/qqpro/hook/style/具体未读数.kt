@@ -3,6 +3,8 @@ package momoi.mod.qqpro.hook.style
 import com.tencent.biz.qui.quicommon.ViewUtils
 import com.tencent.mobileqq.quibadge.QUIBadge
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.lib.material.M3
 
 @Mixin
 class 具体未读数 : QUIBadge(null, null) {
@@ -21,5 +23,15 @@ class 具体未读数 : QUIBadge(null, null) {
             return maxOf(textWidth, ViewUtils.a(31f))
         }
         return super.getMinWidth()
+    }
+
+    override fun setRedNum(i: Int) {
+        super.setRedNum(i)
+        if (Settings.materialChatList.value) n.color = M3.badge
+    }
+
+    override fun setGrayNum(i: Int) {
+        super.setGrayNum(i)
+        if (Settings.materialChatList.value) n.color = M3.surfaceVariant
     }
 }

@@ -10,7 +10,9 @@ import com.tencent.qqnt.watch.chat.list.WatchRecentContactHolder
 import com.tencent.qqnt.watch.chat.list.WatchRecentItemBuilder
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Colors
+import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.lib.clickable
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.util.Utils
 
 const val TOKEN = "\u200B\u200B\u200B\u200B\u200B"
@@ -107,8 +109,9 @@ abstract class 有人at我 : WatchRecentItemBuilder() {
         }
 
         notifyTagMap[uid]?.let { tag ->
+            val tagColor = if (Settings.materialChatList.value) M3.error else Colors.atMe
             tv.text = buildSpannedString {
-                color(Colors.atMe) {
+                color(tagColor) {
                     append(tag)
                 }
                 append(TOKEN)
