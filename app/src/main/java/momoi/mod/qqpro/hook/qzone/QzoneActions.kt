@@ -3,8 +3,14 @@ package momoi.mod.qqpro.hook.qzone
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import com.tencent.watch.qzone_impl.feed.model.BusinessFeedData
+import download
+import momoi.mod.qqpro.safeCacheDir
+import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import com.tencent.watch.qzone_impl.frame.IAdapterHost
 import com.tencent.watch.qzone_impl.publish.business.publishqueue.QZonePublishQueue
 import com.tencent.watch.qzone_impl.publish.business.task.QZoneLikeFeedTask
@@ -126,14 +132,50 @@ object QzoneActions {
             runCatching { PartialCopyFragment(text).show(host.b().childFragmentManager, "qzcopy") }
         })
         if (mediaItems(data).isNotEmpty()) {
-            rows.add("下载图片/视频" to {
-                openMedia(host, data, 0); Utils.toast(ctx, "在查看器中长按可保存")
-            })
+            rows.add("下载图片/视频" to { downloadMedia(host, data) })
         }
+        // 转发 (repost) stays last in the menu.
         rows.add("转发" to { repost(host, data) })
         runCatching {
             QzoneOverflowFragment(rows).show(host.b().childFragmentManager, "qzmenu")
         }.onFailure { Utils.log("QzoneActions overflow: $it") }
+    }
+
+    /** Download every image/video of [data] into the device gallery (Pictures/Movies → QZone). */
+    fun downloadMedia(host: IAdapterHost, data: BusinessFeedData) {
+        val items = mediaItems(data)
+        if (items.isEmpty()) { Utils.toast(host.requireContext(), "没有可下载的媒体"); return }
+        val ctx = host.requireContext().applicationContext
+        val main = Handler(Looper.getMainLooper())
+        Utils.toast(host.requireContext(), "开始下载 ${items.size} 个文件…")
+        val cache = ctx.safeCacheDir ?: ctx.cacheDir
+        val remaining = AtomicInteger(items.size)
+        val okCount = AtomicInteger(0)
+        val ts = System.currentTimeMillis()
+        items.forEachIndexed { i, item ->
+            val isVideo = item.videoUrl != null
+            val url = item.videoUrl ?: item.imageUrl
+            val ext = if (isVideo) "mp4" else "jpg"
+            val finish = {
+                if (remaining.decrementAndGet() == 0) {
+                    val n = okCount.get()
+                    main.post { Utils.toast(ctx, if (n > 0) "已保存 $n 个文件到相册" else "下载失败") }
+                }
+            }
+            if (url.isNullOrEmpty()) { finish(); return@forEachIndexed }
+            val tmp = File(cache, "qzdl_${ts}_$i.$ext")
+            runCatching {
+                download(url, tmp) { success ->
+                    val saved = success && MediaSave.toGallery(
+                        ctx, tmp, "QZone_${ts}_$i.$ext",
+                        if (isVideo) "video/mp4" else "image/jpeg", isVideo,
+                    )
+                    if (saved) okCount.incrementAndGet()
+                    runCatching { tmp.delete() }
+                    finish()
+                }
+            }.onFailure { Utils.log("QzoneActions download $i: $it"); finish() }
+        }
     }
 
     private fun copyToClipboard(ctx: Context, text: String) {

@@ -41,7 +41,14 @@ import java.io.File
  * walk up to in order to return to the chat page (a DialogFragment dismiss does NOT fire the chat
  * fragment's onResume, so the goToChatOnResume flag alone can't switch the page here).
  */
-class VideoRecordFragment(private val host: Fragment? = null) : MyDialogFragment() {
+class VideoRecordFragment(
+    private val host: Fragment? = null,
+    // Photo mode: a single still capture instead of video recording (in-app camera for QZone 拍照).
+    private val photo: Boolean = false,
+    // When set, the recorded/captured file path is returned here instead of being sent to the current
+    // chat (used by the QZone compose screen to attach the media to a post).
+    private val onComplete: ((String) -> Unit)? = null,
+) : MyDialogFragment() {
 
     private var camera: Camera? = null
     private var recorder: MediaRecorder? = null
@@ -107,7 +114,7 @@ class VideoRecordFragment(private val host: Fragment? = null) : MyDialogFragment
 
         val btn = View(ctx).apply {
             background = recordButtonDrawable(stop = false)
-            setOnClickListener { toggleRecording() }
+            setOnClickListener { if (photo) takePhoto() else toggleRecording() }
         }
         recordButton = btn
         root.addView(btn, FrameLayout.LayoutParams(56.dp, 56.dp).apply {
@@ -152,6 +159,48 @@ class VideoRecordFragment(private val host: Fragment? = null) : MyDialogFragment
             Utils.log("recorder: openCamera failed: $it")
             runCatching { Utils.toast(requireContext(), "无法打开相机") }
             dismissAllowingStateLoss()
+        }
+    }
+
+    /** Photo mode: capture one still, save a JPEG, and show the 重拍/发送 confirm bar. */
+    private fun takePhoto() {
+        val cam = camera ?: return
+        recordButton?.visibility = View.GONE
+        runCatching {
+            // takePicture ignores setDisplayOrientation, so set the JPEG rotation explicitly or the
+            // saved photo comes out rotated 90°.
+            runCatching {
+                val info = Camera.CameraInfo()
+                Camera.getCameraInfo(0, info)
+                val rot = requireActivity().windowManager.defaultDisplay.rotation
+                val deg = when (rot) {
+                    android.view.Surface.ROTATION_90 -> 90
+                    android.view.Surface.ROTATION_180 -> 180
+                    android.view.Surface.ROTATION_270 -> 270
+                    else -> 0
+                }
+                val jpeg = (info.orientation - deg + 360) % 360
+                val p = cam.parameters
+                p.setRotation(jpeg)
+                cam.parameters = p
+                Utils.log("recorder: jpeg rotation=$jpeg (sensor=${info.orientation} dev=$deg)")
+            }
+            cam.takePicture(null, null, Camera.PictureCallback { data, _ ->
+                runCatching {
+                    val dir = File(requireContext().getExternalFilesDir("qzone_photo") ?: requireContext().cacheDir, "")
+                    dir.mkdirs()
+                    val f = File(dir, "qz_photo_${System.currentTimeMillis()}.jpg")
+                    f.outputStream().use { it.write(data) }
+                    outputPath = f.path
+                    previewing = false
+                    Utils.log("recorder: photo saved ${f.path} (${f.length()} bytes)")
+                    confirmBar?.visibility = View.VISIBLE
+                }.onFailure { Utils.log("recorder: save photo failed: $it"); retake() }
+            })
+        }.onFailure {
+            Utils.log("recorder: takePicture failed: $it")
+            recordButton?.visibility = View.VISIBLE
+            runCatching { cam.startPreview() }
         }
     }
 
@@ -257,7 +306,13 @@ class VideoRecordFragment(private val host: Fragment? = null) : MyDialogFragment
     private fun sendRecorded() {
         val path = outputPath
         if (path == null) { dismissAllowingStateLoss(); return }
-        outputPath = null // prevent onDestroyView from deleting the file we're sending
+        outputPath = null // prevent onDestroyView from deleting the file we're sending/returning
+        val cb = onComplete
+        if (cb != null) {
+            runCatching { cb(path) }.onFailure { Utils.log("recorder onComplete: $it") }
+            dismissAllowingStateLoss()
+            return
+        }
         sendInAppVideo(path)
         switchChatToFirstPage()
         dismissAllowingStateLoss()
