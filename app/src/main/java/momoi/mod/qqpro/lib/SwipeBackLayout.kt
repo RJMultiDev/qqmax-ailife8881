@@ -97,7 +97,10 @@ class SwipeBackLayout(context: Context) : FrameLayout(context) {
         when (ev.actionMasked) {
             MotionEvent.ACTION_MOVE -> {
                 if (tracking) {
-                    translationX = (ev.rawX - downX).coerceAtLeast(0f)
+                    val tx = (ev.rawX - downX).coerceAtLeast(0f)
+                    translationX = tx
+                    // Fade the screen out as it slides so the (black) backdrop dims up through it.
+                    alpha = if (width > 0) (1f - 0.55f * (tx / width)).coerceIn(0.45f, 1f) else 1f
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -106,14 +109,19 @@ class SwipeBackLayout(context: Context) : FrameLayout(context) {
                     val dx = ev.rawX - downX
                     Utils.log("SBL: UP dx=$dx width=$width fire=${dx > width * 0.3f}")
                     if (ev.actionMasked == MotionEvent.ACTION_UP && dx > width * 0.3f) {
-                        // Snap back to origin before firing: if the callback doesn't finish the
-                        // activity (e.g. it just swaps in new content like the settings detail→list
-                        // navigation), leaving the layout translated would strand the new content
-                        // off-screen.
-                        translationX = 0f
-                        onSwipeBack?.invoke()
+                        // Continue the slide off-screen (don't snap back to origin first — that looked
+                        // like a bounce), fading out, THEN reset translation/alpha and fire. Resetting
+                        // before the callback means a callback that swaps content in place (e.g. the
+                        // settings detail→list navigation) lands the new content at the origin instead
+                        // of stranded off-screen; a callback that finishes the activity just closes.
+                        animate().translationX(width.toFloat()).alpha(0f).setDuration(180)
+                            .withEndAction {
+                                translationX = 0f
+                                alpha = 1f
+                                onSwipeBack?.invoke()
+                            }.start()
                     } else {
-                        animate().translationX(0f).setDuration(150).start()
+                        animate().translationX(0f).alpha(1f).setDuration(150).start()
                     }
                 }
             }
