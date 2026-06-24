@@ -47,7 +47,10 @@ import moye.wearqq.AtElementArg
 import moye.wearqq.IMEOperation
 import moye.wearqq.ReplyElementArg
 import java.lang.ref.WeakReference
+import android.widget.ImageView
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
 
 /**
  * Controller for "完全行内输入" (Settings.fullInlineInput): everything that would normally open the
@@ -72,6 +75,31 @@ object InlineInput {
     private var editTextRef: WeakReference<ImeEditText>? = null
     private var controllerRef: WeakReference<InputBarController>? = null
     private var bannerRef: WeakReference<TextView>? = null
+
+    // Inline reply/edit row built INSIDE the input pill (materialized mode). When registered, the
+    // reply/edit indicator is rendered into this row (which moves WITH the bar on scroll) instead of
+    // the floating [showBanner] overlay — the overlay decoupled visually while scrolling. The input
+    // bar provides [onInlineReplyChanged] to re-run its grow routine when the row shows/hides.
+    private var inlineReplyRowRef: WeakReference<View>? = null
+    private var inlineReplyTextRef: WeakReference<TextView>? = null
+    private var inlineReplyIconRef: WeakReference<ImageView>? = null
+    private var onInlineReplyChanged: (() -> Unit)? = null
+
+    /** Called by the input-bar hook (materialized) to register the inline reply/edit row + its views. */
+    fun registerInlineReply(row: View, icon: ImageView, text: TextView, onChanged: () -> Unit) {
+        inlineReplyRowRef = WeakReference(row)
+        inlineReplyIconRef = WeakReference(icon)
+        inlineReplyTextRef = WeakReference(text)
+        onInlineReplyChanged = onChanged
+    }
+
+    /** Called by the input-bar hook (non-materialized) so the floating banner is used instead. */
+    fun clearInlineReply() {
+        inlineReplyRowRef = null
+        inlineReplyIconRef = null
+        inlineReplyTextRef = null
+        onInlineReplyChanged = null
+    }
 
     // Gallery-staged image elements awaiting insertion. They are drained into whichever inline
     // EditText is actually registered/visible at the time — the bar has two hosts (list-footer pill
@@ -504,11 +532,28 @@ object InlineInput {
         // updateBanner() is the single chokepoint after any reply/edit-state change, so persist the
         // per-chat draft (text is already tracked live by draftWatcher; this captures reply changes).
         saveDraft()
-        val label = when {
-            MessageEdit.editingMsgId != 0L -> "编辑中（点击取消）"
-            reply != null -> "回复 ${reply?.nick}（点击取消）"
+        val editing = MessageEdit.editingMsgId != 0L
+        val short = when {
+            editing -> "编辑中"
+            reply != null -> "回复 ${reply?.nick}"
             else -> null
         }
+        // Materialized: drive the inline row inside the pill (moves with the bar; no decoupling).
+        val inlineRow = inlineReplyRowRef?.get()
+        if (inlineRow != null) {
+            if (short == null) {
+                inlineRow.visibility = View.GONE
+            } else {
+                inlineReplyTextRef?.get()?.text = short
+                inlineReplyIconRef?.get()?.setImageDrawable(MaterialSymbol(
+                    if (editing) MaterialSymbols.edit else MaterialSymbols.reply, tokenColor))
+                inlineRow.visibility = View.VISIBLE
+            }
+            onInlineReplyChanged?.invoke()
+            return
+        }
+        // Non-materialized: floating banner above the bar (the close icon is replaced by the suffix).
+        val label = short?.let { "$it（点击取消）" }
         if (label == null) hideBanner() else showBanner(label)
     }
 

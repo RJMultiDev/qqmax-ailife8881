@@ -152,6 +152,16 @@ object M3 {
             setStroke(strokeWidthDp.dp, strokeColor)
         }
 
+    /** A rounded rect that is BOTH filled ([fillColor]) and outlined ([strokeColor]) — a filled field
+     *  with a visible border (e.g. the materialized chat input). */
+    fun filledOutlined(
+        fillColor: Int, strokeColor: Int, radius: Float = radiusMd, strokeWidthDp: Int = 1,
+    ): GradientDrawable = GradientDrawable().apply {
+        setColor(fillColor)
+        cornerRadius = radius
+        setStroke(strokeWidthDp.dp, strokeColor)
+    }
+
     /**
      * Wrap a content drawable with an M3 ripple (pressed feedback). The mask BOUNDS the ripple: when
      * no [content] is given we still pass an opaque mask so the ripple is clipped to the view's bounds

@@ -81,6 +81,13 @@ object Settings {
     // the inline EditText as a token instead of sending it immediately. Lets you keep composing
     // (mix text + faces + images) and send once. Only applies while fullInlineInput is active.
     val emojiPickerToInput = BooleanPref("emojiPickerToInput", true)
+    // Materialize the chat screen chrome (not the scrolling content, which is already M3): the inline
+    // input pill (filled surface-container field, M3 symbol icons, primary send circle), the
+    // reply/edit banner (M3 surface + reply/edit/close symbols) and the per-message "sending" spinner
+    // (M3 arc instead of the native APNG). Off keeps the current translucent pill / PNG icons / native
+    // spinner. Visual only; behaviour is identical. Only has an effect with 聊天页直接输入 on (the inline
+    // EditText must exist). Takes effect next time a chat opens. Default on.
+    val materializeChat = BooleanPref("materializeChat", true)
     // Screen rounded-corner diameter (in dp). Adds left/right margin of this
     // width to the inline chat EditText so the side buttons aren't clipped by a
     // round watch screen's corners.
@@ -304,7 +311,7 @@ object Settings {
         themeSurface, themeSurfaceContainer, themeSurfaceContainerHigh, themeSurfaceVariant,
         themeOnSurface, themeOnSurfaceVariant, themeOnSurfaceTip, themeHint, themeOutline, themeOutlineVariant, themeError,
         showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
-        inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
+        inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput, materializeChat,
         screenCornerDiameter, titlebarSideMargin,
         hideVoiceButton, muteHideInputBar, backToFirstPage, attachmentOverlay, materialAttachmentMenu, materialLongPressMenu, enableTitlebar, titlebarChatOnly, titlebarShowUnread,
         floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread, mainNavUnreadJump,

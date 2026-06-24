@@ -3,6 +3,7 @@ package momoi.mod.qqpro.hook.style
 import android.annotation.SuppressLint
 import android.net.Uri
 import android.text.InputType
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -64,12 +65,15 @@ import momoi.mod.qqpro.lib.scaleType
 import momoi.mod.qqpro.lib.size
 import momoi.mod.qqpro.lib.text
 import momoi.mod.qqpro.lib.textColor
+import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.textSize
 import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.util.Utils
 import java.io.File
 import java.io.FileOutputStream
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.MaterialSymbol
+import momoi.mod.qqpro.lib.material.MaterialSymbols
 
 // Last emitted inlineGrow debug line; used to suppress repeated identical logs across layout passes.
 private var lastInlineGrowLog = ""
@@ -86,6 +90,9 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
         // The container ConstraintLayout doesn't wrap-content reliably around our unconstrained
         // child, so its height is driven explicitly from the EditText line count (see onEachLayout).
         val inlineGrow = Settings.inlineChatInput.value && !Settings.singleLineInput.value
+        // Materialize the input chrome (filled pill, M3 symbol icons, primary send circle). Only the
+        // inline pill path below honours it (the non-inline keyboard-key branch has no EditText).
+        val mat = Settings.materializeChat.value
         val rootContainer = this
         val emoji = getChildAt(0)
         val keyboard = getChildAt(2)
@@ -100,6 +107,9 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
             val sideSpaceDp = Settings.screenCornerDiameter.value.toInt()
             // Baseline single-line height of the bar; buttons stay this tall while the EditText grows.
             val lineH = 36.dp
+            // Height of the inline reply/edit row (materialized) added on top of the input row inside
+            // the pill; the bar grows by this much while a reply/edit is active (see applyInlineGrow).
+            val replyRowH = 20.dp
             add<LinearLayout>().size(FILL, FILL).apply {
                     if (Utils.isRoundScreen) {
                         paddingHorizontal((14.dp / Settings.scale.value).toInt())
@@ -109,7 +119,10 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                         create<ImageView>()
                             .height(if (Settings.inlineChatInput.value) lineH else FILL)
                             .adjustViewBounds()
-                            .bitmapDecodeAssets("pro/ic_voice.png").padding(6.dp)
+                            .apply {
+                                if (mat) setImageDrawable(MaterialSymbol(MaterialSymbols.mic, M3.onSurfaceVariant))
+                                else bitmapDecodeAssets("pro/ic_voice.png")
+                            }.padding(6.dp)
                             .scaleType(ImageView.ScaleType.FIT_CENTER)
                     if (Settings.fullInlineInput.value) {
                         // 完全行内输入: hold-to-record inline (timer + slide-to-cancel / slide-to-STT
@@ -131,19 +144,47 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                         // put so it becomes a rounded rectangle that expands UPWARD. The side buttons are
                         // bottom-anchored (Gravity.BOTTOM) so they stay pinned to the bottom while the
                         // EditText grows above them, instead of riding up with a vertically-centred pill.
+                        // Material: a rounded RECTANGLE (small 8dp corners — NOT a capsule) with a
+                        // surface fill AND a 1dp outline, holding a reply/edit row on top of the input
+                        // row (vertical). Non-material keeps the original translucent capsule (single row).
+                        val pillRadius = if (mat) M3.radiusSm else if (inlineGrow) (lineH / 2f) else 9999f
                         val pill = create<LinearLayout>().height(FILL).weight(1f)
-                            .background(roundCornerDrawable(0x22_FFFFFF,
-                                if (inlineGrow) (lineH / 2f) else 9999f))
+                            .background(
+                                if (mat) M3.filledOutlined(M3.surfaceContainer, M3.outline, pillRadius)
+                                else roundCornerDrawable(0x22_FFFFFF, pillRadius))
                             .gravity(if (inlineGrow) Gravity.BOTTOM else Gravity.CENTER_VERTICAL)
-                        val send = create<ImageView>().height(lineH).adjustViewBounds()
-                            .padding(8.dp).scaleType(ImageView.ScaleType.FIT_CENTER).apply {
+                        if (mat) pill.vertical()
+                        val send = create<ImageView>().scaleType(ImageView.ScaleType.FIT_CENTER).apply {
+                            if (mat) {
+                                // Compact filled-primary send circle (26dp). Glyph kept at 16dp via the
+                                // 5dp padding (26 − 2·5). A bottom margin of (lineH − 26)/2 lifts it off
+                                // the row floor so its centre lines up with the other full-height buttons.
+                                size(26.dp, 26.dp)
+                                padding(5.dp)
+                                (layoutParams as? LinearLayout.LayoutParams)?.apply {
+                                    // Equal bottom + right inset so the circle is evenly spaced from the
+                                    // pill's bottom-right corner (centres it against the other buttons).
+                                    val m = (lineH - 26.dp) / 2
+                                    bottomMargin = m
+                                    marginEnd = m
+                                }
+                                background = roundCornerDrawable(M3.primary, 9999f)
+                                setImageDrawable(MaterialSymbol(MaterialSymbols.send, M3.onPrimary))
+                            } else {
+                                height(lineH); adjustViewBounds(); padding(8.dp)
                                 setImageDrawable(sendIconDrawable())
-                                visibility = View.GONE
                             }
+                            visibility = View.GONE
+                        }
                         lateinit var emojiBtn: ImageView
                         lateinit var emojiToggle: ImageView
                         lateinit var editText: ImeEditText
                         lateinit var hintView: TextView
+                        // Inline reply/edit row (materialized only): built below and driven by
+                        // InlineInput (show/hide + text/icon). Null in non-materialized mode.
+                        var replyRow: LinearLayout? = null
+                        var replyIcon: ImageView? = null
+                        var replyText: TextView? = null
                         // Bar auto-grow state + routine. The input bar has two homes (see
                         // WatchAIOListVB / InputBarController):
                         //  • at the chat bottom it lives INSIDE a list footer (the 44dp "sliver"
@@ -168,7 +209,10 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                 depth++
                             }
                             val lines = editText.lineCount.coerceIn(1, 4)
-                            val target = lineH + (lines - 1) * editText.lineHeight
+                            // The inline reply/edit row (materialized) adds its height on top of the
+                            // input row, so the bar must grow by it while a reply/edit is active.
+                            val replyExtra = if (replyRow?.visibility == View.VISIBLE) replyRowH else 0
+                            val target = lineH + (lines - 1) * editText.lineHeight + replyExtra
                             val lp = rootContainer.layoutParams ?: return
                             (lp as? FrameLayout.LayoutParams)?.gravity = Gravity.BOTTOM
                             if (lp.height != target) {
@@ -198,15 +242,59 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                                 Utils.log(inlineGrowMsg)
                             }
                         }
-                        pill.content {
+                        // Materialized: split the pill into a reply/edit row on top of the input row.
+                        // The reply row lives INSIDE the pill view tree, so it scrolls with the bar
+                        // (the old floating banner decoupled visually while scrolling). Hidden until
+                        // InlineInput shows it. The input row (emoji/editText/voice/send) is added by
+                        // the content block below, into `contentGroup`.
+                        val contentGroup: LinearLayout = if (mat) {
+                            val ctx = rootContainer.context
+                            val row = LinearLayout(ctx).apply {
+                                orientation = LinearLayout.HORIZONTAL
+                                gravity = Gravity.CENTER_VERTICAL
+                                visibility = View.GONE
+                                setPadding(10.dp, 3.dp, 6.dp, 0)
+                            }
+                            val ic = ImageView(ctx).apply {
+                                setImageDrawable(MaterialSymbol(MaterialSymbols.reply, M3.primary))
+                            }
+                            val tv = TextView(ctx).apply {
+                                setTextColor(M3.primary)
+                                textSize = 10f
+                                isSingleLine = true
+                                maxLines = 1
+                                ellipsize = TextUtils.TruncateAt.END
+                                gravity = Gravity.CENTER_VERTICAL
+                            }
+                            val closeBtn = ImageView(ctx).apply {
+                                setImageDrawable(MaterialSymbol(MaterialSymbols.close, M3.onSurfaceVariant))
+                                setPadding(3.dp, 3.dp, 3.dp, 3.dp)
+                                background = M3.ripple(null)
+                            }.clickable { InlineInput.cancelReplyOrEdit() }
+                            row.addView(ic, LinearLayout.LayoutParams(14.dp, 14.dp).apply { marginEnd = 4.dp })
+                            row.addView(tv, LinearLayout.LayoutParams(0, WRAP, 1f))
+                            row.addView(closeBtn, LinearLayout.LayoutParams(20.dp, 20.dp))
+                            replyRow = row; replyIcon = ic; replyText = tv
+                            val inputRow = LinearLayout(ctx).apply {
+                                orientation = LinearLayout.HORIZONTAL
+                                gravity = if (inlineGrow) Gravity.BOTTOM else Gravity.CENTER_VERTICAL
+                            }
+                            pill.addView(row, LinearLayout.LayoutParams(FILL, WRAP))
+                            pill.addView(inputRow, LinearLayout.LayoutParams(FILL, 0).apply { weight = 1f })
+                            inputRow
+                        } else pill
+                        contentGroup.content {
                             emojiBtn = add<ImageView>().height(lineH).adjustViewBounds()
                                 .scaleType(ImageView.ScaleType.FIT_CENTER).padding(8.dp)
                             if (Settings.attachmentOverlay.value) {
                                 // Emoji button becomes a "+" that opens the attachment overlay.
-                                emojiBtn.setImageDrawable(plusIconDrawable())
+                                emojiBtn.setImageDrawable(
+                                    if (mat) MaterialSymbol(MaterialSymbols.add, M3.onSurfaceVariant)
+                                    else plusIconDrawable())
                                 emojiBtn.clickable { hideIme(emojiBtn); AttachmentOverlay.show(emojiBtn, emoji) }
                             } else {
-                                emojiBtn.bitmapDecodeAssets("pro/ic_emoji.png")
+                                if (mat) emojiBtn.setImageDrawable(MaterialSymbol(MaterialSymbols.mood, M3.onSurfaceVariant))
+                                else emojiBtn.bitmapDecodeAssets("pro/ic_emoji.png")
                                 emojiBtn.clickable { hideIme(emojiBtn); emoji.callOnClick() }
                             }
                             // Emoji-picker toggle, shown only while typing (inlineEmojiButton). It sits
@@ -214,7 +302,10 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                             // appears as an emoji key regardless of the attachment-overlay "+" setting.
                             emojiToggle = add<ImageView>().height(lineH).adjustViewBounds()
                                 .scaleType(ImageView.ScaleType.FIT_CENTER).padding(8.dp)
-                                .bitmapDecodeAssets("pro/ic_emoji.png")
+                                .apply {
+                                    if (mat) setImageDrawable(MaterialSymbol(MaterialSymbols.mood, M3.onSurfaceVariant))
+                                    else bitmapDecodeAssets("pro/ic_emoji.png")
+                                }
                             emojiToggle.visibility = View.GONE
                             emojiToggle.clickable { InlineEmojiPanel.toggle(editText) }
                             // Long-press the typing emoji key to open the attachment overlay (+ menu)
@@ -251,7 +342,7 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                             editText.onImageUri = { uri -> sendImeImage(uri) }
                             hintView = create<TextView>()
                                 .text("说点什么...")
-                                .textColor(0x80_FFFFFF)
+                                .textColor(if (mat) M3.hint else 0x80_FFFFFF.toInt())
                                 .textSize(14f)
                                 .gravity(Gravity.CENTER_VERTICAL)
                                 .paddingHorizontal(4.dp)
@@ -332,8 +423,16 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                             VoiceRecord.onConvertStateChanged = { applyButtonState() }
                         }
                         if (Settings.fullInlineInput.value) {
-                            // The reply/edit banner is a floating overlay above the bar (InlineInput
-                            // manages it) so it never shrinks the input box.
+                            // Materialized: drive the reply/edit indicator into the inline row built
+                            // above (it moves with the bar — no decoupling). Otherwise use the floating
+                            // banner. Register the inline row BEFORE register() so a restored draft's
+                            // reply target renders straight into it.
+                            val rr = replyRow; val ri = replyIcon; val rt = replyText
+                            if (mat && rr != null && ri != null && rt != null) {
+                                InlineInput.registerInlineReply(rr, ri, rt) { applyInlineGrow() }
+                            } else {
+                                InlineInput.clearInlineReply()
+                            }
                             InlineInput.register(editText, b)
                         }
                         add(pill.marginHorizontal(sideSpaceDp.dp))
