@@ -107,6 +107,15 @@ object InlineInput {
         if (!Settings.rememberDraft.value) return
         val key = currentChatKey ?: return
         val et = editText() ?: return
+        // Diagnostic: catch the case where a draft that HELD image/@ tokens is about to be overwritten
+        // by an empty box (e.g. the native fragment cleared the EditText underneath us on a gallery
+        // round-trip). That silently drops a staged image before it can be sent.
+        val prevSpans = runCatching { (drafts[key] as? Spanned)?.let { d -> d.getSpans(0, d.length, InlineTag::class.java).size } ?: 0 }.getOrNull() ?: 0
+        val nowText = et.text
+        val nowSpans = runCatching { nowText?.let { it.getSpans(0, it.length, InlineTag::class.java).size } ?: 0 }.getOrNull() ?: 0
+        if (prevSpans > 0 && nowSpans == 0 && (nowText?.length ?: 0) == 0) {
+            Utils.log("InlineInput.saveDraft: WARNING overwriting draft that had $prevSpans token(s) with an EMPTY box (key=$key et=${System.identityHashCode(et)} attached=${et.isAttachedToWindow}) — staged image/@ being dropped")
+        }
         drafts[key] = SpannableStringBuilder(et.text ?: "")
         replyDrafts[key] = reply
         // Mirror to disk so the draft survives an app restart.
@@ -239,6 +248,8 @@ object InlineInput {
             val mem = drafts[key]
             Utils.log("InlineInput.register: restoring draft key=$key memLen=${mem?.length} (textBefore=${editText.text?.length})")
             if (mem != null) {
+                val memSpans = runCatching { (mem as? Spanned)?.let { d -> d.getSpans(0, d.length, InlineTag::class.java).size } }.getOrNull()
+                Utils.log("InlineInput.register: in-memory draft has $memSpans InlineTag span(s)")
                 // Same session: restore the full in-memory copy (keeps [图片] image tokens too).
                 runCatching {
                     editText.setText(SpannableStringBuilder(mem))
@@ -250,7 +261,8 @@ object InlineInput {
                 restoreFromPrefs(editText, key)
             }
             editText.addTextChangedListener(draftWatcher)
-            Utils.log("InlineInput.register: after draft restore textLen=${editText.text?.length}")
+            val restoredSpans = runCatching { editText.text?.let { it.getSpans(0, it.length, InlineTag::class.java).size } }.getOrNull()
+            Utils.log("InlineInput.register: after draft restore textLen=${editText.text?.length} spans=$restoredSpans")
         }
         // The input bar auto-hides on scroll, detaching this EditText; drop the floating banner then.
         // When it reattaches (bar reshown) the reply/edit state is still live, so rebuild the banner —
@@ -280,7 +292,9 @@ object InlineInput {
      */
     fun consumePending() {
         val et = editText() ?: run { Utils.log("InlineInput.consumePending: NO editText (isReady=$isReady)"); return }
-        Utils.log("InlineInput.consumePending: et=${System.identityHashCode(et)} attached=${et.isAttachedToWindow} extraMsg=${IMEOperation.extraMsg.size} extra=${IMEOperation.INSTANCE.extra.size} textLenBefore=${et.text?.length}")
+        val spansBefore = runCatching { et.text?.let { t -> t.getSpans(0, t.length, InlineTag::class.java).size } }.getOrNull()
+        val draftSpans = runCatching { currentChatKey?.let { k -> (drafts[k] as? Spanned)?.let { d -> d.getSpans(0, d.length, InlineTag::class.java).size } } }.getOrNull()
+        Utils.log("InlineInput.consumePending: et=${System.identityHashCode(et)} attached=${et.isAttachedToWindow} extraMsg=${IMEOperation.extraMsg.size} extra=${IMEOperation.INSTANCE.extra.size} textLenBefore=${et.text?.length} spansBefore=$spansBefore draftSpans=$draftSpans")
         runCatching {
             // Reply / @ are staged in IMEOperation.extra (newest first via add(0,…)); apply in input order.
             for (obj in IMEOperation.INSTANCE.extra.reversed()) {
@@ -378,7 +392,8 @@ object InlineInput {
 
     private fun insertImage(element: MsgElement) {
         val et = editText()
-        Utils.log("InlineInput.insertImage: et=${if (et != null) System.identityHashCode(et) else null} hasPic=${runCatching { element.picElement != null }.getOrNull()}")
+        val path = runCatching { imagePath(element) }.getOrNull()
+        Utils.log("InlineInput.insertImage: et=${if (et != null) System.identityHashCode(et) else null} hasPic=${runCatching { element.picElement != null }.getOrNull()} srcPath=$path fileExists=${runCatching { path != null && File(path).exists() }.getOrNull()}")
         insertToken("[图片]", ImageTag(element))
     }
 
@@ -435,7 +450,7 @@ object InlineInput {
      * atomic run. [colorize] is off for rendered faces so the emoji glyph keeps its own colours.
      */
     private fun insertSpan(label: CharSequence, tag: InlineTag, colorize: Boolean) {
-        val et = editText() ?: return
+        val et = editText() ?: run { Utils.log("InlineInput.insertSpan: ABORT no editText for label='$label' tag=${tag.javaClass.simpleName}"); return }
         val sp = SpannableString(label)
         sp.setSpan(tag, 0, sp.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         if (colorize) sp.setSpan(ForegroundColorSpan(tokenColor), 0, sp.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -443,7 +458,12 @@ object InlineInput {
         val end = et.selectionEnd.coerceAtLeast(start)
         val textObj = et.text
         textObj?.replace(start, end, sp)
-        Utils.log("InlineInput.insertSpan: label='$label' tag=${tag.javaClass.simpleName} et=${System.identityHashCode(et)} textNull=${textObj == null} start=$start end=$end newLen=${et.text?.length}")
+        // Verify the span actually landed: read it back from the live Editable. If totalSpans doesn't
+        // include the one we just set (e.g. text replaced underneath us), the element won't survive to send.
+        val live = et.text
+        val placed = runCatching { live != null && live.getSpanStart(tag) >= 0 }.getOrNull()
+        val totalSpans = runCatching { live?.getSpans(0, live.length, InlineTag::class.java)?.size }.getOrNull()
+        Utils.log("InlineInput.insertSpan: label='$label' tag=${tag.javaClass.simpleName} et=${System.identityHashCode(et)} attached=${et.isAttachedToWindow} textNull=${textObj == null} start=$start end=$end newLen=${live?.length} placed=$placed totalSpans=$totalSpans")
     }
 
     fun setReply(msgId: Long, senderUid: String, nick: String) {
@@ -589,9 +609,19 @@ object InlineInput {
 
     /** Turn the current box contents (text + @ + image spans) and the active reply into MsgElements and send. */
     fun send() {
-        val et = editText() ?: return
+        val et = editText()
+        if (et == null) { Utils.log("inline full send: ABORT no editText (isReady=$isReady)"); return }
+        val spanCount = runCatching { et.text?.getSpans(0, et.text!!.length, InlineTag::class.java)?.size }.getOrNull()
+        Utils.log("inline full send: enter et=${System.identityHashCode(et)} attached=${et.isAttachedToWindow} textLen=${et.text?.length} spans=$spanCount text='${et.text}'")
         val elements = buildElements()
-        if (elements.isEmpty()) return
+        if (elements.isEmpty()) {
+            Utils.log("inline full send: ABORT buildElements empty (textLen=${et.text?.length} spans=$spanCount) — nothing sent")
+            return
+        }
+        val summary = elements.joinToString(",") { runCatching {
+            "type=${it.elementType}${if (it.picElement != null) "/pic" else ""}${if (it.textElement != null) "/text" else ""}"
+        }.getOrElse { "?" } }
+        Utils.log("inline full send: dispatching ${elements.size} element(s): [$summary]")
         runCatching {
             val editId = MessageEdit.editingMsgId
             if (editId != 0L) {
@@ -611,10 +641,11 @@ object InlineInput {
     }
 
     private fun buildElements(): ArrayList<MsgElement> {
-        val et = editText() ?: return arrayListOf()
-        val text = et.text ?: return arrayListOf()
+        val et = editText() ?: run { Utils.log("buildElements: no editText"); return arrayListOf() }
+        val text = et.text ?: run { Utils.log("buildElements: et.text null (et=${System.identityHashCode(et)})"); return arrayListOf() }
         val out = ArrayList<MsgElement>()
         val api = MsgUtilApiImpl.instance
+        Utils.log("buildElements: textLen=${text.length} text='$text'")
 
         // Reply element only. The @sender (回复带@) is now an inline AtTag token in the box (injected
         // by setReply), so the span walk below emits it — don't also prepend it here (would double it).
@@ -627,11 +658,17 @@ object InlineInput {
         // Walk the text in order, splitting at InlineTag spans.
         val spans = text.getSpans(0, text.length, InlineTag::class.java)
             .sortedBy { text.getSpanStart(it) }
+        Utils.log("buildElements: found ${spans.size} InlineTag span(s): ${spans.joinToString(",") {
+            "${it.javaClass.simpleName}@[${text.getSpanStart(it)},${text.getSpanEnd(it)}]"
+        }}")
         var i = 0
         for (tag in spans) {
             val s = text.getSpanStart(tag)
             val e = text.getSpanEnd(tag)
-            if (s < i || s < 0 || e <= s) continue
+            if (s < i || s < 0 || e <= s) {
+                Utils.log("buildElements: SKIP malformed span ${tag.javaClass.simpleName} s=$s e=$e i=$i — its element will be LOST")
+                continue
+            }
             if (s > i) appendText(out, text.subSequence(i, s))
             when (tag) {
                 is AtTag -> {
@@ -642,11 +679,16 @@ object InlineInput {
                     out.add(api.createAtTextElement("@${tag.nick}", tag.uid, tag.atType))
                     if (e < text.length && !text[e].isWhitespace()) out.add(api.createTextElement(" "))
                 }
-                is ImageTag -> out.add(tag.element)
+                is ImageTag -> {
+                    val pic = runCatching { tag.element.picElement != null }.getOrNull()
+                    Utils.log("buildElements: emit ImageTag element type=${runCatching { tag.element.elementType }.getOrNull()} hasPic=$pic")
+                    out.add(tag.element)
+                }
             }
             i = e
         }
         if (i < text.length) appendText(out, text.subSequence(i, text.length))
+        Utils.log("buildElements: produced ${out.size} element(s)")
         return out
     }
 
