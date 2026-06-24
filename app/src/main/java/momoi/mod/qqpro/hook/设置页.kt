@@ -15,6 +15,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -75,11 +76,15 @@ private const val REQ_IMPORT_SETTINGS = 0x9B02
 private var bgStatusLabel: TextView? = null
 
 // Two-level navigation state, also at file scope to avoid @Mixin field initializers.
-// settingsRoot is the scrollable content column; we clear+refill it to switch between the
-// top-level category list and a single category's detail page. inSettingsDetail tells the
-// swipe/back gestures whether to pop back to the list or finish the activity.
+// The level-1 category list ([settingsRoot] inside [settingsScroll]) stays PERSISTENT in the
+// [settingsContainer] FrameLayout; opening a category overlays a separate detail layer
+// ([detailLayer], its own swipe-back) ON TOP. So swiping the detail back reveals the live level-1
+// list behind it (not the black window) and keeps its scroll position. inSettingsDetail tells the
+// hardware-back / outer-swipe gestures whether a detail layer is up.
 private var settingsRoot: LinearLayout? = null
 private var settingsScroll: ScrollView? = null
+private var settingsContainer: FrameLayout? = null
+private var detailLayer: View? = null
 private var inSettingsDetail = false
 
 /**
@@ -99,6 +104,20 @@ class 设置页 : SettingsActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Make this activity translucent + drop the system open/close transition: the SwipeBackLayout's
+        // own fade+slide is our transition, and translucency lets a swipe-back reveal the screen
+        // underneath instead of black. convertToTranslucent is @hide, so reach it reflectively.
+        runCatching {
+            val m = android.app.Activity::class.java.declaredMethods
+                .filter { it.name == "convertToTranslucent" }
+                .minByOrNull { it.parameterTypes.size } ?: return@runCatching
+            m.isAccessible = true
+            m.invoke(this, *arrayOfNulls<Any?>(m.parameterTypes.size))
+        }.onFailure { Utils.log("设置页: convertToTranslucent failed: $it") }
+        window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        overridePendingTransition(0, 0)
+
+        // Level-1 category list — persistent; stays behind any detail layer.
         val scroll = ScrollView(this).apply {
             isFillViewport = true
             setBackgroundColor(M3.surface)
@@ -108,6 +127,10 @@ class 设置页 : SettingsActivity() {
             .padding(left = (2 * CARD_MARGIN_DP).dp, top = 10.dp, right = (2 * CARD_MARGIN_DP).dp, bottom = 10.dp)
         scroll.addView(root, FILL, WRAP)
 
+        // Container that stacks the level-1 list and (when open) a detail layer on top.
+        val container = FrameLayout(this).apply { setBackgroundColor(M3.surface) }
+        container.addView(scroll, FrameLayout.LayoutParams(FILL, FILL))
+
         // Watches without a hardware back button rely on a left-to-right swipe to leave a
         // screen (the main activity gets this from QQ's fling framework). Wrap the settings
         // content so the same gesture finishes this plain Activity.
@@ -115,26 +138,25 @@ class 设置页 : SettingsActivity() {
             // The settings page must always be swipeable, even when "屏蔽应用内右滑返回" is on —
             // otherwise a watch with no hardware back button can't leave this screen to turn it off.
             ignoreDisableSetting = true
-            // Opaque background so the strip revealed while the content slides right
-            // doesn't flash the window background.
             setBackgroundColor(M3.surface)
-            addView(scroll, FILL, FILL)
-            // In a detail page the swipe pops back to the category list; on the list it leaves.
-            onSwipeBack = { if (inSettingsDetail) showCategoryList() else finish() }
+            addView(container, FILL, FILL)
+            // Only handles the level-1 swipe (leave the app). In a detail page the detail layer's own
+            // swipe-back handles it, so suppress this one to avoid both grabbing the gesture.
+            canSwipe = { !inSettingsDetail }
+            onSwipeBack = { finish() }
         }
         setContentView(swipeBack)
 
         settingsScroll = scroll
         settingsRoot = root
+        settingsContainer = container
         showCategoryList()
     }
 
-    /** Top-level page: app header followed by one tappable card per category. */
+    /** Build the persistent top-level list: app header + one tappable card per category. */
     private fun showCategoryList() {
         val root = settingsRoot ?: return
-        inSettingsDetail = false
         root.removeAllViews()
-        settingsScroll?.scrollTo(0, 0)
         root.content {
             section("NWear QQ Pro / Max", "by 爅峫 · java30433 · AILIFE")
             for (cat in buildCategories()) {
@@ -145,24 +167,60 @@ class 设置页 : SettingsActivity() {
         }
     }
 
-    /** Second-level page: a back header plus the rows for a single [cat]egory. */
+    /**
+     * Open a category as a detail layer overlaid on the (still-present) level-1 list: its own
+     * ScrollView in its own [SwipeBackLayout], so swiping it back reveals the live list behind and
+     * leaves the list's scroll position untouched. Replaces any layer already up.
+     */
     private fun showCategory(cat: SettingsCategory) {
-        val root = settingsRoot ?: return
-        inSettingsDetail = true
-        root.removeAllViews()
-        settingsScroll?.scrollTo(0, 0)
-        root.content {
-            backHeader(cat.title, cat.subtitle) { showCategoryList() }
+        val container = settingsContainer ?: return
+        detailLayer?.let { container.removeView(it) }
+
+        val detailScroll = ScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(M3.surface)
+        }
+        val detailRoot = LinearLayout(this)
+            .vertical()
+            .padding(left = (2 * CARD_MARGIN_DP).dp, top = 10.dp, right = (2 * CARD_MARGIN_DP).dp, bottom = 10.dp)
+        detailScroll.addView(detailRoot, FILL, WRAP)
+        detailRoot.content {
+            backHeader(cat.title, cat.subtitle) { popCategory() }
             cat.build(this)
             add<View>()
                 .height(64.dp)
         }
+
+        val layer = SwipeBackLayout(this).apply {
+            ignoreDisableSetting = true
+            // Opaque so it fully covers the list until it slides/fades on swipe.
+            setBackgroundColor(M3.surface)
+            addView(detailScroll, FILL, FILL)
+            onSwipeBack = { popCategory() }
+        }
+        container.addView(layer, FrameLayout.LayoutParams(FILL, FILL))
+        detailLayer = layer
+        inSettingsDetail = true
+    }
+
+    /** Remove the detail layer, revealing the level-1 list at its preserved scroll position. */
+    private fun popCategory() {
+        val container = settingsContainer ?: return
+        detailLayer?.let { container.removeView(it) }
+        detailLayer = null
+        inSettingsDetail = false
     }
 
     // Hardware/system back mirrors the swipe gesture: pop to the list before leaving.
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (inSettingsDetail) showCategoryList() else super.onBackPressed()
+        if (inSettingsDetail) popCategory() else super.onBackPressed()
+    }
+
+    // No system close transition — we handle the exit visually (swipe slide/fade).
+    override fun finish() {
+        super.finish()
+        overridePendingTransition(0, 0)
     }
 
     /** Tappable header at the top of a detail page; [onBack] returns to the category list. */
