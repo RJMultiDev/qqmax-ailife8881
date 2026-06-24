@@ -54,7 +54,7 @@ object Settings {
     val showGroupAvatar = BooleanPref("showGroupAvatar", true)
     // Also show avatar + two-line nick header for your own messages, like others.
     val showSelfAvatar = BooleanPref("showSelfAvatar", false)
-    // Group chat avatar size, as a multiple of the nickname text size. Default 3x.
+    // Group chat avatar size, as a multiple of the nickname text size. Default 2.5x.
     val avatarSizeScale = FloatPref("avatarSizeScale", 2.5f)
     val hideRepeatedSender = BooleanPref("hideRepeatedSender", true)
     // Replace the group message sender NAME with our resolved 群名片/备注/昵称. Off by default:
@@ -240,7 +240,7 @@ object Settings {
     // page — with a from-scratch Material 3 implementation. Off keeps the native screens (with only
     // the in-place tweaks like the top bar / like icons / mini-app card above). Default off; opt-in
     // escape hatch since it owns the whole feed rendering. Takes effect next time a QZone screen opens.
-    val materializeQzone = BooleanPref("materializeQzone", false)
+    val materializeQzone = BooleanPref("materializeQzone", true)
     // QZone feed: truncate long post text to 5 lines with a 查看全文 expander. Off shows full text.
     val qzoneTruncatePost = BooleanPref("qzoneTruncatePost", true)
     // QZone feed: truncate a multi-image post to two square thumbnails (2nd darkened with +N) instead
@@ -268,6 +268,67 @@ object Settings {
     // Automatically check for a new QQ Max release on launch (via OTAManager2). Backed by
     // OTAManager2's own prefs so the toggle and the dialog's "不再提醒" share one state.
     val autoUpdateCheck = OtaBooleanPref("update_check_enabled", true)
+
+    // ===== 界面风格选择 (StyleChooserActivity) =====
+    // The user's chosen overall UI style, recorded by the 界面风格 chooser screen. 0 = not chosen yet,
+    // 1 = Material design, 2 = Original design. Reserved: kept as a separate signal for possible future
+    // use (e.g. a style-aware default) — picking a style ALSO flips the individual [styleToggles] below.
+    val uiStyle = IntPref("uiStyle", 0)
+    // Whether the first-launch style chooser has already been shown. Once true the chooser no longer
+    // auto-opens on app start (it stays reachable from settings). Set when a style is picked or the
+    // chooser is dismissed. Not exported (internal flag), so it's left out of [all].
+    val styleChooserSeen = BooleanPref("styleChooserSeen", false)
+    // The toggles the 界面风格 chooser flips together: the whole "Material 化" category, the home-nav
+    // method (mainNavCustom), and contactSections (the 联系人分组 dependency materialContactsList needs).
+    // Material style = every one true; Original style = every one false.
+    val styleToggles: List<Pref<Boolean>> get() = listOf(
+        materializeChat, materialAttachmentMenu, materialLongPressMenu,
+        materialContactsList, materialChatList, materialQZoneBar, materializeQzone,
+        useRichProfile, useM3Settings, contactSections, mainNavCustom,
+    )
+
+    // Classic QQ palette written when 原始设计 is picked. The native watch UI is DARK (its list bg is
+    // #1f2025, white text) — which already matches the M3 dark surface defaults — and the only thing
+    // that reads as "Material" is the accent (the M3 default is a soft Material blue #90CAF9). So the
+    // classic look is just the genuine QQ vivid blue accent (#12B7F5, native res "btn_blue") over those
+    // dark surfaces, with white labels on the blue like the native buttons. All other tokens stay blank
+    // → the dark M3-structure defaults. (Earlier "light grey" was wrong: the original is dark grey.)
+    private val classicTheme: List<Pair<StringPref, String>> get() = listOf(
+        themeColor to "#12B7F5",                // QQ vivid blue (native btn_blue / aio accent)
+        themeOnPrimary to "#FFFFFF",            // white label on the blue, matching native buttons
+    )
+
+    /**
+     * Apply the chooser's pick: flip every [styleToggles] pref, record the reserved [uiStyle], and set
+     * the theme palette — Material clears every [themeTokens] override (derive from the Material accent),
+     * Original writes the [classicTheme] (vivid QQ blue + light grey). Persists SYNCHRONOUSLY (commit,
+     * not apply): the caller cold-restarts the process immediately afterwards (Process.killProcess),
+     * which would otherwise drop the still-pending async apply() writes — the original bug where picking
+     * a style changed nothing after restart.
+     */
+    fun applyUiStyle(material: Boolean) {
+        // Keep the in-memory Pref fields consistent for the brief moment before the restart.
+        styleToggles.forEach { it.value = material }
+        uiStyle.value = if (material) 1 else 2
+        styleChooserSeen.value = true
+        // Baseline: clear every theme override; for Original, then write the classic palette on top.
+        themeTokens.forEach { it.value = "" }
+        val theme = if (material) emptyList() else classicTheme
+        theme.forEach { (pref, v) -> pref.value = v }
+        // Chat bubble corner radius (dp): Material = generously rounded; Original = nearly square,
+        // closer to the native QQ bubble.
+        val bubbleRadius = if (material) 18f else 4f
+        bubbleCornerRadius.value = bubbleRadius
+        // Force a synchronous disk write of all the keys so they survive the imminent kill.
+        sp.edit(commit = true) {
+            styleToggles.forEach { putBoolean(it.key, material) }
+            putInt(uiStyle.key, if (material) 1 else 2)
+            putBoolean(styleChooserSeen.key, true)
+            themeTokens.forEach { putString(it.key, "") }
+            theme.forEach { (pref, v) -> putString(pref.key, v) }
+            putFloat(bubbleCornerRadius.key, bubbleRadius)
+        }
+    }
 
     // ===== 调试 =====
     // Enable the main-thread hang watchdog (HangWatcher). When on, a stalled main thread for
@@ -319,7 +380,7 @@ object Settings {
         galleryQuickSend, useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,
         picMaxHeightRatio, bubbleCornerRadius, bubbleColorSelf, bubbleColorOther, textColor, textColorSelf, linkColor, textSizeScale, contactSections, materialContactsList, materialChatList, materialQZoneBar, qzoneBarSpread, qzoneInlineVideo, qzoneMiniAppCard, materializeQzone, qzoneTruncatePost, qzoneTruncateImages,
         profileNameMultiline, useRichProfile, useM3Settings,
-        chatBgDarken, autoUpdateCheck, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
+        chatBgDarken, autoUpdateCheck, uiStyle, watchdogEnabled, singleLineInput, sendWithImage, replyWithAt,
         doubleSpeak, doubleReply, allowNotification, residentNotification, notifySoundMode,
         notifyVibrateMode, voiceBtnText, watchdogEnabled, enableLog,
     )

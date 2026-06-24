@@ -35,52 +35,65 @@ class AboutFragment : MyDialogFragment() {
         savedInstanceState: Bundle?
     ): View {
         val ctx = inflater.context
-        val dialog = M3Dialog(ctx)
-            .body {
-                val icon = add<ImageView>().apply {
-                    runCatching {
-                        setImageDrawable(ctx.packageManager.getApplicationIcon(ctx.packageName))
-                    }.onFailure { Utils.log("AboutFragment: icon load failed: $it") }
-                }
-                (icon.layoutParams as LinearLayout.LayoutParams).apply {
-                    width = 56.dp
-                    height = 56.dp
-                    bottomMargin = 8.dp
-                }
-
-                add<TextView>()
-                    .text("QQ Max")
-                    .textSize(18f)
-                    .textColor(M3.onSurface)
-                    .gravity(Gravity.CENTER)
-                add<TextView>()
-                    .text(versionName)
-                    .textSize(12f)
-                    .textColor(M3.onSurfaceVariant)
-                    .gravity(Gravity.CENTER)
-                    .padding(bottom = 12.dp)
-
-                add<TextView>()
-                    .text("构建于 ${momoi.mod.qqpro.BuildConfig.BUILD_TIME}")
-                    .textSize(11f)
-                    .textColor(M3.hint)
-                    .gravity(Gravity.CENTER)
-                    .padding(bottom = 12.dp)
-
-                add<TextView>()
-                    .text("NWear QQ · 爅峫\nQQ Pro · java30433\nQQ Max · AILIFE")
-                    .textSize(13f)
-                    .textColor(M3.replyText)
-                    .gravity(Gravity.CENTER)
-                    .padding(bottom = 12.dp)
-            }
-            .actions {
-                action("检查更新", M3Button.Variant.FILLED) {
-                    OTAManager2(ctx).checkUpdate(true)
-                    dismiss()
-                }
-            }
-
+        // Swipe-to-dismiss handles closing, so no 关闭 button here (onClose = null).
+        val dialog = buildAboutView(
+            ctx,
+            onCheckUpdate = { OTAManager2(ctx).checkUpdate(true); dismiss() },
+        )
         return swipeBackWrap(dialog)
     }
 }
+
+/**
+ * Build the shared About content (icon / version / build time / credits) with a 检查更新 button and,
+ * when [onClose] is supplied, a 关闭 button. Reused by [AboutFragment] (swipe-to-dismiss, no close
+ * button) and by the settings activity's 关于 entry (a raw [android.app.Dialog] that needs a close
+ * button since it isn't swipe-wrapped).
+ */
+fun buildAboutView(
+    ctx: android.content.Context,
+    onCheckUpdate: () -> Unit,
+    onClose: (() -> Unit)? = null,
+): M3Dialog = M3Dialog(ctx)
+    .body {
+        val icon = add<ImageView>().apply {
+            runCatching {
+                setImageDrawable(ctx.packageManager.getApplicationIcon(ctx.packageName))
+            }.onFailure { Utils.log("AboutFragment: icon load failed: $it") }
+        }
+        (icon.layoutParams as LinearLayout.LayoutParams).apply {
+            width = 56.dp
+            height = 56.dp
+            bottomMargin = 8.dp
+        }
+
+        add<TextView>()
+            .text("QQ Max")
+            .textSize(18f)
+            .textColor(M3.onSurface)
+            .gravity(Gravity.CENTER)
+        add<TextView>()
+            .text(versionName)
+            .textSize(12f)
+            .textColor(M3.onSurfaceVariant)
+            .gravity(Gravity.CENTER)
+            .padding(bottom = 12.dp)
+
+        add<TextView>()
+            .text("构建于 ${momoi.mod.qqpro.BuildConfig.BUILD_TIME}")
+            .textSize(11f)
+            .textColor(M3.hint)
+            .gravity(Gravity.CENTER)
+            .padding(bottom = 12.dp)
+
+        add<TextView>()
+            .text("NWear QQ · 爅峫\nQQ Pro · java30433\nQQ Max · AILIFE")
+            .textSize(13f)
+            .textColor(M3.replyText)
+            .gravity(Gravity.CENTER)
+            .padding(bottom = 12.dp)
+    }
+    .actions {
+        action("检查更新", M3Button.Variant.FILLED) { onCheckUpdate() }
+        if (onClose != null) action("关闭", M3Button.Variant.TEXT) { onClose() }
+    }

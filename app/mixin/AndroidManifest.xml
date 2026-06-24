@@ -50,6 +50,12 @@
             android:name="momoi.mod.qqpro.watchdog.WatchdogTestActivity"
             android:exported="false"
             android:excludeFromRecents="true" />
+
+        <!-- UI-style chooser (Material vs original), shown on first launch and from settings. Main process. -->
+        <activity
+            android:name="momoi.mod.qqpro.StyleChooserActivity"
+            android:exported="false"
+            android:excludeFromRecents="true" />
     </application>
 
     <!--

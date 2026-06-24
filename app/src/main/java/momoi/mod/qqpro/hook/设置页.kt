@@ -41,6 +41,9 @@ import momoi.mod.qqpro.lib.material.MaterialSymbol
 import momoi.mod.qqpro.lib.material.MaterialSymbols
 import momoi.mod.qqpro.lib.material.leadingSymbol
 import momoi.mod.qqpro.lib.material.showColorPicker
+import momoi.mod.qqpro.hook.view.buildAboutView
+import momoi.mod.qqpro.ota.OTAManager2
+import momoi.mod.qqpro.StyleChooserActivity
 import momoi.mod.qqpro.lib.height
 import momoi.mod.qqpro.lib.margin
 import momoi.mod.qqpro.lib.onCheckedChange
@@ -278,6 +281,20 @@ class 设置页 : SettingsActivity() {
                 showCategoryList()
             }
         },
+        SettingsCategory("Material 化", "界面 Material 风格重设计开关") {
+            actionCard("界面风格", "在 Material 与 原始 设计之间一键切换(选择后自动重启)") {
+                startActivity(Intent(this@设置页, StyleChooserActivity::class.java))
+            }
+            switch("Material 聊天界面", "聊天输入框、回复/编辑横幅、消息发送中转圈应用 Material 风格(表面填充输入框、M3 符号图标、主题色发送键、M3 转圈)；关闭则保留原样。需开启“聊天页直接输入”，重进聊天页生效", Settings.materializeChat)
+            switch("Material 附件菜单", "附件「+」菜单应用 Material 风格：M3 符号图标(主题色)、表面卡片与涟漪，与长按菜单一致；关闭则保留原图标(重进聊天页生效)", Settings.materialAttachmentMenu)
+            switch("Material 长按菜单", "消息长按菜单应用 Material 风格(表面卡片+主题色)；关闭则用半透明深色行+白色文字", Settings.materialLongPressMenu)
+            switch("Material 联系人页", "联系人页应用 Material 风格：顶栏含搜索/加好友/通知按钮，需同时开启「联系人分组」", Settings.materialContactsList)
+            switch("Material 消息列表", "消息列表(会话列表，第1页)应用 Material 风格：深色背景、表面卡片行、M3 文字颜色(名称/时间/预览)、置顶图标改为 Material 图章、会话长按菜单改为 Material 列表(重进消息页生效)", Settings.materialChatList)
+            switch("Material 动态页顶栏", "动态页(第3页)应用 Material 顶栏：把发布/通知/我的空间三个条目替换为紧凑图标按钮", Settings.materialQZoneBar)
+            switch("完全重做空间(实验)", "用全新 Material 3 界面从头重做整个空间(QQ空间)前端：动态卡片(主页第3页与个人空间)、个人空间资料头部、评论/回复独立页(底部 M3 输入框可打字或语音)、以及发表说说改为单页直接输入。关闭则保留原生界面(仅上面的顶栏/点赞/小程序等就地微调)。默认关闭(重进空间生效)", Settings.materializeQzone)
+            switch("使用增强资料卡", "用全新 Material 风格资料卡替换原资料页，额外显示年龄/生日/星座/地区/签名(从内核获取)，关闭则保留原页面(重进资料页生效)", Settings.useRichProfile)
+            switch("Material 设置页面", "把自我页(主页第4页)、好友/群聊设置页重绘为全新 Material 风格(头部卡片+M3列表+主题色开关)，并把改群名/备注/昵称改为 Material 输入弹窗，不再打开全屏键盘页(重进对应页面生效)", Settings.useM3Settings)
+        },
         SettingsCategory("聊天输入", "输入框、发送方式与表情") {
             switch("聊天页直接输入", "在聊天页用输入框替换键盘键，有文字时麦克风键变发送键", Settings.inlineChatInput)
             switch("完全行内输入", "彻底不打开输入法页面：@、图片、回复、编辑、语音转文字都在输入框内完成。@xxx 与 [图片] 整体删除，回复/编辑在输入框上方显示横幅可点击取消(需开启“聊天页直接输入”)", Settings.fullInlineInput)
@@ -286,9 +303,6 @@ class 设置页 : SettingsActivity() {
             switch("记住输入草稿", "分会话记住未发送的输入框内容(文字、@、图片、回复目标)，离开聊天再返回时自动恢复，发送后清除(需开启“完全行内输入”)", Settings.rememberDraft)
             switch("表情选择器插入输入框", "从系统表情选择器选择表情/图片/GIF 时不立即发送，而是作为 [表情]/[图片] 插入输入框，可继续编辑一起发送(需开启“完全行内输入”)", Settings.emojiPickerToInput)
             switch("附件浮层", "用输入框左侧 + 键打开附件浮层，移除附件翻页；表情移入附件列表(重进聊天页生效)", Settings.attachmentOverlay)
-            switch("Material 附件菜单", "附件「+」菜单应用 Material 风格：M3 符号图标(主题色)、表面卡片与涟漪，与长按菜单一致；关闭则保留原图标(重进聊天页生效)", Settings.materialAttachmentMenu)
-            switch("Material 长按菜单", "消息长按菜单应用 Material 风格(表面卡片+主题色)；关闭则用半透明深色行+白色文字", Settings.materialLongPressMenu)
-            switch("Material 聊天界面", "聊天输入框、回复/编辑横幅、消息发送中转圈应用 Material 风格(表面填充输入框、M3 符号图标、主题色发送键、M3 转圈)；关闭则保留原样。需开启“聊天页直接输入”，重进聊天页生效", Settings.materializeChat)
             switch("单行输入", "输入框固定为单行显示", Settings.singleLineInput)
             switch("输入键居中", "在聊天页面将输入键居中放置", Settings.swapCenterKeyboard)
             switch("隐藏语音按钮", "在聊天页隐藏语音(麦克风)按钮，所有输入模式下均生效", Settings.hideVoiceButton)
@@ -301,8 +315,19 @@ class 设置页 : SettingsActivity() {
         SettingsCategory("聊天显示", "缩放、气泡、图片与背景") {
             slider("缩放倍数", "整体界面缩放，返回聊天页即时生效", Settings.scale)
             slider("聊天文本缩放", "聊天气泡内文字大小", Settings.chatScale)
-            switch("双击朗读", "双击消息朗读文本", Settings.doubleSpeak)
-            switch("双击回复", "双击消息进入回复", Settings.doubleReply)
+            // 双击消息的动作，三选一。底层仍是 double_speak / double_reply 两个开关(基座 app 读取)，
+            // 这里把它们合并成一个下拉：无 / 回复 / 朗读。朗读优先于回复(两者都开时朗读生效)。
+            selector("双击消息", "双击聊天消息时的动作", listOf("无", "回复", "朗读"),
+                current = {
+                    when {
+                        Settings.doubleSpeak.value -> 2
+                        Settings.doubleReply.value -> 1
+                        else -> 0
+                    }
+                }) { which ->
+                Settings.doubleSpeak.value = which == 2
+                Settings.doubleReply.value = which == 1
+            }
             slider("图片最大高度", "聊天图片最大显示高度(占屏幕高度比例)，默认 0.5", Settings.picMaxHeightRatio, min = 0.3f, max = 1f)
             slider("气泡圆角半径", "聊天气泡、合并转发/聊天记录块与回复块的圆角半径(dp)", Settings.bubbleCornerRadius, min = 0f, max = 24f)
             colorPicker("我的气泡颜色", "留空为材料色", Settings.bubbleColorSelf, MaterialColors.ACCENT,
@@ -320,7 +345,7 @@ class 设置页 : SettingsActivity() {
         SettingsCategory("群聊头像", "群聊中的头像与昵称") {
             switch("群聊显示头像", "在群聊消息中显示用户头像和两行昵称", Settings.showGroupAvatar)
             switch("自己也显示头像", "自己的消息也显示头像和两行昵称，与他人一致", Settings.showSelfAvatar)
-            slider("头像大小", "群聊头像大小(相对昵称文字的倍数)，默认 3", Settings.avatarSizeScale, min = 1.5f, max = 6f)
+            slider("头像大小", "群聊头像大小(相对昵称文字的倍数)，默认 2.5", Settings.avatarSizeScale, min = 1.5f, max = 6f)
             switch("合并连续消息头", "同一人连发多条时，只在第一条显示头像和昵称", Settings.hideRepeatedSender)
             switch("替换发送者名字", "用解析到的群名片/备注/昵称替换群消息发送者名字；关闭(默认)则保留原生名字。群主/管理员/头衔标签不受此开关影响，始终显示", Settings.replaceGroupNick)
             actionCard("清除头像缓存", "删除已缓存的头像，重进聊天页将重新下载最新头像") {
@@ -364,18 +389,12 @@ class 设置页 : SettingsActivity() {
         },
         SettingsCategory("联系人", "联系人页面") {
             switch("联系人分组", "联系人页用「好友」「群聊」标题分组，通知拆成好友/群两项各带数量，去掉群行末尾图标", Settings.contactSections)
-            switch("Material 联系人页", "联系人页应用 Material 风格：顶栏含搜索/加好友/通知按钮，需同时开启「联系人分组」", Settings.materialContactsList)
-            switch("Material 消息列表", "消息列表(会话列表，第1页)应用 Material 风格：深色背景、表面卡片行、M3 文字颜色(名称/时间/预览)、置顶图标改为 Material 图章、会话长按菜单改为 Material 列表(重进消息页生效)", Settings.materialChatList)
-            switch("Material 动态页顶栏", "动态页(第3页)应用 Material 顶栏：把发布/通知/我的空间三个条目替换为紧凑图标按钮", Settings.materialQZoneBar)
             switch("动态顶栏按钮分散排列", "三个图标按钮平均分布到顶栏全宽(分散)；关闭则紧靠居中排列，适合圆形表盘", Settings.qzoneBarSpread)
             switch("单视频帖子内联播放", "动态里只含一个视频的帖子，点击直接在列表内播放(再次点击暂停)，不再打开全屏播放器", Settings.qzoneInlineVideo)
             switch("小程序卡片渲染", "动态里的小程序(轻应用)分享不再显示「请在手机QQ查看」，改为抓取分享页解析出真实的名称/图标/简介并渲染成卡片(联网)", Settings.qzoneMiniAppCard)
-            switch("完全重做空间(实验)", "用全新 Material 3 界面从头重做整个空间(QQ空间)前端：动态卡片(主页第3页与个人空间)、个人空间资料头部、评论/回复独立页(底部 M3 输入框可打字或语音)、以及发表说说改为单页直接输入。关闭则保留原生界面(仅上面的顶栏/点赞/小程序等就地微调)。默认关闭(重进空间生效)", Settings.materializeQzone)
             switch("动态正文折叠", "重做空间里超长的说说正文最多显示5行，点「查看全文」展开；关闭则始终显示全文", Settings.qzoneTruncatePost)
             switch("多图折叠为两张", "重做空间里多图说说只显示两张方图，第二张变暗显示「+N」；关闭则按三列方图网格显示全部", Settings.qzoneTruncateImages)
             switch("资料页姓名多行可复制", "好友/群资料设置页及成员资料卡的名称过长时换行显示，长按名称可复制；设置页内QQ号与昵称分两行、可分别长按复制(重进资料页生效)", Settings.profileNameMultiline)
-            switch("使用增强资料卡", "用全新 Material 风格资料卡替换原资料页，额外显示年龄/生日/星座/地区/签名(从内核获取)，关闭则保留原页面(重进资料页生效)", Settings.useRichProfile)
-            switch("Material 设置页面", "把自我页(主页第4页)、好友/群聊设置页重绘为全新 Material 风格(头部卡片+M3列表+主题色开关)，并把改群名/备注/昵称改为 Material 输入弹窗，不再打开全屏键盘页(重进对应页面生效)", Settings.useM3Settings)
         },
         SettingsCategory("相机与媒体", "拍照、相册与音频") {
             switch("使用应用内相机", "开启后拍照/录像都用应用内相机，关闭后改用系统/第三方相机", Settings.useInAppCamera)
@@ -395,6 +414,12 @@ class 设置页 : SettingsActivity() {
         },
         SettingsCategory("关于与更新", "版本更新") {
             switch("自动检查更新", "启动时检查 QQ Max 新版本，可在关于页手动检查", Settings.autoUpdateCheck)
+            actionCard("立即检查更新", "现在就检查 QQ Max 是否有新版本") {
+                OTAManager2(this@设置页).checkUpdate(true)
+            }
+            actionCard("关于", "版本信息与致谢") {
+                showAbout()
+            }
         },
         SettingsCategory("调试", "诊断与日志") {
             switch("卡死监控", "监测主线程卡死并弹出报告，崩溃捕获始终开启。手表休眠可能误报，可关闭(重启应用生效)", Settings.watchdogEnabled)
@@ -483,12 +508,24 @@ class 设置页 : SettingsActivity() {
         desc: String,
         pref: Pref<Int>,
         options: List<String>
+    ) = selector(title, desc, options, { pref.value }) { pref.value = it }
+
+    /**
+     * Dropdown row backed by an explicit getter/setter instead of a single [Pref]. Lets one dropdown
+     * drive a derived value — e.g. the 双击操作 row maps three options onto two separate boolean prefs.
+     */
+    private fun GroupScopeFix.selector(
+        title: String,
+        desc: String,
+        options: List<String>,
+        current: () -> Int,
+        onPick: (Int) -> Unit,
     ) = card { card ->
         lateinit var valueLabel: TextView
         card.content {
             titleColumn(title, desc).weight(1f)
             valueLabel = add<TextView>()
-                .text(selectorLabel(options, pref.value))
+                .text(selectorLabel(options, current()))
                 .textSize(14f)
                 .textColor(ACCENT)
                 .gravity(Gravity.CENTER_VERTICAL)
@@ -502,9 +539,9 @@ class 设置页 : SettingsActivity() {
         }
         card.rippleTouch()
         card.onClick {
-            showOptionPicker(title, options, pref.value) { which ->
-                pref.value = which
-                valueLabel.text = selectorLabel(options, which)
+            showOptionPicker(title, options, current()) { which ->
+                onPick(which)
+                valueLabel.text = selectorLabel(options, current())
             }
         }
     }
@@ -600,6 +637,31 @@ class 设置页 : SettingsActivity() {
             )
             val h = if (panel.measuredHeight > maxH) maxH else ViewGroup.LayoutParams.WRAP_CONTENT
             setLayout(w, h)
+        }
+        dialog.show()
+    }
+
+    /**
+     * Show the About page (version + credits + 检查更新) as a full-screen raw [Dialog]. The settings
+     * activity is a plain [android.app.Activity] (no androidx FragmentManager), so it can't show the
+     * [AboutFragment] DialogFragment — instead it hosts the shared [buildAboutView] content directly,
+     * with a 关闭 button since there's no swipe-back wrapper here.
+     */
+    private fun showAbout() {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val content = buildAboutView(
+            this,
+            onCheckUpdate = { OTAManager2(this).checkUpdate(true); dialog.dismiss() },
+            onClose = { dialog.dismiss() },
+        )
+        dialog.setContentView(content)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(M3.surface))
+            setLayout(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
         }
         dialog.show()
     }
