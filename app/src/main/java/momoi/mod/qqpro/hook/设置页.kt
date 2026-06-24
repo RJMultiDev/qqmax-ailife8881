@@ -329,6 +329,7 @@ class 设置页 : SettingsActivity() {
         },
         SettingsCategory("标题栏与未读", "聊天顶部标题栏") {
             switch("富标题栏", "聊天顶部显示返回键、其它会话未读数、群成员数与群名(重进聊天页生效)", Settings.enableTitlebar)
+            switch("仅聊天页显示标题栏", "标题栏作为浮层叠在聊天列表上方，翻到聊天设置页时自动隐藏；关闭则叠在所有页之上(重进聊天页生效)", Settings.titlebarChatOnly)
             switch("标题栏显示未读数", "在富标题栏显示其它会话的未读数红标(重进聊天页生效)", Settings.titlebarShowUnread)
             switch("未读数浮在聊天左上角", "其它会话未读数红标浮在聊天页左上角而非标题栏内，无标题栏也可用(重进聊天页生效)", Settings.floatUnreadInChat)
             switch("标题栏名称滚动", "标题栏名称过长时滚动显示，而非省略号截断(重进聊天页生效)", Settings.titlebarMarquee)

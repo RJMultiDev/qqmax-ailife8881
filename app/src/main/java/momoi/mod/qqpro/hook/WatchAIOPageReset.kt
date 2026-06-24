@@ -35,12 +35,24 @@ class WatchAIOPageReset : WatchAIOFragment() {
         }
         if (Settings.attachmentOverlay.value) fixIndicatorIcons(view)
         if (Settings.enableTitlebar.value) {
-            // The chat content (bubbles + input pill) is inset from the screen edge by a small base
-            // padding (~4dp) on top of the corner margin. Add it so the titlebar lines up with the pill.
-            RichTitlebar.build(this, view as ViewGroup, 6.dp)
-            // Push the chat content below the (possibly taller) titlebar.
-            val h = Settings.titlebarHeight.value.toInt().dp
-            f?.let { it.setPadding(it.paddingLeft, h, it.paddingRight, it.paddingBottom) }
+            // The titlebar replaces the page-indicator dots in both placement modes. The dots live in
+            // this (WatchAIOFragment) root frame, not in page 0's subtree, so remove them here even for
+            // the chat-only overlay (AIOContentFrameTitlebar can't reach them from inside the page).
+            val indicator = (view as? ViewGroup)?.findAll { it is CircleIndicator }
+            (indicator?.parent as? ViewGroup)?.removeView(indicator)
+            if (Settings.titlebarChatOnly.value) {
+                // Chat-only overlay: drop the dots-strip top padding so page 0 fills from the very top
+                // and the bar (added inside AIOContentFrame) overlays the head of the chat list.
+                f?.let { it.setPadding(it.paddingLeft, 0, it.paddingRight, it.paddingBottom) }
+            } else {
+                // Legacy placement: bar at the fragment root, overlaying every ViewPager page.
+                // The chat content (bubbles + input pill) is inset from the screen edge by a small base
+                // padding (~4dp) on top of the corner margin. Add it so the titlebar lines up with the pill.
+                RichTitlebar.build(this, view as ViewGroup, 6.dp)
+                // Push the chat content below the (possibly taller) titlebar.
+                val h = Settings.titlebarHeight.value.toInt().dp
+                f?.let { it.setPadding(it.paddingLeft, h, it.paddingRight, it.paddingBottom) }
+            }
         }
         // Optional unread badge floating over the chat's top-left corner (independent of titlebar).
         if (Settings.floatUnreadInChat.value) RichTitlebar.buildFloating(this, view as ViewGroup)

@@ -114,6 +114,11 @@ object Settings {
     // button, the indicator dots, other-chats unread count, group member count and the
     // group/contact name. titlebarHeight (dp) defaults to the current strip height (16).
     val enableTitlebar = BooleanPref("enableTitlebar", true)
+    // Place the titlebar as an overlay inside the chat list page (page 0 of the AIO ViewPager)
+    // instead of at the fragment root. When on (default), it shows only on the chat screen and
+    // slides away when paging to the settings frame (which already shows all that info). When off,
+    // it sits at the root across all pages and re-pads the ViewPager (legacy placement).
+    val titlebarChatOnly = BooleanPref("titlebarChatOnly", true)
     // Show the other-chats unread count badge in the chat titlebar. When off, the
     // titlebar shows only the name + member count (no red badge).
     val titlebarShowUnread = BooleanPref("titlebarShowUnread", true)
@@ -301,7 +306,7 @@ object Settings {
         showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput,
         screenCornerDiameter, titlebarSideMargin,
-        hideVoiceButton, muteHideInputBar, backToFirstPage, attachmentOverlay, materialAttachmentMenu, materialLongPressMenu, enableTitlebar, titlebarShowUnread,
+        hideVoiceButton, muteHideInputBar, backToFirstPage, attachmentOverlay, materialAttachmentMenu, materialLongPressMenu, enableTitlebar, titlebarChatOnly, titlebarShowUnread,
         floatUnreadInChat, titlebarHeight, mainNavCustom, bottomMainNav, mainNavHeight, mainNavSquare, mainNavAllIcons, mainNavUnread, mainNavUnreadJump,
         replyFullSearch, useInAppCamera, gallerySortByDateTaken,
         galleryQuickSend, useSystemImagePicker, useSystemAudioPicker, confirmOpenLink, wideUrlMatch, parseNumber, parseAtMember, enableLinkPreview,

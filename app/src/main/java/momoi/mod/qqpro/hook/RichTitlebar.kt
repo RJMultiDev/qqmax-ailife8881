@@ -58,7 +58,7 @@ object RichTitlebar {
     private val unread = HashMap<String, Int>()
     private val listenerRegistered = AtomicBoolean(false)
 
-    fun build(fragment: WatchAIOFragment, root: ViewGroup, baseInset: Int = 0) {
+    fun build(fragment: androidx.fragment.app.Fragment, root: ViewGroup, baseInset: Int = 0) {
         runCatching {
             val ctx = root.context
 
@@ -161,10 +161,19 @@ object RichTitlebar {
 
             val bar = FrameLayout(ctx)
             bar.tag = BAR_TAG
-            // Darken the header behind the title so the white text/badge stay readable over the chat.
+            // In the chat-only overlay mode the bar is a sibling of the ChatFragment view, which is
+            // committed asynchronously *after* this runs and would otherwise draw on top. Lift the bar
+            // with elevation/translationZ so it stays above the chat list regardless of add order.
+            bar.elevation = 12.dp.toFloat()
+            bar.translationZ = 12.dp.toFloat()
+            // Material surface gradient behind the title: fully opaque surface at the top fading to
+            // transparent at the bottom, so chat content scrolling up disappears gradually behind the
+            // bar (bottom→top fade) while the title/badge stay readable. Uses the M3 surface token.
+            val surfaceTop = M3.surface or 0xFF_000000.toInt()
+            val surfaceBottom = M3.surface and 0x00_FFFFFF
             bar.background = android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xAA_000000.toInt(), 0x00_000000)
+                intArrayOf(surfaceTop, surfaceBottom)
             )
             // Same horizontal inset as the input pill (chat base inset + corner) on both sides.
             bar.addView(row, FrameLayout.LayoutParams(FILL, FILL).apply {
@@ -193,6 +202,9 @@ object RichTitlebar {
             applyUnread()
 
             root.addView(bar, FrameLayout.LayoutParams(FILL, heightPx))
+            // Re-assert on top after the async ChatFragment view attaches (chat-only overlay).
+            bar.bringToFront()
+            root.post { bar.bringToFront() }
             Utils.log("RichTitlebar: built (name=$name group=$isGroup)")
         }.onFailure { Utils.log("RichTitlebar.build failed: $it") }
     }
