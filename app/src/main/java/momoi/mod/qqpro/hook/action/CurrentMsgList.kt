@@ -265,6 +265,10 @@ object CurrentMsgList {
                 state.javaClass.getDeclaredField("c").apply { isAccessible = true }.getInt(state)
             }.getOrElse { -1 }
             val list = state as LinkedList<WatchAIOMsgItem>
+            // Diagnostic: capture what the kernel handed us vs our accumulated mirror, so an
+            // empty RecyclerView (incoming list size 0 → blank chat) is distinguishable from a
+            // render-side problem (non-zero list but cells invisible). peer ties it to the chat.
+            Utils.log("MsgList.n: peer=${CurrentContact.peerUid} updateType=$updateType incomingSize=${list.size} mirrorSize=${msg.size} types=[${list.take(8).joinToString(",") { runCatching { "${it.d.msgType}/${it.javaClass.simpleName}" }.getOrElse { "?" } }}]")
             var insertIndex = -1
             while (true) {
                 val last = list.pollLast()
@@ -293,6 +297,7 @@ object CurrentMsgList {
                 }
             }
             msgList.update(list.toMutableList())
+            Utils.log("MsgList.n: after merge finalSize=${list.size} (handing to native render)")
             // Notify pre-page waiters only for older-history results (bit 0x4), after msgList is
             // updated so they observe the new size.
             if (updateType and 4 != 0) topPageResult.update(updateType)
@@ -308,6 +313,7 @@ object CurrentMsgList {
             container: ViewGroup,
             isPreload: Boolean
         ): View {
+            Utils.log("MsgList.Clear: resetting msgList mirror (isPreload=$isPreload)")
             msgList = Observable(ArrayList())
             return super.a(fragment, inflater, container, isPreload)
         }
