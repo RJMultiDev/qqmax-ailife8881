@@ -53,9 +53,20 @@ class QzoneCommentThread(
 
     constructor() : this(null, null)
 
-    private var replyTo: Comment? = null
+    private companion object {
+        /** Max visual indent levels for nested replies (each ≈20dp). Caps deep threads on the watch. */
+        const val MAX_INDENT = 4
+    }
+
+    private var replyTo: ReplyTarget? = null
     private var input: M3QQEditText? = null
     private var listColumn: LinearLayout? = null
+
+    /** Where the next reply is posted. The QZone protocol is 2-level: replies always attach to a
+     *  top-level [comment] (via its commentid), and reply-to-reply is expressed only by who the reply
+     *  is *addressed* to — [targetUin]/[targetNick], which may be the comment author OR a nested
+     *  reply's author. So this carries both: the comment to attach under, and the author to address. */
+    private data class ReplyTarget(val comment: Comment, val targetUin: Long, val targetNick: String)
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val ctx = inflater.context
@@ -116,17 +127,40 @@ class QzoneCommentThread(
             rowView.setOnClickListener { openAuthor(c.user?.uin) }
             rowView.setOnLongClickListener { showCommentMenu(c, c); true }
             column.addView(rowView)
-            // replies, indented
-            runCatching {
-                c.replies?.forEach { r ->
-                    val rr = QzoneFeedCard.commentRow(ctx, r.user, r.user?.nickName, r.targetUser?.nickName, r.content, small = true)
-                    rr.setPadding(20.dp, rr.paddingTop, 0, rr.paddingBottom)
-                    rr.isClickable = true
-                    rr.setOnClickListener { openAuthor(r.user?.uin) }
-                    rr.setOnLongClickListener { showCommentMenu(c, r); true }
-                    column.addView(rr)
-                }
-            }
+            // replies, nested by who-replies-to-whom
+            runCatching { renderReplies(column, c) }
+        }
+    }
+
+    /**
+     * Render a comment's flat [Comment.replies] list as a nested tree. QZone stores replies flat
+     * (each only records its [Reply.targetUser]), so the tree is reconstructed: a reply is a child of
+     * the most recent earlier reply authored by its target uin; if the target is the comment author
+     * (or absent), it sits at the first level under the comment. Visual indent is capped at
+     * [MAX_INDENT] levels so deep threads don't run off the watch screen — targeting stays correct
+     * regardless of the cap.
+     */
+    private fun renderReplies(column: LinearLayout, parent: Comment) {
+        val ctx = column.context
+        val replies = runCatching { parent.replies }.getOrNull().orEmpty()
+        if (replies.isEmpty()) return
+        val commentAuthor = parent.user?.uin ?: 0L
+        val depthByReply = HashMap<Reply, Int>()   // 0 = directly under the comment
+        val lastByAuthor = HashMap<Long, Reply>()   // uin -> most recent earlier reply by that author
+        for (r in replies) {
+            val tgt = r.targetUser?.uin ?: 0L
+            val parentReply = if (tgt != 0L && tgt != commentAuthor) lastByAuthor[tgt] else null
+            val depth = if (parentReply != null) (depthByReply[parentReply] ?: 0) + 1 else 0
+            depthByReply[r] = depth
+            (r.user?.uin ?: 0L).takeIf { it != 0L }?.let { lastByAuthor[it] = r }
+
+            val rr = QzoneFeedCard.commentRow(ctx, r.user, r.user?.nickName, r.targetUser?.nickName, r.content, small = true)
+            val indentLevel = (depth + 1).coerceAtMost(MAX_INDENT)   // +1: replies start one step under the comment
+            rr.setPadding(indentLevel * 20.dp, rr.paddingTop, 0, rr.paddingBottom)
+            rr.isClickable = true
+            rr.setOnClickListener { openAuthor(r.user?.uin) }
+            rr.setOnLongClickListener { showCommentMenu(parent, r); true }
+            column.addView(rr)
         }
     }
 
@@ -143,7 +177,15 @@ class QzoneCommentThread(
      *  the top-level comment a reply belongs to (reply targets reply to its parent comment). */
     private fun showCommentMenu(parent: Comment, target: Any) {
         val rows = ArrayList<Pair<String, () -> Unit>>()
-        rows.add("回复" to { setReplyTarget(parent) })
+        // Reply addresses the long-pressed message's author: a top-level comment → its author;
+        // a nested reply → that reply's author (still posted under the parent comment).
+        rows.add("回复" to {
+            when (target) {
+                is Reply -> setReplyTarget(ReplyTarget(parent, target.user?.uin ?: 0L, target.user?.nickName ?: ""))
+                is Comment -> setReplyTarget(ReplyTarget(target, target.user?.uin ?: 0L, target.user?.nickName ?: ""))
+                else -> setReplyTarget(ReplyTarget(parent, parent.user?.uin ?: 0L, parent.user?.nickName ?: ""))
+            }
+        })
         if (canDelete(target)) rows.add("删除" to {
             QzoneConfirmDialog("确定删除？", "删除", destructive = true) { deleteCommentOrReply(parent, target) }
                 .show(childFragmentManager, "qzdelcr")
@@ -219,9 +261,9 @@ class QzoneCommentThread(
         Utils.log("QzoneCommentThread: delete reply $replyId on ${fc.feedskey}")
     }
 
-    private fun setReplyTarget(c: Comment?) {
-        replyTo = c
-        input?.setHint(if (c == null) "评论…" else "回复 ${c.user?.nickName ?: ""}…")
+    private fun setReplyTarget(t: ReplyTarget?) {
+        replyTo = t
+        input?.setHint(if (t == null) "评论…" else "回复 ${t.targetNick}…")
         input?.focusAndShowKeyboard()
     }
 
@@ -259,13 +301,13 @@ class QzoneCommentThread(
         Utils.log("QzoneCommentThread: posted comment on ${fc.feedskey}")
     }
 
-    private fun postReply(d: BusinessFeedData, target: Comment, text: String) {
+    private fun postReply(d: BusinessFeedData, target: ReplyTarget, text: String) {
         val fc = d.feedCommInfo
         val cellId = runCatching { d.idInfo?.cellId }.getOrNull() ?: ""
         val busi = runCatching { d.operationInfo?.busiParam }.getOrNull()
-        val targetUin = target.user?.uin ?: 0L
-        val targetNick = target.user?.nickName ?: ""
-        val commentId = target.commentid ?: ""
+        val targetUin = target.targetUin
+        val targetNick = target.targetNick
+        val commentId = target.comment.commentid ?: ""
         // who:1 (reply to a comment author), auto:1 — same encoding the native reply path uses.
         val encodedNick = targetNick.replace("%", "%25").replace(",", "%2C")
             .replace("{", "%7B").replace("}", "%7D").replace(":", "%3A")
