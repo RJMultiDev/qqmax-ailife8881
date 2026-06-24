@@ -373,7 +373,13 @@ object QzoneFeedCard {
             chars += (c.comment?.length ?: 0)
             shown++
         }
-        val total = runCatching { data.cellCommentInfo?.b?.takeIf { it > 0 } ?: comments.size }.getOrDefault(comments.size)
+        // Count comments AND all their replies (incl. reply-of-reply): comment_num (field b) counts
+        // only top-level comments, so add each comment's server reply count (replyNum; replies are
+        // stored flat per comment, so this already includes replies to replies).
+        val total = runCatching {
+            val base = data.cellCommentInfo?.b?.takeIf { it > 0 } ?: comments.size
+            base + comments.sumOf { maxOf(it.replyNum, it.replies?.size ?: 0) }
+        }.getOrDefault(comments.size)
         box.addView(TextView(ctx).apply {
             text = "查看全部 $total 条评论"
             setTextColor(M3.primary); textSize = 12f
