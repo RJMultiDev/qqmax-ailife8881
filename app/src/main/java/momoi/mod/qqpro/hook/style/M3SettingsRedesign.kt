@@ -362,7 +362,13 @@ private fun buildSelfHeader(ctx: Context, nativeRoot: View): View {
     }
     nativeRoot.byIdName("self_name")?.let { name ->
         detach(name)
-        (name as? TextView)?.apply { textSize = 17f; setTextColor(M3.onSurface); gravity = Gravity.START }
+        // self_name is usually QQ's SingleLineTextView (a plain View, NOT a TextView), so an
+        // `as? TextView` recolor silently no-ops and the name keeps its native color (invisible in
+        // some themes). Handle both, mirroring buildSettingFrameHeader.
+        when (name) {
+            is SingleLineTextView -> { name.setTextSize(17f); name.setTextColor(M3.onSurface); name.keepEmojiFitToText() }
+            is TextView -> name.apply { textSize = 17f; setTextColor(M3.onSurface); gravity = Gravity.START }
+        }
         textCol.addView(name, LinearLayout.LayoutParams(FILL, WRAP))
     }
     nativeRoot.byIdName("self_qq")?.let { qq ->

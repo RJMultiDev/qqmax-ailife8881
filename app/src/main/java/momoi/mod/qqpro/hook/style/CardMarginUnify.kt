@@ -124,10 +124,27 @@ fun ViewGroup.styleGenderBirthdayChips(): Boolean {
 
     val gCard = gIcon?.nearestClickableAncestor()
     val bCard = bDate?.nearestClickableAncestor()
-    // Touch response: ripple the tappable 性别/生日 cards (they open the gender/birthday selectors).
+    // Touch response: ripple the tappable 性别/生日 cards (they open the gender/birthday selectors), and
+    // give them a themed surface so the native (dark-only) chip background doesn't clash with the M3
+    // header card — especially in light mode where the native dark chip would look wrong.
     if (Settings.useM3Settings.value) {
-        gCard?.rippleTouch(clip = false)
-        bCard?.rippleTouch(clip = false)
+        // Theme the actual card containers (gender_layout/birthday_layout carry the native dark chip
+        // background) so both the themed surface AND the ripple land on the visible card — the
+        // clickable ancestor isn't that view, so styling it had no effect. Fall back to the ancestor
+        // only if the layout ids aren't present.
+        val gLayout = byName("gender_layout") ?: gCard
+        val bLayout = byName("birthday_layout") ?: bCard
+        gLayout?.background = M3.rounded(M3.surfaceContainerHigh, M3.radiusMd)
+        bLayout?.background = M3.rounded(M3.surfaceContainerHigh, M3.radiusMd)
+        // The native "性别"/"生日" labels are white (dark theme) → invisible on the now-light card.
+        // Recolor every label to onSurface, then restore the accent on the value/date views.
+        (gLayout as? ViewGroup)?.forEachAll { (it as? TextView)?.setTextColor(M3.onSurface) }
+        (bLayout as? ViewGroup)?.forEachAll { (it as? TextView)?.setTextColor(M3.onSurface) }
+        (byName("gender_text") as? TextView)?.setTextColor(M3.primary)
+        (byName("gender_tv") as? TextView)?.setTextColor(M3.primary)
+        (bDate as? TextView)?.setTextColor(M3.primary)
+        gLayout?.rippleTouch(clip = false)
+        bLayout?.rippleTouch(clip = false)
     }
     if (gCard != null && bCard != null && gCard !== bCard && gCard.parent === bCard.parent) {
         (gCard.layoutParams as? ViewGroup.MarginLayoutParams)?.apply {

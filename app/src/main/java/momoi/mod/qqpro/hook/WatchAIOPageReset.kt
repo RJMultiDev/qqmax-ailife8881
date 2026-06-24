@@ -13,6 +13,7 @@ import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.hook.action.GalleryMultiSelectState
 import momoi.mod.qqpro.util.ChatBackground
 import momoi.mod.qqpro.util.Utils
@@ -32,6 +33,11 @@ class WatchAIOPageReset : WatchAIOFragment() {
         if (ChatBackground.isSet()) {
             Utils.log("WatchAIOFragment.onViewCreated applying custom chat background, bgView=${this.d}")
             ChatBackground.applyTo(this.d)
+        } else if (Settings.materializeChat.value) {
+            // No custom chat background image → overwrite the native (dark) default bg ImageView with
+            // the themed M3 surface, so the chat content area isn't a black background in light mode.
+            this.d?.apply { setImageDrawable(null); setBackgroundColor(M3.surface) }
+            Utils.log("WatchAIOFragment.onViewCreated default chat background -> M3.surface")
         }
         if (Settings.attachmentOverlay.value) fixIndicatorIcons(view)
         if (Settings.enableTitlebar.value) {

@@ -40,8 +40,16 @@ import momoi.mod.qqpro.lib.material.leadingSymbol
 @SuppressLint("ViewConstructor", "SetTextI18n")
 class BubbleTextView(context: Context) : TextView(context) {
     // Left corners fully rounded (semicircle), right corners square so it sits flush to the screen edge.
-    private val blueBg = roundCornerDrawable(M3.primary, 9999f, 0f, 9999f, 0f)
-    private val greyBg = roundCornerDrawable(0xCC_303030.toInt(), 9999f, 0f, 9999f, 0f)
+    // Backgrounds captured at construction; the arrow/count tint auto-contrasts against whichever bg is
+    // shown (M3.onColor), so the arrow stays visible in both light and dark themes. The neutral (non-
+    // unread) bg is a translucent surface-container tone rather than a fixed dark grey, so it isn't a
+    // black blob in light mode.
+    private val blueBgColor = M3.primary
+    private val greyBgColor = (M3.surfaceContainerHigh and 0x00FFFFFF) or 0xCC_000000.toInt()
+    private val blueBg = roundCornerDrawable(blueBgColor, 9999f, 0f, 9999f, 0f)
+    private val greyBg = roundCornerDrawable(greyBgColor, 9999f, 0f, 9999f, 0f)
+    private val coloredTint = M3.onColor(blueBgColor)
+    private val darkTint = M3.onColor(greyBgColor)
 
     // Native intent, captured from its setText / setVisibility calls. hasUnread() = both together.
     private var nativeWantsShow = false
@@ -200,13 +208,14 @@ class BubbleTextView(context: Context) : TextView(context) {
             when (mode) {
                 Mode.COLORED -> {
                     background = blueBg
+                    setTextColor(coloredTint)
                     super.setText(countText, BufferType.NORMAL)
-                    leadingSymbol(MaterialSymbols.arrow_downward, currentTextColor, sizeDp = 14, gap = 3)
+                    leadingSymbol(MaterialSymbols.arrow_downward, coloredTint, sizeDp = 14, gap = 3)
                 }
                 Mode.DARK -> {
                     background = greyBg
                     super.setText("", BufferType.NORMAL)
-                    leadingSymbol(MaterialSymbols.arrow_downward, currentTextColor, sizeDp = 14, gap = 0)
+                    leadingSymbol(MaterialSymbols.arrow_downward, darkTint, sizeDp = 14, gap = 0)
                 }
                 Mode.HIDDEN -> {}
             }
@@ -215,8 +224,9 @@ class BubbleTextView(context: Context) : TextView(context) {
             lastMode = mode
         } else if (mode == Mode.COLORED && text?.toString() != countText) {
             // Count changed while staying colored (a new message arrived) — update text only.
+            setTextColor(coloredTint)
             super.setText(countText, BufferType.NORMAL)
-            leadingSymbol(MaterialSymbols.arrow_downward, currentTextColor, sizeDp = 14, gap = 3)
+            leadingSymbol(MaterialSymbols.arrow_downward, coloredTint, sizeDp = 14, gap = 3)
         }
     }
 

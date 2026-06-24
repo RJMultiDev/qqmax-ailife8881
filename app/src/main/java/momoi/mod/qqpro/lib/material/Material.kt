@@ -57,6 +57,12 @@ object M3 {
         ?: ((primary and 0x00FFFFFF) or 0x33_000000)
     val onPrimaryContainer: Int get() = parseColorOrNull(momoi.mod.qqpro.Settings.themeOnPrimaryContainer.value)
         ?: primary
+    /**
+     * OPAQUE version of [primaryContainer] (which is translucent). Use where the fill is rasterized
+     * with no live background behind it — e.g. an avatar/icon drawable — so the translucent tonal
+     * doesn't composite over black and turn dark in light mode. Composited over [surface].
+     */
+    val tonalSolid: Int get() = compositeOver(primaryContainer, surface)
 
     // ── Surfaces (light defaults = MD3 baseline neutral surfaces / surface-container tones) ───────
     val surface: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurface.value, dl(0xFF_1A1A1A.toInt(), 0xFF_FFFBFE.toInt()))              // screen background
@@ -82,11 +88,14 @@ object M3 {
     val replyBackground = 0x22_FFFFFF
     val atMe = 0xFF_F74C30.toInt()
 
+    // Group role/level tag badges (头衔/普通/管理/群主). Mode-aware: the dark values are unchanged; light
+    // mode uses a pale tint background with a deeper, readable text color so the tags don't show as dark
+    // chips on a light bubble. (Nested object can use M3's private [dl].)
     object NickTag {
-        val specialBg = 0xFF_30263F.toInt(); val specialText = 0xFF_BB87F7.toInt()
-        val normalBg = 0xFF_2E2E2E.toInt();  val normalText = 0xFF_9E9E9E.toInt()
-        val adminBg = 0xFF_0E2D41.toInt();   val adminText = 0xFF_0088EE.toInt()
-        val ownerBg = 0xFF_412917.toInt();   val ownerText = 0xFF_FF8D40.toInt()
+        val specialBg get() = dl(0xFF_30263F.toInt(), 0xFF_ECE3FB.toInt()); val specialText get() = dl(0xFF_BB87F7.toInt(), 0xFF_6A3FD0.toInt())
+        val normalBg  get() = dl(0xFF_2E2E2E.toInt(), 0xFF_E4E4E4.toInt()); val normalText  get() = dl(0xFF_9E9E9E.toInt(), 0xFF_5F5F5F.toInt())
+        val adminBg   get() = dl(0xFF_0E2D41.toInt(), 0xFF_D6E9FB.toInt()); val adminText   get() = dl(0xFF_0088EE.toInt(), 0xFF_0066CC.toInt())
+        val ownerBg   get() = dl(0xFF_412917.toInt(), 0xFF_FCE6D2.toInt()); val ownerText   get() = dl(0xFF_FF8D40.toInt(), 0xFF_C25700.toInt())
     }
 
     // ── Shape / dimens ───────────────────────────────────────────────────────────
@@ -136,6 +145,13 @@ object M3 {
     }
 
     /** Blend a color toward black by [amount] (0 = unchanged, 1 = black); alpha preserved. */
+    /** Composite a (possibly translucent) [fg] over an opaque [bg], returning an opaque color. */
+    fun compositeOver(fg: Int, bg: Int): Int {
+        val a = (fg ushr 24 and 0xFF) / 255f
+        fun mix(sh: Int) = (((fg shr sh and 0xFF) * a) + ((bg shr sh and 0xFF) * (1f - a))).toInt().coerceIn(0, 255)
+        return (0xFF shl 24) or (mix(16) shl 16) or (mix(8) shl 8) or mix(0)
+    }
+
     fun darken(color: Int, amount: Float): Int {
         val k = (1f - amount).coerceIn(0f, 1f)
         val a = color ushr 24 and 0xFF

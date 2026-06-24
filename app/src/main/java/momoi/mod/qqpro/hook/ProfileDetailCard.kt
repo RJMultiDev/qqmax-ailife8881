@@ -79,9 +79,9 @@ object ProfileDetailCard {
 
     private fun addRow(ctx: Context, rows: LinearLayout, iconPath: String?, value: String) {
         if (rows.childCount > 0) {
-            // 1px Material divider (light, for the dark card surface)
+            // 1px Material divider (themed so it's visible on both light and dark card surfaces)
             rows.addView(View(ctx).apply {
-                setBackgroundColor(0x22_FFFFFF)
+                setBackgroundColor(M3.outlineVariant)
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
             })
         }

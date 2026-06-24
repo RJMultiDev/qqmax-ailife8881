@@ -148,7 +148,7 @@ object RichProfilePage {
                 ).apply { topMargin = 6.dp }
             }
             val divider = View(ctx).apply {
-                setBackgroundColor(0x22_FFFFFF)
+                setBackgroundColor(M3.outlineVariant)
                 visibility = View.GONE
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
                     .apply { topMargin = 8.dp }

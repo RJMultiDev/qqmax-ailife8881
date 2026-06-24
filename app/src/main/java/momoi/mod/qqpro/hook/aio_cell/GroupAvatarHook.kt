@@ -225,6 +225,10 @@ object GroupAvatarHook {
      */
     fun bindNick(widget: AIOCellGroupWidget, record: MsgRecord, member: MemberInfo) {
         val nickView = widget.getNickWidget<TextView>() ?: return
+        // The native nick text is white (for the dark theme) → invisible on a light bubble in light
+        // mode. Theme it to onSurface (white in dark, dark in light). The LV/role tag keeps its own
+        // span color, so only the name text is affected.
+        nickView.setTextColor(Colors.onSurface)
         val isSelf = record.senderUid == SelfContact.peerUid
         // The display name. Always resolve from the member (群名片/备注/昵称) — never read it back
         // from nickView.text: on a recycled cell that text is OUR OWN previously-decorated output

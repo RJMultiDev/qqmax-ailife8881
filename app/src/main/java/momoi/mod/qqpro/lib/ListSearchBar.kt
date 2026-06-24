@@ -104,7 +104,9 @@ fun styleSelectorHeaderIcons(root: View) {
 private fun tonalGroupAvatar(): android.graphics.drawable.Drawable = object : android.graphics.drawable.Drawable() {
     private val size = 48.dp
     private val bg = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = M3.TONAL; style = android.graphics.Paint.Style.FILL
+        // OPAQUE tonal: this is rasterized into a WatchAvatarView with no live background, so a
+        // translucent M3.TONAL would composite over black and look dark navy in light mode.
+        color = M3.tonalSolid; style = android.graphics.Paint.Style.FILL
     }
     private val glyph = MaterialSymbol(MaterialSymbols.group, M3.primary, insetFraction = 0.26f)
     override fun onBoundsChange(b: android.graphics.Rect) { glyph.bounds = b }
@@ -146,6 +148,10 @@ object ListSearchBar {
         rvIdName: String = "friend_list",
         attempt: Int = 0,
     ) {
+        // Overwrite the native (black) page background immediately, before the list adapter has bound
+        // (tryInstall retries until it does). Otherwise the real dark background shows through during
+        // loading. Cheap + idempotent, so safe to set on every retry.
+        if (Settings.useM3Settings.value) view.setBackgroundColor(M3.surface)
         if (tryInstall(view, hint, nameOf, isPinned, rvIdName)) return
         if (attempt >= 20) { Utils.log("ListSearchBar($hint): gave up after $attempt attempts (no list-adapter RV)"); return }
         view.postDelayed({ install(view, hint, nameOf, isPinned, rvIdName, attempt + 1) }, 50)
@@ -171,6 +177,11 @@ object ListSearchBar {
         // Material-ize the selector: M3.surface page background, M3 surface-container row cards, M3
         // title text and the M3 checkbox graphic. Installed once here (before this list is tagged).
         if (Settings.useM3Settings.value) {
+            // Paint the list's whole ancestor chain (up to [view]) with M3.surface — the black strip
+            // above the search bar comes from a native dark container between the root and the list,
+            // which a single view.setBackgroundColor doesn't cover.
+            var p: View? = curParent
+            while (p != null) { p.setBackgroundColor(M3.surface); if (p === view) break; p = p.parent as? View }
             view.setBackgroundColor(M3.surface)
             rv.setBackgroundColor(M3.surface)
             val titleId = view.resources.getIdentifier("title", "id", view.context.packageName)
@@ -248,6 +259,7 @@ object ListSearchBar {
         val wrap = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             tag = TAG
+            if (Settings.useM3Settings.value) setBackgroundColor(M3.surface)
             addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(rv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         }

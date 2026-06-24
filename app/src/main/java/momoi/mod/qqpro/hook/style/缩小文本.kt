@@ -13,6 +13,7 @@ import momoi.mod.qqpro.hook.aio_cell.MarketFaceImage
 import com.tencent.watch.aio_impl.ui.widget.AIOCellGroupWidget
 import me.jessyan.autosize.AutoSizeConfig
 import momoi.anno.mixin.Mixin
+import momoi.mod.qqpro.Colors
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.asGroupOrNull
 import momoi.mod.qqpro.util.Utils
@@ -33,12 +34,19 @@ abstract class 缩小文本 : BaseWatchItemCell<WatchAIOMsgItem, View>() {
         if (item is WatchMarketFaceMsgItem) {
             MarketFaceImage.onBind(item.d.msgId, view)
         }
+        // Grey-tip system messages ("xxx撤回了…", join/time tips) are a WatchGrayTipsCell — a single
+        // #99ffffff TextView (NOT an AIOCellGroupWidget), so the cell view IS that TextView. Recolor it
+        // to the themed tip color so it isn't near-invisible on a light surface in light mode.
+        if (view is TextView && view.currentTextColor == 0x99_FFFFFF.toInt()) {
+            view.setTextColor(Colors.onSurfaceTip)
+        }
         (view as? AIOCellGroupWidget)?.getContentWidget<View>()?.let { content ->
             content.asGroupOrNull()?.forEach {
                 resize(it)
             } ?: resize(content)
         }
     }
+
     fun resize(view: View) {
         if (view is TextView && view.currentTextColor == 0xFF_FFFFFF.toInt()) {
             // Size in absolute px against AutoSize's stable target scaledDensity rather than the

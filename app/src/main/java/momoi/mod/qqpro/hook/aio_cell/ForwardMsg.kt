@@ -365,7 +365,9 @@ class DetailFragment(private val contact: Contact, private val data: ForwardMsgD
         val content = create<LinearLayout>(inflater.context)
             .vertical()
             .size(FILL, FILL)
-            .background(0x77_000000)
+            // Themed viewer surface (was a fixed translucent black, which left the onSurface title/text
+            // unreadable on a light theme).
+            .background(M3.surface)
             .paddingHorizontal(4.dp)
             .content {
                 add<TextView>()

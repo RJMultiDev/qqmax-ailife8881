@@ -22,6 +22,8 @@ import com.tencent.qqnt.watch.troop.ui.member.ui.item.GroupMemberItem
 import com.tencent.qqnt.watch.troop.ui.member.ui.rv.GroupMemberAdapter
 import momoi.anno.mixin.Mixin
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.Settings
+import momoi.mod.qqpro.lib.onChildAttached
 import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.material.M3Progress
 import momoi.mod.qqpro.lib.material.MaterialIconButton
@@ -62,6 +64,20 @@ object MemberListSearch {
         // spacing, so drop it to avoid a doubled gap. topMargin lives on MarginLayoutParams, so
         // it's safe despite the obfuscated ConstraintLayout fields.
         (rv.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin = 0
+
+        // Materialize each member row: M3 surface-container card + onSurface name text (the native
+        // rows are grey with white text, which clashes with the themed light page in light mode).
+        if (Settings.useM3Settings.value) {
+            val titleId = ctx.resources.getIdentifier("title", "id", ctx.packageName)
+            rv.onChildAttached { row ->
+                row.background = M3.ripple(M3.rounded(M3.surfaceContainer, M3.radiusLg))
+                (if (titleId != 0) row.findViewById<View>(titleId) else null)?.let { tv ->
+                    runCatching {
+                        tv.javaClass.getMethod("setTextColor", Int::class.javaPrimitiveType).invoke(tv, M3.onSurface)
+                    }
+                }
+            }
+        }
 
         // Fresh state for this screen.
         fullList = emptyList()
@@ -144,14 +160,20 @@ object MemberListSearch {
         }
 
         // Stack the bar above the list (no overlap; the cleared RV margin keeps total height tight).
+        // Overwrite the native (black) page background with M3.surface on every layer — the wrap, the
+        // native root and the list — so the real dark background never shows through, including while
+        // the member list is still loading (otherwise it's a black screen behind the spinner).
         val wrap = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             tag = SEARCH_TAG
+            setBackgroundColor(M3.surface)
         }
         wrap.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, WRAP))
         // Host the list in a FrameLayout so the M3 loading spinner can overlay it (the spinner
         // can't be a child of the RecyclerView itself, nor centered in the vertical wrap).
-        val listHost = android.widget.FrameLayout(ctx)
+        val listHost = android.widget.FrameLayout(ctx).apply { setBackgroundColor(M3.surface) }
+        root.setBackgroundColor(M3.surface)
+        rv.setBackgroundColor(M3.surface)
         listHost.addView(root, android.widget.FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         wrap.addView(listHost, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))

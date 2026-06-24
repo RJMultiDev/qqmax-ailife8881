@@ -582,7 +582,8 @@ fun showMutedHint(bar: ViewGroup) {
         tag = MUTE_HINT_TAG
         text = "全员禁言中"
         gravity = Gravity.CENTER
-        setTextColor(0x99_FFFFFF.toInt())
+        // Themed secondary text — the old translucent white was invisible on a light input bar.
+        setTextColor(M3.onSurfaceVariant)
         textSize = 13f
     }
     bar.addView(

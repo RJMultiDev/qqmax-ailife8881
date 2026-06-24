@@ -44,7 +44,7 @@ private fun View.byId(name: String): View? {
 }
 
 private fun divider(ctx: Context): View = View(ctx).apply {
-    setBackgroundColor(0x22_FFFFFF)
+    setBackgroundColor(M3.outlineVariant)
     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).apply {
         marginStart = 12.dp; marginEnd = 12.dp
     }
@@ -153,6 +153,31 @@ class SelfSetBirthM3 : SelfSetBirthFragment() {
     }
 }
 
+/**
+ * Recolor the native date wheel (WatchDatePicker → 3 [android.widget.NumberPicker]) for the current
+ * theme: the EditText (center value), the wheel paint and the selection divider are natively white,
+ * so they vanish on a light M3 card in light mode. Reflects on NumberPicker's framework fields
+ * (mSelectorWheelPaint / mSelectionDivider — stable AOSP names, not obfuscated).
+ */
+private fun styleDateWheel(picker: View) {
+    fun walk(v: View) {
+        if (v is android.widget.NumberPicker) {
+            for (i in 0 until v.childCount) (v.getChildAt(i) as? android.widget.EditText)?.setTextColor(M3.onSurface)
+            runCatching {
+                val f = android.widget.NumberPicker::class.java.getDeclaredField("mSelectorWheelPaint").apply { isAccessible = true }
+                (f.get(v) as? android.graphics.Paint)?.color = M3.onSurface
+            }
+            runCatching {
+                android.widget.NumberPicker::class.java.getDeclaredField("mSelectionDivider").apply { isAccessible = true }
+                    .set(v, android.graphics.drawable.ColorDrawable(M3.onSurfaceVariant))
+            }
+            v.invalidate()
+        }
+        if (v is ViewGroup) for (i in 0 until v.childCount) walk(v.getChildAt(i))
+    }
+    walk(picker)
+}
+
 private fun buildBirthM3(native: ViewGroup): View {
     val ctx = native.context
     val picker = native.byId("date_picker") ?: return native
@@ -165,6 +190,7 @@ private fun buildBirthM3(native: ViewGroup): View {
     // Inside the ScrollView below, let the date wheel keep its own vertical drag (don't let the
     // ScrollView steal it).
     picker.setOnTouchListener { v, _ -> v.parent?.requestDisallowInterceptTouchEvent(true); false }
+    styleDateWheel(picker)
 
     val card = listCard(ctx).apply {
         setPadding(8.dp, 8.dp, 8.dp, 8.dp)
@@ -180,6 +206,7 @@ private fun buildBirthM3(native: ViewGroup): View {
             picker.layoutParams = picker.layoutParams.apply { height = h / 2 }
             picker.requestLayout()
         }
+        styleDateWheel(picker)  // re-apply after layout (the wheel paint is set lazily)
     }
 
     val confirmBtn = M3Button(ctx).variant(M3Button.Variant.FILLED).apply {

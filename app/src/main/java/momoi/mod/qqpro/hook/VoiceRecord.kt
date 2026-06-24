@@ -490,7 +490,9 @@ object VoiceRecord {
             clipToPadding = false
         }
         val timer = TextView(ctx).apply {
-            text = "0:00"; setTextColor(M3.onSurface); textSize = 18f; gravity = Gravity.CENTER
+            // The overlay sits on the dark [scrim], so contrast against THAT (not the theme surface) —
+            // otherwise M3.onSurface turns dark in light mode and the timer vanishes on the dark scrim.
+            text = "0:00"; setTextColor(M3.onColor(scrim)); textSize = 18f; gravity = Gravity.CENTER
         }
         column.addView(timer)
         val hint = TextView(ctx).apply {

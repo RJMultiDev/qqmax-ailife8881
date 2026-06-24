@@ -86,6 +86,13 @@ object AIOCell {
         walk(view)
     }
 
+    /** Recolor every TextView under [view] to [color] (recursive). Used to theme grey-tip cells. */
+    private fun recolorTextViews(view: View?, color: Int) {
+        view ?: return
+        if (view is TextView) view.setTextColor(color)
+        if (view is ViewGroup) for (i in 0 until view.childCount) recolorTextViews(view.getChildAt(i), color)
+    }
+
     /**
      * The message text color for a bubble side [loc] (0 = other/对方, else self/我的): the per-side
      * override (other = [Settings.textColor], self = [Settings.textColorSelf]), else auto-contrast
@@ -225,6 +232,9 @@ object AIOCell {
             run {
                 val senderUid = item.d.senderUid
                 val nickView = widget.getNickWidget<TextView>()
+                // Theme the nick text for BOTH group and DM (group re-sets it in bindNick too): the
+                // native nick is white → invisible on a light bubble in light mode.
+                nickView?.setTextColor(M3.onSurface)
                 // hide the avatar/nick header when the previous (older) message in
                 // the list is from the same sender, so consecutive messages only
                 // show the header once. Applies in both group AND DM chats.
@@ -363,6 +373,14 @@ object AIOCell {
             val loc = runCatching { widget.locationType }.getOrDefault(0)
             applyMsgTextStyle(runCatching { widget.contentWidget }.getOrNull(), loc)
             applyMsgTextStyle(matchedView, loc)
+            // The per-message timestamp is Canvas-drawn with a SHARED paint (default #99ffffff) — set
+            // its color so it adapts to light/dark instead of being near-invisible on a light surface.
+            runCatching { widget.aioRuntime.a().color = M3.onSurfaceVariant }
+            // Grey-tip system messages render through contentWidget, so applyMsgTextStyle just colored
+            // them as bubble text — override to the themed tip color (mention spans keep their color).
+            if (item.d.msgType == NTMsgType.GRAYTIPS) {
+                recolorTextViews(runCatching { widget.contentWidget }.getOrNull(), M3.onSurfaceTip)
+            }
             BubbleCorner.apply(widget)
             // Same guard as linkify: don't run link preview off a special message's
             // hidden contentWidget text (e.g. a file extension matched as a URL).

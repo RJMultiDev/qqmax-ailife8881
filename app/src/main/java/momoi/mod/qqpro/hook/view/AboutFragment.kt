@@ -89,7 +89,7 @@ fun buildAboutView(
         add<TextView>()
             .text("NWear QQ · 爅峫\nQQ Pro · java30433\nQQ Max · AILIFE")
             .textSize(13f)
-            .textColor(M3.replyText)
+            .textColor(M3.onSurfaceVariant)
             .gravity(Gravity.CENTER)
             .padding(bottom = 12.dp)
     }
