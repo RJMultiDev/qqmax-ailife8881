@@ -336,14 +336,24 @@ object InlineInput {
             // Images staged by the gallery flow: stash them and drain into the visible host (below),
             // rather than inserting eagerly here (the host may change in focusAndShow).
             pendingImageElements = ArrayList(IMEOperation.extraMsg)
-            // Prefill text: 编辑 (MessageEdit active → banner) or 复读 (plain).
-            IMEOperation.extraText?.let { if (it.isNotEmpty()) insertText(it) }
+            // Prefill text: 编辑 (MessageEdit active → banner) or 复读 (plain). Insert WITHOUT
+            // focusAndShow (which would raise the keyboard); the single focusAndShow below handles it.
+            IMEOperation.extraText?.let {
+                if (it.isNotEmpty()) {
+                    val start = et.selectionStart.coerceAtLeast(0)
+                    val end = et.selectionEnd.coerceAtLeast(start)
+                    et.text?.replace(start, end, it)
+                }
+            }
         }.onFailure { Utils.log("InlineInput.consumePending failed: $it") }
         IMEOperation.extraText = null
         IMEOperation.INSTANCE.clearExtra()
         IMEOperation.extraMsg.clear()
         updateBanner()
-        focusAndShow()
+        // Show + focus the inline box but DON'T auto-raise the soft keyboard — the user taps the field
+        // to type (matches the long-press 回复 behaviour). Avoids the keyboard popping over a not-yet-
+        // shown field when replying while the bar is scroll-hidden.
+        focusAndShow(showKeyboard = false)
         // Drain after focusAndShow so the (possibly switched) visible host receives the images.
         val cur = editText()
         if (cur != null) cur.post { drainPendingImages("consume") } else drainPendingImages("consume")
@@ -773,7 +783,14 @@ object InlineInput {
         focusAndShow()
     }
 
-    private fun focusAndShow() {
+    /**
+     * Pop the inline input bar (if scrolled-up / hidden) and focus the EditText. [showKeyboard]
+     * controls whether the soft keyboard is also raised: the reply / @ / edit consume path passes
+     * false so staging a reply doesn't auto-open the keyboard (the user taps the field to type — the
+     * same behaviour as the long-press menu's 回复). Explicit keyboard requests (the pull-up gesture,
+     * STT) pass true.
+     */
+    private fun focusAndShow(showKeyboard: Boolean = true) {
         // The input bar auto-hides (state g=0, arrow only) when the chat list is scrolled up. f(true)
         // targets the sliver state (g=1) which only shows at the list bottom, so it does nothing here.
         // Instead simulate pressing the up-arrow (showArrowListener m) which pops the floating input
@@ -796,10 +813,13 @@ object InlineInput {
                 et.requestFocus()
                 et.setSelection(et.text?.length ?: 0)
                 et.requestRectangleOnScreen(Rect(0, 0, et.width, et.height), true)
-                // requestFocus alone won't raise the soft keyboard; ask the IMM explicitly.
-                (et.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
-                    as? android.view.inputmethod.InputMethodManager)
-                    ?.showSoftInput(et, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                // requestFocus alone won't raise the soft keyboard; ask the IMM explicitly — but only
+                // when asked to (e.g. the reply consume path suppresses it so it doesn't auto-pop).
+                if (showKeyboard) {
+                    (et.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                        as? android.view.inputmethod.InputMethodManager)
+                        ?.showSoftInput(et, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                }
             }.onFailure { Utils.log("InlineInput.focusAndShow failed: $it") }
         }
     }
