@@ -34,8 +34,15 @@ object M3 {
     // pref falls back to the built-in default (and for the primary-derived tokens, to the value
     // auto-derived from the accent). Editing a token in the 外观主题 settings category rethemes every
     // materialized screen the next time it's built. The single source of truth is here.
-    // Material Blue 200 — the MD3-recommended (softer, less-saturated) accent tone for dark themes.
-    val DEFAULT_PRIMARY = 0xFF_90CAF9.toInt()
+    // Whether to use the light baseline palette instead of the dark one (Settings.lightMode). Drives
+    // each token's DEFAULT below; an explicit per-token 外观主题 override still wins when set.
+    private val light get() = momoi.mod.qqpro.Settings.lightMode.value
+    /** Pick the dark- or light-mode baseline default for the current [light] mode. */
+    private fun dl(darkValue: Int, lightValue: Int) = if (light) lightValue else darkValue
+
+    // Accent (primary). Dark = Material Blue 200 (softer tone for dark UIs); Light = Blue 700, a deeper
+    // MD3-tone-40-style accent with enough contrast on light surfaces. White label on the accent.
+    val DEFAULT_PRIMARY get() = dl(0xFF_90CAF9.toInt(), 0xFF_1976D2.toInt())
 
     val primary: Int get() = parseColor(momoi.mod.qqpro.Settings.themeColor.value, DEFAULT_PRIMARY)
     /**
@@ -51,22 +58,22 @@ object M3 {
     val onPrimaryContainer: Int get() = parseColorOrNull(momoi.mod.qqpro.Settings.themeOnPrimaryContainer.value)
         ?: primary
 
-    // ── Surfaces ───────────────────────────────────────────────────────────────
-    val surface: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurface.value, 0xFF_1A1A1A.toInt())              // screen background
-    val surfaceContainer: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurfaceContainer.value, 0xFF_222222.toInt())     // field / sunken surface / card
-    val surfaceContainerHigh: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurfaceContainerHigh.value, 0xFF_2A2A2A.toInt()) // raised card / row pressed
-    val surfaceVariant: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurfaceVariant.value, 0xFF_2E2E2E.toInt())
+    // ── Surfaces (light defaults = MD3 baseline neutral surfaces / surface-container tones) ───────
+    val surface: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurface.value, dl(0xFF_1A1A1A.toInt(), 0xFF_FFFBFE.toInt()))              // screen background
+    val surfaceContainer: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurfaceContainer.value, dl(0xFF_222222.toInt(), 0xFF_F3EDF7.toInt()))     // field / sunken surface / card
+    val surfaceContainerHigh: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurfaceContainerHigh.value, dl(0xFF_2A2A2A.toInt(), 0xFF_ECE6F0.toInt())) // raised card / row pressed
+    val surfaceVariant: Int get() = parseColor(momoi.mod.qqpro.Settings.themeSurfaceVariant.value, dl(0xFF_2E2E2E.toInt(), 0xFF_E7E0EC.toInt()))
 
-    // ── Content ────────────────────────────────────────────────────────────────
-    val onSurface: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOnSurface.value, 0xFF_FFFFFF.toInt())
-    val onSurfaceVariant: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOnSurfaceVariant.value, 0xFF_C9C7CE.toInt())     // inactive icon/text
-    val onSurfaceTip: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOnSurfaceTip.value, 0xFF_999999.toInt())         // secondary/hint text
-    val hint: Int get() = parseColor(momoi.mod.qqpro.Settings.themeHint.value, 0xFF_777777.toInt())
-    val outline: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOutline.value, 0xFF_444444.toInt())
-    val outlineVariant: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOutlineVariant.value, 0xFF_333333.toInt())
+    // ── Content (light defaults = MD3 baseline on-surface / outline tones) ───────────────────────
+    val onSurface: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOnSurface.value, dl(0xFF_FFFFFF.toInt(), 0xFF_1C1B1F.toInt()))
+    val onSurfaceVariant: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOnSurfaceVariant.value, dl(0xFF_C9C7CE.toInt(), 0xFF_49454F.toInt()))     // inactive icon/text
+    val onSurfaceTip: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOnSurfaceTip.value, dl(0xFF_999999.toInt(), 0xFF_6A6A70.toInt()))         // secondary/hint text
+    val hint: Int get() = parseColor(momoi.mod.qqpro.Settings.themeHint.value, dl(0xFF_777777.toInt(), 0xFF_8A8A90.toInt()))
+    val outline: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOutline.value, dl(0xFF_444444.toInt(), 0xFF_79747E.toInt()))
+    val outlineVariant: Int get() = parseColor(momoi.mod.qqpro.Settings.themeOutlineVariant.value, dl(0xFF_333333.toInt(), 0xFF_CAC4D0.toInt()))
 
     // ── Status ─────────────────────────────────────────────────────────────────
-    val error: Int get() = parseColor(momoi.mod.qqpro.Settings.themeError.value, 0xFF_E5443C.toInt())
+    val error: Int get() = parseColor(momoi.mod.qqpro.Settings.themeError.value, dl(0xFF_E5443C.toInt(), 0xFF_B3261E.toInt()))
     val badge: Int get() = error                   // unread/notification badge follows the error token
     val legacyBtn = 0xFF_1B9AF7.toInt()            // older link/button blue (Colors.btn)
 

@@ -260,6 +260,11 @@ class 设置页 : SettingsActivity() {
     private fun buildCategories(): List<SettingsCategory> = listOf(
         SettingsCategory("外观主题", "Material 颜色 (M3)") {
             val note = "重进页面生效"
+            selector("外观模式", "Material 配色的明暗基调；浅色采用 M3 推荐的浅色基线配色，$note",
+                listOf("深色", "浅色"),
+                current = { if (Settings.lightMode.value) 1 else 0 }) { which ->
+                Settings.lightMode.value = which == 1
+            }
             colorPicker("主题色 Primary", "主强调色：按钮/开关/链接/高亮", Settings.themeColor, MaterialColors.ACCENT, { M3.primary }, note)
             colorPicker("主色前景 On Primary", "强调色上的文字/图标，留空自动", Settings.themeOnPrimary, MaterialColors.ON, { M3.onPrimary }, note)
             colorPicker("主色容器 Primary Container", "次级强调表面，留空由主题色生成", Settings.themePrimaryContainer, MaterialColors.ACCENT, { M3.primaryContainer }, note)

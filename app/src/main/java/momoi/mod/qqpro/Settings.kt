@@ -44,6 +44,11 @@ object Settings {
     val themeOutline = StringPref("themeOutline", "")
     val themeOutlineVariant = StringPref("themeOutlineVariant", "")
     val themeError = StringPref("themeError", "")
+    // Light vs dark baseline palette. false (default) = the dark M3 palette the app has always used;
+    // true = a light M3 baseline (recommended neutral light surfaces + a deeper blue accent). Read live
+    // by the M3 object: it picks each token's default by this flag, while per-token 外观主题 overrides
+    // still win. Chosen via the 外观模式 selector; rethemes materialized screens the next time built.
+    val lightMode = BooleanPref("lightMode", false)
     // All theme-token prefs together (for "restore defaults" — clears every custom M3 color).
     val themeTokens: List<StringPref> get() = listOf(
         themeColor, themeOnPrimary, themePrimaryContainer, themeOnPrimaryContainer,
@@ -370,7 +375,7 @@ object Settings {
         scale, chatScale, enableSmoothScroll, encoderScrollSpeed, blockBack, disableSwipeBack, swapCenterKeyboard,
         themeColor, themeOnPrimary, themePrimaryContainer, themeOnPrimaryContainer,
         themeSurface, themeSurfaceContainer, themeSurfaceContainerHigh, themeSurfaceVariant,
-        themeOnSurface, themeOnSurfaceVariant, themeOnSurfaceTip, themeHint, themeOutline, themeOutlineVariant, themeError,
+        themeOnSurface, themeOnSurfaceVariant, themeOnSurfaceTip, themeHint, themeOutline, themeOutlineVariant, themeError, lightMode,
         showGroupAvatar, showSelfAvatar, avatarSizeScale, hideRepeatedSender, replaceGroupNick, showMemberLevel, inlineSendButton,
         inlineChatInput, fullInlineInput, inlineEmojiButton, rememberDraft, emojiPickerToInput, materializeChat,
         screenCornerDiameter, titlebarSideMargin,
