@@ -175,8 +175,12 @@ object LongPressMenu {
         val isArk = msg?.elements?.any { it.arkElement != null } == true
         val fwdText = msg?.elements?.mapNotNull { it.textElement?.content }?.joinToString("")
             ?.takeIf { it.isNotBlank() }
-        // Copyable text: plain text, or — for an ark card (share / mini-app / etc.) — its prompt.
-        val copyText = fwdText ?: (if (isArk) arkText(msg) else null)
+        // File messages carry no text element — copy the file name (the old behaviour the native
+        // CopyMsg used to provide). firstNotNullOfOrNull skips elements without a fileElement.
+        val fileName = msg?.elements?.firstNotNullOfOrNull { it.fileElement?.fileName }
+            ?.takeIf { it.isNotBlank() }
+        // Copyable text: plain text, an ark card's prompt, or a file element's name.
+        val copyText = fwdText ?: (if (isArk) arkText(msg) else null) ?: fileName
         // Resendable (sendMsg-rebuildable) media; ark / file / combined-forward are NOT.
         val forwardable = msg?.elements?.any {
             it.faceElement != null || it.marketFaceElement != null || it.videoElement != null ||
