@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.view.Gravity
 import android.view.View
+import android.view.ViewTreeObserver
 import android.widget.TextView
 import androidx.recyclerview.widget.AIOLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -18,20 +19,23 @@ import momoi.mod.qqpro.lib.material.leadingSymbol
 
 /**
  * The native chat unread bubble ([com.tencent.watch.aio_impl.reserve1.unreadbubble.UnreadBubbleVB])
- * drives this view through [setText] / [setBackgroundResource] / [setVisibility].
+ * drives this view through [setText] / [setBackgroundResource] / [setVisibility]. We restyle it into
+ * a large pill at the bottom-right (left side rounded, right flush to the screen edge) and take over
+ * its visibility with our own state machine.
  *
- * We restyle it into a large pill anchored at the bottom-right, with only the left side
- * rounded (right side flush/cut by the screen edge):
- *  - blue "↓ N" while there are new/unread messages,
- *  - grey "↓" back-to-bottom button while merely scrolled up.
+ * Visibility is decided by [shouldShow], in priority order:
+ *  1. There are new unread messages (native gave a count) → show COLORED (blue "↓ N").
+ *  2. Else the [anchors] return-list is non-empty (we jumped up and haven't come back) → show DARK ("↓").
+ *  3. Else the last scroll was DOWNWARD and the latest message is still more than
+ *     [SCROLL_DIST_THRESHOLD] items below the viewport → show DARK.
+ *  4. Otherwise → hidden.
  *
- * Visibility for the grey back-to-bottom state follows scroll direction (shown while
- * scrolling down, hidden while scrolling up); the blue new-message count is always shown.
- *
- * Two-stage return: when the chat is scrolled UP programmatically (tapping a reply source, or
- * "jump to first unread"), [beginJumpUp] remembers the position we left from and forces this
- * button visible immediately. The first tap then returns to that remembered position; only the
- * next tap (no anchor pending) does the native go-to-bottom.
+ * Two-stage return via [anchors]: each programmatic upward jump (tap a reply source, jump-to-first-
+ * unread) pushes the message we left from onto [anchors]. The button (rule 2) stays up until that
+ * anchor is reached. An anchor is REMOVED the moment it becomes visible again — whether the user
+ * tapped the button to scroll back, scrolled down manually, or the jump was so short the anchor was
+ * never off-screen (e.g. tapping a reply whose source sits just above it). Tapping the button scrolls
+ * to the most recent anchor; once no anchors remain, a tap does the real go-to-bottom.
  */
 @SuppressLint("ViewConstructor", "SetTextI18n")
 class BubbleTextView(context: Context) : TextView(context) {
@@ -39,14 +43,23 @@ class BubbleTextView(context: Context) : TextView(context) {
     private val blueBg = roundCornerDrawable(M3.primary, 9999f, 0f, 9999f, 0f)
     private val greyBg = roundCornerDrawable(0xCC_303030.toInt(), 9999f, 0f, 9999f, 0f)
 
+    // Native intent, captured from its setText / setVisibility calls. hasUnread() = both together.
     private var nativeWantsShow = false
     private var isCountMode = false
-    private var hiddenByScrollUp = false
-    private var forceShow = false
-    private var scrollAttached = false
+    private var countText = ""
 
-    // Native installs its own go-to-bottom click; we capture it here and wrap it so the
-    // first tap after a programmatic jump-up returns to the remembered anchor instead.
+    // +1 last scroll was downward (toward newest), -1 upward, 0 none. Drives rule 3.
+    private var lastScrollDir = 0
+
+    private var listenersAttached = false
+    private var layoutListener: ViewTreeObserver.OnGlobalLayoutListener? = null
+    private var scrollListener: RecyclerView.OnScrollListener? = null
+    private var resolvedRv: RecyclerView? = null
+    private var lastMode = Mode.HIDDEN
+
+    private enum class Mode { HIDDEN, COLORED, DARK }
+
+    // Native installs its own go-to-bottom click; captured here and wrapped for the staged return.
     private var delegateClick: OnClickListener? = null
 
     init {
@@ -56,34 +69,25 @@ class BubbleTextView(context: Context) : TextView(context) {
         setPadding(18.dp, 9.dp, 14.dp, 9.dp)
     }
 
-    // Native K() sets aio_unread_bg (the blue count circle) — replace with our blue pill.
-    override fun setBackgroundResource(resid: Int) {
-        background = blueBg
-    }
+    // ---- native driving us ----
+
+    // Native K() sets aio_unread_bg (the blue count circle); we own the background, so just re-derive.
+    override fun setBackgroundResource(resid: Int) { refresh() }
 
     override fun setText(text: CharSequence?, type: BufferType?) {
-        val t = text?.toString().orEmpty()
-        isCountMode = t.isNotEmpty()
-        if (isCountMode) {
-            background = blueBg
-            super.setText(t, type)            // "N" new messages; the ↓ is a real Material icon
-        } else {
-            // Empty text means the back-to-bottom state: grey down-arrow pill (icon only).
-            background = greyBg
-            super.setText("", type)
-        }
-        leadingSymbol(MaterialSymbols.arrow_downward, currentTextColor, sizeDp = 14, gap = if (isCountMode) 3 else 0)
-        applyVisibility()
+        countText = text?.toString().orEmpty()
+        isCountMode = countText.isNotEmpty()
+        refresh()
     }
 
     // Native uses VISIBLE(0) for the count, INVISIBLE(4) for back-to-bottom, GONE(8) to hide.
-    // Treat INVISIBLE as "show" so the back-to-bottom button is actually visible.
+    // Treat anything but GONE as "native wants the count shown".
     override fun setVisibility(visibility: Int) {
         nativeWantsShow = visibility != View.GONE
-        applyVisibility()
+        refresh()
     }
 
-    // Wrap whatever click listener native installs so we can intercept it for the two-stage return.
+    // Wrap whatever click listener native installs so we can intercept it for the staged return.
     override fun setOnClickListener(l: OnClickListener?) {
         if (l == null) {
             delegateClick = null
@@ -94,140 +98,254 @@ class BubbleTextView(context: Context) : TextView(context) {
         super.setOnClickListener { v -> onBubbleClick(v) }
     }
 
-    private fun onBubbleClick(v: View?) {
-        val anchor = returnAnchor
-        // Honour the anchor only if we're still ABOVE it (haven't scrolled down to/past it yet).
-        // If the user already scrolled back down past the anchor, jumping up to it would be wrong —
-        // treat it like a normal go-to-bottom instead.
-        if (anchor != null && anchorStillBelowViewport(anchor)) {
-            // First tap of a programmatic jump-up: go back to where we started.
-            returnAnchor = null
-            scrollBackToAnchor(anchor)
-        } else {
-            // No pending anchor (or already scrolled past it): the real go-to-bottom.
-            returnAnchor = null
-            forceShow = false
-            goToBottom(v)
+    // ---- list helpers ----
+
+    // The chat message RecyclerView, resolved from THIS view's own hierarchy (the chat the bubble
+    // overlays) rather than the global CurrentMsgList.vb.H — which is a single static that can point
+    // at a preloaded/previous chat's list after a re-attach, so a scroll listener bound to it never
+    // fires for the visible chat (the dir-stuck-at-0 bug). Cached at attach via [resolvedRv].
+    private fun rv(): RecyclerView? =
+        resolvedRv ?: findChatRecyclerView() ?: runCatching { CurrentMsgList.vb.H }.getOrNull()
+
+    private fun lm(): AIOLayoutManager? = rv()?.layoutManager as? AIOLayoutManager
+
+    /** Walk to the window root, then find the message list (its layout manager is an AIOLayoutManager). */
+    private fun findChatRecyclerView(): RecyclerView? {
+        var root: View = this
+        while (root.parent is View) root = root.parent as View
+        return findAioRecyclerView(root)
+    }
+
+    private fun findAioRecyclerView(v: View): RecyclerView? {
+        if (v is RecyclerView && v.layoutManager is AIOLayoutManager) return v
+        if (v is android.view.ViewGroup) {
+            for (i in 0 until v.childCount) findAioRecyclerView(v.getChildAt(i))?.let { return it }
         }
+        return null
+    }
+
+    /** The live adapter item list (authoritative); falls back to the accumulated mirror. */
+    private fun liveList(): List<*> =
+        runCatching { CurrentMsgList.uiOp?.m() }.getOrNull() ?: CurrentMsgList.msgList.value
+
+    private fun msgCount(): Int = runCatching { liveList().size }.getOrDefault(0)
+
+    private fun msgIdAt(pos: Int): Long? =
+        (liveList().getOrNull(pos) as? WatchAIOMsgItem)?.d?.msgId
+
+    private fun liveIndexOfMsgId(id: Long): Int =
+        runCatching { liveList().indexOfFirst { (it as? WatchAIOMsgItem)?.d?.msgId == id } }.getOrDefault(-1)
+
+    /** Items between the last visible row and the latest message (0 == latest is on screen). */
+    private fun distanceToLast(): Int {
+        val lm = lm() ?: return 0
+        val count = msgCount()
+        if (count <= 0) return 0
+        return (count - 1) - lm.findLastVisibleItemPosition()
+    }
+
+    /** True when the message with [id] is within the currently visible row range. */
+    private fun isMsgIdVisible(id: Long): Boolean {
+        val lm = lm() ?: return false
+        val first = lm.findFirstVisibleItemPosition()
+        val last = lm.findLastVisibleItemPosition()
+        if (first < 0 || last < 0) return false
+        for (p in first..last) if (msgIdAt(p) == id) return true
+        return false
+    }
+
+    // ---- visibility state machine ----
+
+    private fun hasUnread(): Boolean = nativeWantsShow && isCountMode
+
+    /**
+     * Drop anchors that have been REACHED (on screen) or are no longer in the list. An anchor is only
+     * eligible once ARMED (now >= armAt): at the instant of [beginJumpUp] the anchor is the top-visible
+     * row, so it's trivially "visible" before the jump even scrolls — arming defers the visibility
+     * check past the jump so we don't prune it the moment we add it. Returns true if any went.
+     */
+    private fun pruneAnchors(): Boolean {
+        if (anchors.isEmpty()) return false
+        val now = System.currentTimeMillis()
+        val before = anchors.size
+        val it = anchors.iterator()
+        while (it.hasNext()) {
+            val a = it.next()
+            if (liveIndexOfMsgId(a.msgId) < 0) { it.remove(); continue }
+            if (now >= a.armAt && isMsgIdVisible(a.msgId)) it.remove()
+        }
+        val removed = anchors.size != before
+        if (removed) Utils.log("BubbleTextView.pruneAnchors: $before -> ${anchors.size} (reached/gone)")
+        return removed
     }
 
     /**
-     * Scroll all the way to the latest message. The native go-to-bottom snaps instantly when the
-     * target is far, which skips binding (loading) the messages in between; force a continuous
-     * smooth scroll instead so every intermediate message is visited. Falls back to the native
-     * click if the list/index isn't available.
+     * Recompute the mode from current state and apply it. Called on every scroll AND every layout
+     * pass, so it MUST be cheap and idempotent: appearance (background / text / icon) is only touched
+     * when the mode actually changes, otherwise re-styling every layout would requestLayout in a loop
+     * via the global-layout listener. Only an unread-count text change restyles within COLORED mode.
+     */
+    private fun refresh() {
+        pruneAnchors()
+        val unread = hasUnread()
+        val show = unread ||
+            anchors.isNotEmpty() ||
+            (lastScrollDir > 0 && distanceToLast() > SCROLL_DIST_THRESHOLD)
+        val mode = when {
+            !show -> Mode.HIDDEN
+            unread -> Mode.COLORED
+            else -> Mode.DARK
+        }
+        if (mode != lastMode) {
+            when (mode) {
+                Mode.COLORED -> {
+                    background = blueBg
+                    super.setText(countText, BufferType.NORMAL)
+                    leadingSymbol(MaterialSymbols.arrow_downward, currentTextColor, sizeDp = 14, gap = 3)
+                }
+                Mode.DARK -> {
+                    background = greyBg
+                    super.setText("", BufferType.NORMAL)
+                    leadingSymbol(MaterialSymbols.arrow_downward, currentTextColor, sizeDp = 14, gap = 0)
+                }
+                Mode.HIDDEN -> {}
+            }
+            super.setVisibility(if (mode == Mode.HIDDEN) View.GONE else View.VISIBLE)
+            Utils.log("BubbleTextView.refresh: $lastMode -> $mode unread=$unread anchors=${anchors.size} dir=$lastScrollDir dist=${distanceToLast()}")
+            lastMode = mode
+        } else if (mode == Mode.COLORED && text?.toString() != countText) {
+            // Count changed while staying colored (a new message arrived) — update text only.
+            super.setText(countText, BufferType.NORMAL)
+            leadingSymbol(MaterialSymbols.arrow_downward, currentTextColor, sizeDp = 14, gap = 3)
+        }
+    }
+
+    // ---- click: staged return ----
+
+    private fun onBubbleClick(v: View?) {
+        pruneAnchors()
+        val target = anchors.lastOrNull()
+        if (target != null) {
+            val idx = liveIndexOfMsgId(target.msgId)
+            if (idx >= 0) {
+                // Scroll back to the most recent anchor; it's pruned by refresh() once it's on screen.
+                // Force-arm it so the scroll-in actually prunes it (a fresh re-jump may still be unarmed).
+                target.armAt = 0L
+                rv()?.smoothScrollToStart(idx)
+                Utils.log("BubbleTextView: returning to anchor msgId=${target.msgId} idx=$idx")
+                return
+            }
+            // Anchor no longer loaded — drop it and fall through to go-to-bottom.
+            anchors.remove(target)
+        }
+        goToBottom(v)
+    }
+
+    /**
+     * Continuous smooth scroll to the latest message (visits/binds every row on the way, unlike the
+     * native snap). Falls back to the native click if the list/index isn't available.
      */
     private fun goToBottom(v: View?) {
-        val rv = runCatching { CurrentMsgList.vb.H }.getOrNull()
-        val last = CurrentMsgList.msgList.value.size - 1
-        if (rv != null && last >= 0) {
-            rv.smoothScrollToEnd(last)
-        } else {
-            delegateClick?.onClick(v)
-        }
+        val rv = rv()
+        val last = msgCount() - 1
+        if (rv != null && last >= 0) rv.smoothScrollToEnd(last) else delegateClick?.onClick(v)
     }
 
-    // True when the anchor message is still below the bottom of the current viewport, i.e. the user
-    // is reading above it and a return-to-anchor would scroll downward toward it.
-    private fun anchorStillBelowViewport(anchor: WatchAIOMsgItem): Boolean {
-        val rv = runCatching { CurrentMsgList.vb.H }.getOrNull() ?: return false
-        val lm = rv.layoutManager as? AIOLayoutManager ?: return false
-        val idx = CurrentMsgList.getMsgIndex(anchor)
-        if (idx < 0) return false
-        return lm.findLastVisibleItemPosition() < idx
-    }
-
-    private fun scrollBackToAnchor(anchor: WatchAIOMsgItem) {
-        val rv = runCatching { CurrentMsgList.vb.H }.getOrNull()
-        val idx = CurrentMsgList.getMsgIndex(anchor)
-        if (rv == null || idx < 0) {
-            // Anchor no longer loaded — fall back to going straight to the bottom.
-            forceShow = false
-            goToBottom(this)
-            return
-        }
-        rv.smoothScrollToStart(idx)
-        // Keep the button shown; a further tap (now without an anchor) goes to the real bottom.
-        forceShow = true
-        hiddenByScrollUp = false
-        applyVisibility()
-        Utils.log("BubbleTextView returned to anchor index=$idx")
-    }
-
-    private fun applyVisibility() {
-        val show = forceShow || (nativeWantsShow && (isCountMode || !hiddenByScrollUp))
-        super.setVisibility(if (show) View.VISIBLE else View.GONE)
-    }
-
-    private fun showForBackDown() {
-        forceShow = true
-        hiddenByScrollUp = false
-        applyVisibility()
-    }
+    // ---- lifecycle / listeners ----
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         current = this
-        attachScrollListener(0)
+        attachListeners(0)
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         if (current === this) current = null
-        returnAnchor = null
-        forceShow = false
+        anchors.clear()
+        lastScrollDir = 0
+        lastMode = Mode.HIDDEN
+        resolvedRv?.let { r ->
+            layoutListener?.let { l -> runCatching { r.viewTreeObserver?.removeOnGlobalLayoutListener(l) } }
+            scrollListener?.let { s -> runCatching { r.removeOnScrollListener(s) } }
+        }
+        layoutListener = null
+        scrollListener = null
+        resolvedRv = null
+        listenersAttached = false
     }
 
-    private fun attachScrollListener(tries: Int) {
-        if (scrollAttached || tries > 20) return
-        val rv = runCatching { CurrentMsgList.vb.H }.getOrNull()
+    private fun attachListeners(tries: Int) {
+        if (listenersAttached || tries > 20) return
+        // Resolve from our own hierarchy first (correct chat); only fall back to the global static.
+        val rv = findChatRecyclerView() ?: runCatching { CurrentMsgList.vb.H }.getOrNull()
         if (rv == null) {
-            postDelayed({ attachScrollListener(tries + 1) }, 200)
+            postDelayed({ attachListeners(tries + 1) }, 200)
             return
         }
-        scrollAttached = true
-        rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+        listenersAttached = true
+        resolvedRv = rv
+        val sl = object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                // Reaching the real bottom ends the two-stage state and hands control back to native.
-                val lm = recyclerView.layoutManager as? AIOLayoutManager
-                if (lm != null && lm.findLastVisibleItemPosition() >= CurrentMsgList.msgList.value.size - 1) {
-                    if (forceShow) forceShow = false
-                    returnAnchor = null
+                val nd = if (dy > 4) 1 else if (dy < -4) -1 else lastScrollDir
+                if (nd != lastScrollDir) {
+                    Utils.log("BubbleTextView.onScrolled: dy=$dy dir=$lastScrollDir->$nd dist=${distanceToLast()} last=${lm()?.findLastVisibleItemPosition()} count=${msgCount()}")
+                    lastScrollDir = nd
                 }
-                when {
-                    // Scrolling down (towards the latest message) -> allow showing.
-                    dy > 4 -> if (hiddenByScrollUp) {
-                        hiddenByScrollUp = false
-                    }
-                    // Scrolling up (reading history) -> hide the grey back-to-bottom button.
-                    dy < -4 -> if (!hiddenByScrollUp) {
-                        hiddenByScrollUp = true
-                    }
-                }
-                applyVisibility()
+                refresh()
             }
-        })
-        Utils.log("BubbleTextView scroll listener attached")
+        }
+        scrollListener = sl
+        rv.addOnScrollListener(sl)
+        // A jump (or an older-page load) can place an anchor back on screen WITHOUT emitting a scroll
+        // event, so also re-evaluate on layout passes — this is what prunes the anchor and hides the
+        // button when the user jumps back without a clean onScrolled (the old bug). Gated on a pending
+        // anchor so it's a no-op (no per-frame list scan) in the common case.
+        val ll = ViewTreeObserver.OnGlobalLayoutListener { if (anchors.isNotEmpty()) refresh() }
+        layoutListener = ll
+        runCatching { rv.viewTreeObserver.addOnGlobalLayoutListener(ll) }
+        Utils.log("BubbleTextView listeners attached rv=${System.identityHashCode(rv)}")
     }
 
     companion object {
+        private const val SCROLL_DIST_THRESHOLD = 3
+        // How long after a jump before its anchor may be pruned. Covers the jump's smooth-scroll so we
+        // don't prune the anchor while it's still the (pre-jump) top-visible row.
+        private const val ARM_DELAY_MS = 600L
+
         private var current: BubbleTextView? = null
 
-        // The position we left from on the last programmatic upward jump; the first tap of the
-        // back-down button returns here before the next tap goes to the real bottom.
-        private var returnAnchor: WatchAIOMsgItem? = null
+        /** A return point: the message we jumped from, prunable only once [armAt] has passed. */
+        private class Anchor(val msgId: Long, var armAt: Long)
+
+        // Outstanding programmatic upward jumps, oldest-first. Removed when reached (see pruneAnchors).
+        // Tapping returns to the most recent (last). Static so it survives a jump's detach/attach.
+        private val anchors = ArrayList<Anchor>()
+        private const val MAX_ANCHORS = 16
 
         /**
-         * Call right before a programmatic upward jump (tapping a reply source, or "jump to first
-         * unread"). Remembers the current top-most visible message and forces the back-down button
-         * visible immediately so the user can return.
+         * Call right before a programmatic upward jump (reply source / jump-to-first-unread). Pushes
+         * the top-most currently visible message as a return anchor and shows the button immediately.
+         * A delayed refresh re-checks once the anchor is armed so a tiny jump (anchor still on screen)
+         * is pruned promptly.
          */
         fun beginJumpUp() {
-            val rv = runCatching { CurrentMsgList.vb.H }.getOrNull() ?: return
-            val pos = (rv.layoutManager as? AIOLayoutManager)?.findFirstVisibleItemPosition() ?: -1
-            returnAnchor = CurrentMsgList.msgList.value.getOrNull(pos)
-            Utils.log("BubbleTextView beginJumpUp anchor pos=$pos set=${returnAnchor != null}")
-            current?.showForBackDown()
+            val view = current
+            val lm = runCatching { CurrentMsgList.vb.H.layoutManager as? AIOLayoutManager }.getOrNull()
+            val pos = lm?.findFirstVisibleItemPosition() ?: -1
+            // Prefer the live adapter list (its indices match findFirstVisibleItemPosition); fall back
+            // to the mirror. Must match what isMsgIdVisible() reads or the anchor never prunes.
+            val live = runCatching { CurrentMsgList.uiOp?.m() }.getOrNull()
+            val item = (live?.getOrNull(pos) ?: CurrentMsgList.msgList.value.getOrNull(pos)) as? WatchAIOMsgItem
+            val id = item?.d?.msgId
+            if (id != null) {
+                anchors.removeAll { it.msgId == id }    // de-dup: move to most-recent
+                anchors.add(Anchor(id, System.currentTimeMillis() + ARM_DELAY_MS))
+                while (anchors.size > MAX_ANCHORS) anchors.removeAt(0)
+            }
+            Utils.log("BubbleTextView beginJumpUp anchor pos=$pos id=$id anchors=${anchors.size}")
+            view?.refresh()
+            view?.postDelayed({ view.refresh() }, ARM_DELAY_MS + 100)
         }
     }
 }
