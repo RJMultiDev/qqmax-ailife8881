@@ -144,10 +144,10 @@ class 聊天底部按钮调整() : `InputBarController$inputContent$2`() {
                         // put so it becomes a rounded rectangle that expands UPWARD. The side buttons are
                         // bottom-anchored (Gravity.BOTTOM) so they stay pinned to the bottom while the
                         // EditText grows above them, instead of riding up with a vertically-centred pill.
-                        // Material: a rounded RECTANGLE (small 8dp corners — NOT a capsule) with a
+                        // Material: a rounded RECTANGLE (12dp corners — NOT a capsule) with a
                         // surface fill AND a 1dp outline, holding a reply/edit row on top of the input
                         // row (vertical). Non-material keeps the original translucent capsule (single row).
-                        val pillRadius = if (mat) M3.radiusSm else if (inlineGrow) (lineH / 2f) else 9999f
+                        val pillRadius = if (mat) M3.radiusMd else if (inlineGrow) (lineH / 2f) else 9999f
                         val pill = create<LinearLayout>().height(FILL).weight(1f)
                             .background(
                                 if (mat) M3.filledOutlined(M3.surfaceContainer, M3.outline, pillRadius)
