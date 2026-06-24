@@ -21,6 +21,7 @@ import com.tencent.qqnt.kernel.nativeinterface.RecentContactInfo
 import com.tencent.qqnt.kernel.nativeinterface.RecentContactListChangedInfo
 import com.tencent.qqnt.msg.KernelServiceUtil
 import com.tencent.qqnt.watch.ui.componet.tablayout.CircleIndicator
+import com.tencent.watch.qzone_impl.alert.QZoneFeedAlertService
 import java.lang.ref.WeakReference
 import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.findAll
@@ -48,6 +49,7 @@ import momoi.mod.qqpro.util.Utils
  */
 object MainNav {
     private const val NAV_TAG = "qqpro_main_nav"
+    private const val QZONE_POLL_MS = 8000L   // re-read the QZone undeal count this often
     // Material 3 (dark) palette. The selected item sits on a tonal "active indicator" pill.
     private val ACCENT get() = M3.primary                   // on-secondary-container (selected icon)
     private val PILL_COLOR get() = M3.primaryContainer      // secondary-container (active indicator pill)
@@ -142,8 +144,20 @@ object MainNav {
         page == state.pageCount - 1 -> 0   // last page = self/settings, never badged
         page == 0 -> messagesUnread()
         page == 1 -> contactUnread
+        page == 2 -> qzoneUnread()         // QZone 互动通知 (likes/comments/@) undeal count
         else -> 0
     }
+
+    /**
+     * QZone interaction-notification undeal count (likes/comments/@mentions on your feeds) — the same
+     * number QZoneMainFrame.f0() puts on its QUIBadge. Read live from the in-memory cache of
+     * [QZoneFeedAlertService] (type 1 = interaction notifications; it self-loads on first call and is
+     * kept fresh by the service's own DB observer). There is no separate "friend posted a new feed"
+     * signal on this watch build, so only interaction notifications are badged. 0 when unavailable.
+     */
+    private fun qzoneUnread(): Int = runCatching {
+        QZoneFeedAlertService.h()?.i(1)?.takeIf { it > 0 } ?: 0
+    }.getOrDefault(0)
 
     private fun ensureListener() {
         if (listenerAdded) return
@@ -207,7 +221,26 @@ object MainNav {
 
             ensureListener()
             render(state)
+            scheduleQzonePoll(state)
         }.onFailure { Utils.log("MainNav install failed: $it") }
+    }
+
+    /**
+     * The QZone undeal count has no kernel listener we hook (it lives behind an annotation-based
+     * EventCenter), so re-render periodically to pick up new 互动通知 while the home page is visible.
+     * Posting on the nav view means the loop naturally pauses while the page is detached (View
+     * run-queue) and stops for good once a newer nav replaces this one (active !== state). render()
+     * is gated by renderedKey, so an unchanged tick is a cheap no-op.
+     */
+    private fun scheduleQzonePoll(state: NavState) {
+        val nav = state.nav
+        nav.postDelayed(object : Runnable {
+            override fun run() {
+                if (active !== state) return
+                render(state)
+                nav.postDelayed(this, QZONE_POLL_MS)
+            }
+        }, QZONE_POLL_MS)
     }
 
     /**
