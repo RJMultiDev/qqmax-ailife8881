@@ -13,6 +13,7 @@ import android.graphics.SweepGradient
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.text.InputFilter
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -240,7 +241,7 @@ fun showColorPicker(
 
     panel.addView(TextView(activity).apply {
         text = title
-        textSize = 15f
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
         setTextColor(M3.onSurface)
         gravity = Gravity.CENTER
         setPadding(0, 0, 0, dp(12))
@@ -260,7 +261,7 @@ fun showColorPicker(
     }
     panel.addView(TextView(activity).apply {
         text = "亮度"
-        textSize = 11f
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
         setTextColor(M3.onSurfaceVariant)
         setPadding(0, dp(8), 0, dp(2))
     })
@@ -270,7 +271,7 @@ fun showColorPicker(
     val preview = View(activity)
     val hexField = EditText(activity).apply {
         setText(colorToHex(initialColor))
-        textSize = 14f
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
         setTextColor(M3.onSurface)
         setSingleLine()
         filters = arrayOf(InputFilter.LengthFilter(7))

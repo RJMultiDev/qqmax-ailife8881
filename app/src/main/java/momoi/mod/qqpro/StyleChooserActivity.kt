@@ -5,11 +5,11 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Process
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
@@ -34,7 +34,11 @@ import momoi.mod.qqpro.lib.size
 import momoi.mod.qqpro.lib.text
 import momoi.mod.qqpro.lib.textColor
 import momoi.mod.qqpro.lib.textSize
+import momoi.mod.qqpro.lib.material.AppBar
+import momoi.mod.qqpro.lib.material.BottomNavItem
+import momoi.mod.qqpro.lib.material.BottomNavigationView
 import momoi.mod.qqpro.lib.material.M3
+import momoi.mod.qqpro.lib.material.Spacing
 import momoi.mod.qqpro.lib.vertical
 import momoi.mod.qqpro.lib.width
 import momoi.mod.qqpro.util.Utils
@@ -46,6 +50,11 @@ import kotlin.system.exitProcess
  * [Settings.styleToggles] pref (the whole "Material 化" category + the home-nav method + the
  * 联系人分组 dependency), records the reserved [Settings.uiStyle], then cold-restarts the app so the
  * change takes effect everywhere.
+ *
+ * The Material preview renders a phone-style mock: a 24dp status-bar placeholder, a 56dp top app bar
+ * (with arrow-back + title + action icons), a body with a rounded chat bubble, and a 72dp bottom nav
+ * with three icon+label tabs (selected tab gets a primary indicator + primary tint). The Original
+ * preview keeps a flat dark bubble + the native page-indicator dots so the contrast is obvious.
  *
  * Standalone [Activity] (the settings screen is a plain Activity with no FragmentManager, and this
  * must also be launchable from the MainActivity onCreate hook). Registered in app/mixin/AndroidManifest.xml.
@@ -63,22 +72,24 @@ class StyleChooserActivity : Activity() {
         }
         val root = LinearLayout(this)
             .vertical()
-            .padding(left = 18.dp, top = 16.dp, right = 18.dp, bottom = 16.dp)
+            // 16dp horizontal / 24dp vertical root padding so the page reads as a phone-class screen
+            // with breathing room from the status bar.
+            .padding(left = 16.dp, top = 24.dp, right = 16.dp, bottom = 16.dp)
         scroll.addView(root, FILL, WRAP)
 
         root.content {
             add<TextView>()
                 .text("选择界面风格")
-                .textSize(19f)
+                .textSize(28f)
                 .textColor(M3.onSurface)
                 .gravity(Gravity.CENTER)
-                .padding(bottom = 4.dp)
+                .padding(bottom = 8.dp)
             add<TextView>()
                 .text("可随时在「设置 › Material 化 › 界面风格」重新选择")
-                .textSize(12f)
+                .textSize(14f)
                 .textColor(M3.onSurfaceVariant)
                 .gravity(Gravity.CENTER)
-                .padding(bottom = 16.dp)
+                .padding(bottom = 24.dp)
 
             styleCard(
                 title = "Material 设计",
@@ -95,10 +106,10 @@ class StyleChooserActivity : Activity() {
             // anything, and don't auto-show it again (still reachable from settings).
             add<TextView>()
                 .text("暂不选择")
-                .textSize(13f)
+                .textSize(14f)
                 .textColor(M3.hint)
                 .gravity(Gravity.CENTER)
-                .padding(top = 14.dp, bottom = 6.dp)
+                .padding(top = 16.dp, bottom = 8.dp)
                 .apply {
                     width(FILL)
                     rippleTouch()
@@ -128,59 +139,128 @@ class StyleChooserActivity : Activity() {
         val card = add<LinearLayout>()
         card.vertical()
         card.width(FILL)
-        card.margin(bottom = 14.dp)
-        card.padding(left = 14.dp, top = 14.dp, right = 14.dp, bottom = 14.dp)
+        card.margin(bottom = 20.dp)
+        card.padding(left = 20.dp, top = 20.dp, right = 20.dp, bottom = 20.dp)
         card.background(M3.rounded(M3.surfaceContainer, M3.radiusLg))
         card.content {
             add<TextView>()
                 .text(title)
-                .textSize(16f)
+                .textSize(22f)
                 .textColor(M3.onSurface)
-                .padding(bottom = 10.dp)
+                .padding(bottom = 12.dp)
 
             // Example preview mock of what the style looks like.
             if (material) materialPreview() else originalPreview()
 
             add<TextView>()
                 .text(desc)
-                .textSize(12f)
+                .textSize(14f)
                 .textColor(M3.onSurfaceVariant)
-                .padding(top = 10.dp)
+                .padding(top = 12.dp)
         }
         card.rippleTouch()
         card.onClick { pick(material) }
     }
 
-    /** Mock of the Material look: rounded surface, a primary-tinted bubble, a pill nav with icons. */
+    /**
+     * Phone-style Material preview. Renders a self-contained mock of the new Material UI:
+     *  - 24dp "status bar" placeholder strip (just a colored bar with the current time)
+     *  - 56dp [AppBar] with back arrow + "消息" title + a search icon action
+     *  - rounded primary chat bubble + an incoming reply (using a generic avatar circle)
+     *  - 72dp [BottomNavigationView] with 3 icon+label tabs (messages / contacts / settings)
+     */
     private fun momoi.mod.qqpro.lib.GroupScope.materialPreview() {
-        val box = add<LinearLayout>()
-        box.vertical()
-        box.width(FILL)
-        box.padding(left = 12.dp, top = 12.dp, right = 12.dp, bottom = 12.dp)
-        box.background(M3.rounded(M3.surfaceContainerHigh, M3.radiusMd))
-        box.content {
-            // A rounded primary chat bubble (right-aligned, like an outgoing message).
-            val bubble = add<TextView>()
-                .text("你好 👋")
-                .textSize(12f)
-                .textColor(M3.onPrimary)
-            bubble.padding(left = 12.dp, top = 7.dp, right = 12.dp, bottom = 7.dp)
-            bubble.background(M3.rounded(M3.primary, 14.dp.toFloat()))
-            (bubble.layoutParams as LinearLayout.LayoutParams).gravity = Gravity.END
+        val phone = add<LinearLayout>()
+        phone.vertical()
+        phone.width(FILL)
+        phone.background(M3.rounded(M3.surface, M3.radiusLg))
+        phone.clipToOutline = true
 
-            // A pill nav row with three filled dots, the middle one accented (selected).
-            val nav = add<LinearLayout>()
-            nav.width(FILL)
-            nav.padding(top = 12.dp)
-            (nav as LinearLayout).gravity = Gravity.CENTER
-            nav.content {
-                dot(M3.onSurfaceVariant, 8)
-                dot(M3.primary, 16)
-                dot(M3.onSurfaceVariant, 8)
+        phone.content {
+            // ── Status bar mock ────────────────────────────────────────────────
+            val status = add<LinearLayout>()
+            status.width(FILL)
+            status.height(24.dp)
+            status.gravity(Gravity.CENTER_VERTICAL or Gravity.END)
+            status.padding(left = 16.dp, right = 16.dp)
+            status.setBackgroundColor(M3.surface)
+            val clock = add<TextView>()
+            clock.text = "12:34"
+            clock.setTextColor(M3.onSurfaceVariant)
+            clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            (clock.layoutParams as LinearLayout.LayoutParams).gravity = Gravity.END
+
+            // ── Top app bar mock (56dp) ────────────────────────────────────────
+            val bar = AppBar(this@StyleChooserActivity).apply {
+                setTitle("消息")
+                setNavIcon(MaterialSymbol(MaterialSymbols.arrow_back, M3.onSurface))
+                setOnNavClick { /* preview-only */ }
+                // Trailing action: a search icon (48dp touch target).
+                addAction(MaterialSymbol(MaterialSymbols.search, M3.onSurface)) { /* preview-only */ }
+                setAppBarElevation(0f)
             }
-            // Icon example — the Material way: an M3 search symbol tinted with the accent, on a
-            // tonal circular tint background.
-            iconExample(material = true)
+            addView(bar, LinearLayout.LayoutParams(FILL, M3.appBarHeight))
+
+            // ── Body: two chat bubbles + avatar + reply ─────────────────────────
+            val body = add<LinearLayout>()
+            body.vertical()
+            body.width(FILL)
+            body.padding(left = 16.dp, top = 16.dp, right = 16.dp, bottom = 16.dp)
+            body.setBackgroundColor(M3.surface)
+
+            body.content {
+                // Incoming row: avatar + bubble
+                val incoming = add<LinearLayout>()
+                incoming.width(FILL)
+                incoming.vertical()
+                incoming.gravity(Gravity.START)
+
+                val bubble = add<TextView>()
+                bubble.text = "晚上一起吃饭?"
+                bubble.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                bubble.setTextColor(M3.onSurface)
+                bubble.setPadding(Spacing.md, 10.dp, Spacing.md, 10.dp)
+                bubble.background = M3.rounded(M3.surfaceContainer, 18.dp.toFloat())
+                val bubbleLp = LinearLayout.LayoutParams(WRAP, WRAP)
+                bubbleLp.gravity = Gravity.START
+                incoming.addView(bubble, bubbleLp)
+
+                // Outgoing row: bubble right-aligned, primary fill.
+                val outgoing = add<LinearLayout>()
+                outgoing.width(FILL)
+                outgoing.gravity = Gravity.END
+                outgoing.padding(top = 8.dp)
+                val reply = add<TextView>()
+                reply.text = "好👋"
+                reply.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                reply.setTextColor(M3.onPrimary)
+                reply.setPadding(Spacing.md, 10.dp, Spacing.md, 10.dp)
+                reply.background = M3.rounded(M3.primary, 18.dp.toFloat())
+                outgoing.addView(reply)
+            }
+
+            // ── Bottom navigation mock (72dp) ───────────────────────────────────
+            val nav = BottomNavigationView(
+                this@StyleChooserActivity,
+                listOf(
+                    BottomNavItem(
+                        MaterialSymbol(MaterialSymbols.chat_bubble, M3.primary),
+                        "消息",
+                        badgeCount = 3,
+                    ),
+                    BottomNavItem(
+                        MaterialSymbol(MaterialSymbols.person, M3.onSurfaceVariant),
+                        "联系人",
+                    ),
+                    BottomNavItem(
+                        MaterialSymbol(MaterialSymbols.settings, M3.onSurfaceVariant),
+                        "设置",
+                    ),
+                ),
+                selectedIndex = 0,
+                onSelect = { /* preview-only */ },
+            )
+            addView(nav, LinearLayout.LayoutParams(FILL, M3.bottomNavHeight))
         }
     }
 
@@ -224,19 +304,19 @@ class StyleChooserActivity : Activity() {
     private fun momoi.mod.qqpro.lib.GroupScope.iconExample(material: Boolean) {
         if (material) {
             val frame = add<FrameLayout>()
-            frame.size(34.dp, 34.dp)
+            frame.size(48.dp, 48.dp)
             frame.background(GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(M3.TONAL)
             })
             (frame.layoutParams as LinearLayout.LayoutParams).also {
-                it.topMargin = 12.dp
+                it.topMargin = 16.dp
                 it.gravity = Gravity.CENTER_HORIZONTAL
             }
             frame.content {
                 val icon = add<ImageView>()
                 icon.setImageDrawable(MaterialSymbol(MaterialSymbols.search, M3.primary))
-                icon.size(18.dp, 18.dp)
+                icon.size(24.dp, 24.dp)
                 (icon.layoutParams as FrameLayout.LayoutParams).gravity = Gravity.CENTER
             }
         } else {

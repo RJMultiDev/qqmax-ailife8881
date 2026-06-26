@@ -213,7 +213,7 @@ object MainNav {
             buildCells(state)
             parent.clipChildren = false
             parent.clipToPadding = false
-            val barHeight = Settings.mainNavHeight.value.toInt().coerceIn(8, 48).dp + 6.dp
+            val barHeight = Settings.mainNavHeight.value.toInt().coerceIn(8, 80).dp + 6.dp
             parent.addView(nav, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, barHeight))
 
             pager.observe { render(state) }
@@ -278,7 +278,7 @@ object MainNav {
         val nav = state.nav
         val ctx = nav.context
         val square = Settings.mainNavSquare.value
-        val iconSize = Settings.mainNavHeight.value.toInt().coerceIn(8, 48).dp
+        val iconSize = Settings.mainNavHeight.value.toInt().coerceIn(8, 80).dp
         val dotSize = (iconSize / 3).coerceAtLeast(4.dp)
         // M3 active-indicator pill. Kept modest so the bar stays compact on a round screen, and the
         // cell is sized to the pill so toggling it never reflows the row (icons must not shift).

@@ -1,6 +1,7 @@
 package momoi.mod.qqpro.lib.material
 
 import android.content.Context
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
@@ -14,18 +15,22 @@ import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.vertical
 
 /**
- * Full-screen Material 3 dialog scaffold for the round watch screen. A native AlertDialog renders
- * broken here (tiny compile SDK + overridden DPI), so QQPro dialogs are full-screen fragments. This
- * centralizes the shared shape: a scrolling, centered column with an optional title, a content slot,
- * and a trailing button stack — used by About, link-open, and any confirm dialog.
+ * Phone-style Material 3 dialog scaffold.
  *
- * Usage inside a fragment's onCreateView:
+ * Sized for a phone-class screen:
+ *  - 24dp outer padding around the dialog body
+ *  - 22sp dialog title (MD3 headlineSmall)
+ *  - actions row is HORIZONTAL, right-aligned (Material 3 phone dialog spec: action buttons sit on
+ *    the bottom-right, with the affirmative action on the rightmost side), background = surfaceContainer
+ *    so the action area visually separates from the content body
+ *
+ * Usage inside a fragment's onCreateView / an Activity's onCreate:
  *
  *     return M3Dialog(ctx).title("打开链接").body {
  *         add<TextView>().text(url)...
  *     }.actions {
- *         action("浏览器打开", M3Button.Variant.FILLED) { ...; dismiss() }
  *         action("取消", M3Button.Variant.TEXT) { dismiss() }
+ *         action("浏览器打开", M3Button.Variant.FILLED) { ...; dismiss() }
  *     }
  *
  * Public on purpose (referenced from @Mixin fragment bodies).
@@ -34,14 +39,28 @@ class M3Dialog(ctx: Context) : ScrollView(ctx) {
 
     private val root = LinearLayout(ctx).vertical().apply {
         gravity = Gravity.CENTER
-        setPadding(20.dp, 20.dp, 20.dp, 20.dp)
+        // 24dp outer padding — MD3 dialog spec.
+        setPadding(24.dp, 24.dp, 24.dp, 24.dp)
     }
     private val titleView = TextView(ctx).apply {
-        textSize = 17f; setTextColor(M3.onSurface); gravity = Gravity.CENTER
-        setPadding(0, 0, 0, 12.dp); visibility = View.GONE
+        // 22sp dialog title per MD3.
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, M3.textTitle)
+        setTextColor(M3.onSurface)
+        gravity = Gravity.START
+        setPadding(0, 0, 0, 16.dp)
+        visibility = View.GONE
     }
-    private val actionsRow = LinearLayout(ctx).vertical().apply {
-        gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, 12.dp, 0, 0)
+    /** Action area background (surfaceContainer) so it visually separates from the content body. */
+    private val actionsBg = LinearLayout(ctx).vertical().apply {
+        // Match MD3 dialog action strip: the actions sit on a slightly raised surface strip.
+        gravity = Gravity.END
+        setPadding(16.dp, 8.dp, 16.dp, 8.dp)
+        setBackgroundColor(M3.surfaceContainer)
+    }
+    /** Action button row — HORIZONTAL on phone-class dialogs, right-aligned. */
+    private val actionsRow = LinearLayout(ctx).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.END or Gravity.CENTER_VERTICAL
     }
 
     private var actionsAttached = false
@@ -60,25 +79,28 @@ class M3Dialog(ctx: Context) : ScrollView(ctx) {
     /** Build the dialog body; children are appended below the title (call before [actions]). */
     fun body(block: LinearScope.() -> Unit): M3Dialog = apply { LinearScope(root).block() }
 
-    /** Build the trailing action button stack (appended last). */
+    /** Build the trailing action button row (appended last, horizontally arranged on phone). */
     fun actions(block: M3ActionScope.() -> Unit): M3Dialog = apply {
         if (!actionsAttached) {
-            root.addView(actionsRow, LinearLayout.LayoutParams(FILL, WRAP))
+            actionsBg.addView(actionsRow, LinearLayout.LayoutParams(FILL, WRAP))
+            root.addView(actionsBg, LinearLayout.LayoutParams(FILL, WRAP))
             actionsAttached = true
         }
         M3ActionScope(actionsRow).block()
     }
 }
 
-/** DSL scope for stacking [M3Button] actions in an [M3Dialog]. */
+/** DSL scope for [M3Button] actions inside an [M3Dialog]. Buttons are arranged HORIZONTALLY
+ *  (phone-class Material 3 dialog) with the affirmative action on the right. Each button has 8dp
+ *  left margin to keep them visually spaced. */
 class M3ActionScope(private val container: LinearLayout) {
     fun action(label: CharSequence, variant: M3Button.Variant = M3Button.Variant.FILLED, onClick: () -> Unit): M3Button {
         val btn = M3Button(container.context).variant(variant).apply {
             text = label
             setOnClickListener { onClick() }
         }
-        val lp = LinearLayout.LayoutParams(FILL, WRAP)
-        lp.topMargin = 8.dp
+        val lp = LinearLayout.LayoutParams(WRAP, WRAP)
+        lp.leftMargin = 8.dp
         container.addView(btn, lp)
         return btn
     }

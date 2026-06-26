@@ -334,7 +334,7 @@ class 设置页 : SettingsActivity() {
                 Settings.doubleReply.value = which == 1
             }
             slider("图片最大高度", "聊天图片最大显示高度(占屏幕高度比例)，默认 0.5", Settings.picMaxHeightRatio, min = 0.3f, max = 1f)
-            slider("气泡圆角半径", "聊天气泡、合并转发/聊天记录块与回复块的圆角半径(dp)", Settings.bubbleCornerRadius, min = 0f, max = 24f)
+            slider("气泡圆角半径", "聊天气泡、合并转发/聊天记录块与回复块的圆角半径(dp)，默认 18", Settings.bubbleCornerRadius, min = 0f, max = 32f)
             colorPicker("我的气泡颜色", "留空为材料色", Settings.bubbleColorSelf, MaterialColors.ACCENT,
                 { M3.parseColorOrNull(Settings.bubbleColorSelf.value) ?: M3.primary })
             colorPicker("对方气泡颜色", "留空为材料色", Settings.bubbleColorOther, MaterialColors.SURFACE + MaterialColors.ACCENT,
@@ -364,13 +364,13 @@ class 设置页 : SettingsActivity() {
             switch("标题栏显示未读数", "在富标题栏显示其它会话的未读数红标(重进聊天页生效)", Settings.titlebarShowUnread)
             switch("未读数浮在聊天左上角", "其它会话未读数红标浮在聊天页左上角而非标题栏内，无标题栏也可用(重进聊天页生效)", Settings.floatUnreadInChat)
             switch("标题栏名称滚动", "标题栏名称过长时滚动显示，而非省略号截断(重进聊天页生效)", Settings.titlebarMarquee)
-            slider("标题栏高度", "富标题栏高度(dp)，默认 16", Settings.titlebarHeight, min = 16f, max = 32f)
+            slider("标题栏高度", "富标题栏高度(dp)，默认 56 (手机应用栏高度)", Settings.titlebarHeight, min = 16f, max = 80f)
             slider("标题栏左右边距", "富标题栏与未读红标左右留出的空白(dp)，避免圆屏圆角裁切", Settings.titlebarSideMargin, min = 0f, max = 48f)
         },
         SettingsCategory("主页导航", "主页底部翻页导航栏") {
             switch("自定义导航栏", "用重绘的导航栏替换原生翻页指示器；关闭则保留原生样式，以下选项不生效", Settings.mainNavCustom)
             switch("导航在底部", "主页(会话列表)翻页导航移到屏幕底部", Settings.bottomMainNav)
-            slider("导航高度", "主页导航图标/栏高度(dp)，默认 16", Settings.mainNavHeight, min = 12f, max = 40f)
+            slider("导航高度", "主页导航图标/栏高度(dp)，默认 72 (手机底部导航高度)", Settings.mainNavHeight, min = 12f, max = 100f)
             switch("方形铺开", "导航图标在整行均匀铺开，而非聚在中间", Settings.mainNavSquare)
             switch("显示所有页面图标", "每个页面都显示图标，当前页蓝色高亮；关闭则只显示当前页图标、其余为圆点", Settings.mainNavAllIcons)
             switch("显示未读数", "在导航各页面图标上显示未读数红标(设置页除外)：消息页为总未读，联系人页为好友+群通知数", Settings.mainNavUnread)

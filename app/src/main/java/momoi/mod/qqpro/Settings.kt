@@ -92,15 +92,20 @@ object Settings {
     // (M3 arc instead of the native APNG). Off keeps the current translucent pill / PNG icons / native
     // spinner. Visual only; behaviour is identical. Only has an effect with 聊天页直接输入 on (the inline
     // EditText must exist). Takes effect next time a chat opens. Default on.
+    //
+    // Sized for a phone-class screen now (the 外观主题 tokens, dimens and component helpers in
+    // lib/material/ are phone-first).
     val materializeChat = BooleanPref("materializeChat", true)
     // Screen rounded-corner diameter (in dp). Adds left/right margin of this
     // width to the inline chat EditText so the side buttons aren't clipped by a
-    // round watch screen's corners.
-    val screenCornerDiameter = FloatPref("screenCornerDiameter", 15f)
+    // round watch screen's corners. The default 0 matches a phone-class screen
+    // (rectangular, no corner inset needed); legacy watch builds can raise it.
+    val screenCornerDiameter = FloatPref("screenCornerDiameter", 0f)
     // Rich titlebar side margin (in dp). Adds left/right inset to the titlebar
     // name/count row and the floating unread badge so they aren't clipped by a
     // round watch screen's corners. Separate from the chat EditText spacing above.
-    val titlebarSideMargin = FloatPref("titlebarSideMargin", 15f)
+    // Phone-class default 0 (no inset needed on a rectangular screen).
+    val titlebarSideMargin = FloatPref("titlebarSideMargin", 0f)
     // Hide the voice (microphone) button in the chat input bar entirely, in all input
     // modes (inline and non-inline) and regardless of whether text has been typed.
     val hideVoiceButton = BooleanPref("hideVoiceButton", false)
@@ -137,7 +142,7 @@ object Settings {
     // Show the other-chats unread badge floating over the chat's top-left corner instead of in
     // the titlebar header. Works even when the titlebar is off; when on, the header badge is hidden.
     val floatUnreadInChat = BooleanPref("floatUnreadInChat", false)
-    val titlebarHeight = FloatPref("titlebarHeight", 16f)
+    val titlebarHeight = FloatPref("titlebarHeight", 56f)
     // When the titlebar name is too long, scroll it as marquee instead of truncating with "…".
     val titlebarMarquee = BooleanPref("titlebarMarquee", false)
     // Master switch for the custom main-page navigation. On = replace the native page-indicator
@@ -147,7 +152,7 @@ object Settings {
     val bottomMainNav = BooleanPref("bottomMainNav", true)
     // Main-page (home) navigation height in dp. Controls the icon/bar size of the page-indicator
     // navigation independently of 标题栏高度. Default 16 (matches the original strip height).
-    val mainNavHeight = FloatPref("mainNavHeight", 16f)
+    val mainNavHeight = FloatPref("mainNavHeight", 72f)
     // Square/spread mode: distribute the navigation icons evenly across the full width instead of
     // grouping them close together in the center. Default off.
     val mainNavSquare = BooleanPref("mainNavSquare", false)
@@ -201,8 +206,8 @@ object Settings {
     // images so they don't fill the watch screen. Default 0.5 (half the screen).
     val picMaxHeightRatio = FloatPref("picMaxHeightRatio", 0.5f)
     // Rounded-corner radius (in dp) for chat bubbles, the merged-forward/chat-history
-    // blocks and the reply block. 0 = square.
-    val bubbleCornerRadius = FloatPref("bubbleCornerRadius", 10f)
+    // blocks and the reply block. 0 = square. Phone-class default 18dp — generous M3 bubble rounding.
+    val bubbleCornerRadius = FloatPref("bubbleCornerRadius", 18f)
     // Override chat-bubble fill color, as a hex string (#RRGGBB or #AARRGGBB / with or
     // without the leading #). Blank keeps the original bubble color (sampled per side).
     val bubbleColorSelf = StringPref("bubbleColorSelf", "")
