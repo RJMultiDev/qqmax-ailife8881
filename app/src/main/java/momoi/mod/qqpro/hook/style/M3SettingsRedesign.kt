@@ -19,6 +19,7 @@ import momoi.mod.qqpro.keepEmojiFitToText
 import momoi.mod.qqpro.lib.FILL
 import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.lib.dp
+import momoi.mod.qqpro.lib.material.AppBar
 import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.material.M3Button
 import momoi.mod.qqpro.lib.material.M3Card
@@ -289,15 +290,13 @@ private fun frameOver(ctx: Context, nativeRoot: View, scroll: View): View = Fram
     addView(scroll, FrameLayout.LayoutParams(FILL, FILL))
 }
 
-/** A centered bold page-title header. */
-private fun titleHeader(ctx: Context, title: String): TextView = TextView(ctx).apply {
-    text = title
-    textSize = 18f
-    setTextColor(M3.onSurface)
-    typeface = Typeface.DEFAULT_BOLD
-    gravity = Gravity.CENTER
-    setPadding(16.dp, 8.dp, 16.dp, 16.dp)
-    layoutParams = LinearLayout.LayoutParams(FILL, WRAP)
+/** A phone-style app-bar header with back button + title. The back button auto-calls
+ *  onBackPressed() on the hosting Activity context, which is the correct routing-safe
+ *  way to pop the navigation stack. */
+private fun titleHeader(ctx: Context, title: String): View = AppBar(ctx).apply {
+    setTitle(title)
+    setBackgroundColor(M3.surface)
+    layoutParams = LinearLayout.LayoutParams(FILL, M3.appBarHeight)
 }
 
 private fun newScroll(ctx: Context): Pair<ScrollView, LinearLayout> {

@@ -1,46 +1,20 @@
 package momoi.mod.qqpro
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlarmManager
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Process
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
-import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
-import momoi.mod.qqpro.lib.SwipeBackLayout
-import momoi.mod.qqpro.lib.material.MaterialSymbol
-import momoi.mod.qqpro.lib.material.MaterialSymbols
-import momoi.mod.qqpro.lib.FILL
-import momoi.mod.qqpro.lib.WRAP
-import momoi.mod.qqpro.lib.background
-import momoi.mod.qqpro.lib.content
-import momoi.mod.qqpro.lib.dp
-import momoi.mod.qqpro.lib.gravity
-import momoi.mod.qqpro.lib.margin
-import momoi.mod.qqpro.lib.onClick
-import momoi.mod.qqpro.lib.padding
-import momoi.mod.qqpro.lib.rippleTouch
-import momoi.mod.qqpro.lib.size
-import momoi.mod.qqpro.lib.text
-import momoi.mod.qqpro.lib.textColor
-import momoi.mod.qqpro.lib.textSize
-import momoi.mod.qqpro.lib.material.AppBar
-import momoi.mod.qqpro.lib.material.BottomNavItem
-import momoi.mod.qqpro.lib.material.BottomNavigationView
-import momoi.mod.qqpro.lib.material.M3
-import momoi.mod.qqpro.lib.material.Spacing
-import momoi.mod.qqpro.lib.vertical
-import momoi.mod.qqpro.lib.width
+import android.widget.*
+import androidx.core.graphics.drawable.toDrawable
+import momoi.mod.qqpro.lib.*
+import momoi.mod.qqpro.lib.material.*
 import momoi.mod.qqpro.util.Utils
 import kotlin.system.exitProcess
 
@@ -63,7 +37,7 @@ class StyleChooserActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.setBackgroundDrawable(ColorDrawable(M3.surface))
+        window.setBackgroundDrawable(M3.surface.toDrawable())
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
@@ -131,7 +105,7 @@ class StyleChooserActivity : Activity() {
     }
 
     /** A full-width tappable option card: heading + example preview + description. */
-    private fun momoi.mod.qqpro.lib.GroupScope.styleCard(
+    private fun GroupScope.styleCard(
         title: String,
         desc: String,
         material: Boolean,
@@ -165,11 +139,11 @@ class StyleChooserActivity : Activity() {
     /**
      * Phone-style Material preview. Renders a self-contained mock of the new Material UI:
      *  - 24dp "status bar" placeholder strip (just a colored bar with the current time)
-     *  - 56dp [AppBar] with back arrow + "消息" title + a search icon action
+     *  - 50dp [AppBar] with back arrow + "消息" title + a search icon action
      *  - rounded primary chat bubble + an incoming reply (using a generic avatar circle)
      *  - 72dp [BottomNavigationView] with 3 icon+label tabs (messages / contacts / settings)
      */
-    private fun momoi.mod.qqpro.lib.GroupScope.materialPreview() {
+    private fun GroupScope.materialPreview() {
         val phone = add<LinearLayout>()
         phone.vertical()
         phone.width(FILL)
@@ -191,15 +165,16 @@ class StyleChooserActivity : Activity() {
             (clock.layoutParams as LinearLayout.LayoutParams).gravity = Gravity.END
 
             // ── Top app bar mock (56dp) ────────────────────────────────────────
+            // AppBar now defaults to showing a back arrow + auto-finish on click;
+            // no need to set navIcon/navClick in the preview mock.
             val bar = AppBar(this@StyleChooserActivity).apply {
                 setTitle("消息")
-                setNavIcon(MaterialSymbol(MaterialSymbols.arrow_back, M3.onSurface))
-                setOnNavClick { /* preview-only */ }
                 // Trailing action: a search icon (48dp touch target).
                 addAction(MaterialSymbol(MaterialSymbols.search, M3.onSurface)) { /* preview-only */ }
                 setAppBarElevation(0f)
             }
-            addView(bar, LinearLayout.LayoutParams(FILL, M3.appBarHeight))
+            bar.layoutParams = LinearLayout.LayoutParams(FILL, M3.appBarHeight)
+            add(bar)
 
             // ── Body: two chat bubbles + avatar + reply ─────────────────────────
             val body = add<LinearLayout>()
@@ -257,15 +232,16 @@ class StyleChooserActivity : Activity() {
                         "设置",
                     ),
                 ),
-                selectedIndex = 0,
+                initialSelected = 0,
                 onSelect = { /* preview-only */ },
             )
-            addView(nav, LinearLayout.LayoutParams(FILL, M3.bottomNavHeight))
+            nav.layoutParams = LinearLayout.LayoutParams(FILL, M3.bottomNavHeight)
+            add(nav)
         }
     }
 
     /** Mock of the original look: flat dark bubble with square-ish corners and tiny indicator dots. */
-    private fun momoi.mod.qqpro.lib.GroupScope.originalPreview() {
+    private fun GroupScope.originalPreview() {
         val box = add<LinearLayout>()
         box.vertical()
         box.width(FILL)
@@ -284,7 +260,7 @@ class StyleChooserActivity : Activity() {
             val nav = add<LinearLayout>()
             nav.width(FILL)
             nav.padding(top = 12.dp)
-            (nav as LinearLayout).gravity = Gravity.CENTER
+            nav.gravity = Gravity.CENTER
             nav.content {
                 dot(0xFF_888888.toInt(), 6)
                 dot(0xFF_BBBBBB.toInt(), 6)
@@ -301,7 +277,8 @@ class StyleChooserActivity : Activity() {
      * vector tinted with the accent on a tonal circular container; Original = the native QQ search
      * drawable resource (qui_search_icon_navigation_01) rendered as-is.
      */
-    private fun momoi.mod.qqpro.lib.GroupScope.iconExample(material: Boolean) {
+    @SuppressLint("DiscouragedApi", "UseCompatLoadingForDrawables")
+    private fun GroupScope.iconExample(material: Boolean) {
         if (material) {
             val frame = add<FrameLayout>()
             frame.size(48.dp, 48.dp)
@@ -337,7 +314,7 @@ class StyleChooserActivity : Activity() {
         }
     }
 
-    private fun momoi.mod.qqpro.lib.GroupScope.dot(color: Int, widthDp: Int) {
+    private fun GroupScope.dot(color: Int, widthDp: Int) {
         val d = add<View>()
         d.size(widthDp.dp, 6.dp)
         d.background(M3.rounded(color, 3.dp.toFloat()))
@@ -378,7 +355,7 @@ class StyleChooserActivity : Activity() {
                     this, 0, intent,
                     PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 )
-                val am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val am = getSystemService(ALARM_SERVICE) as AlarmManager
                 am.set(AlarmManager.RTC, System.currentTimeMillis() + 300, pi)
             }
         }.onFailure { Utils.log("StyleChooser: restart schedule failed: $it") }

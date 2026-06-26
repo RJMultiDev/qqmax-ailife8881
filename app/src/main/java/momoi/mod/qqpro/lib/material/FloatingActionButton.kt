@@ -41,7 +41,7 @@ class FloatingActionButton(
 ) : FrameLayout(ctx) {
 
     private val container = LinearLayout(ctx).apply {
-        orientation = HORIZONTAL
+        orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
         isClickable = true
         isFocusable = true

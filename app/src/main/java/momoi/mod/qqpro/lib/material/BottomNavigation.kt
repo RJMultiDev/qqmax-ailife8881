@@ -1,5 +1,6 @@
 package momoi.mod.qqpro.lib.material
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
@@ -7,6 +8,7 @@ import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -34,6 +36,7 @@ import momoi.mod.qqpro.lib.dp
  *
  * Public on purpose (a @Mixin body referencing it needs it public).
  */
+@SuppressLint("ViewConstructor")
 class BottomNavigationView(
     ctx: Context,
     items: List<BottomNavItem>,
@@ -97,7 +100,7 @@ class BottomNavigationView(
         private val indicator = View(ctx).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = 3.dp.toFloat()
+                // cornerRadius = 3.dp.toFloat()
                 setColor(0x00000000)
             }
             // Width fills the cell less 16dp padding; 3dp tall = the M3 active-indicator height.

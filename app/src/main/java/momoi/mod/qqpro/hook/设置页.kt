@@ -90,6 +90,35 @@ private var settingsContainer: FrameLayout? = null
 private var detailLayer: View? = null
 private var inSettingsDetail = false
 
+// Cross-row change broadcast. A row can opt into two callbacks:
+//   - onChanged(view): fired on the row's OWN user-driven change. Equivalent to "onClick for
+//     a setting control". Default writes the new value back to the row's Pref.
+//   - onNotifyed(view, params): fired when SOME OTHER row called notify(view, params) on the
+//     shared registry. Use this to react to peer changes (e.g. "缩放倍数" re-evaluating its
+//     greyed-out state when "禁用 AutoSize" flips).
+//
+// Performance: notify() walks the WeakHashMap and only invokes entries whose view is currently
+// attached. Each onNotifyed is responsible for an early-return on a missing/typed-mismatched
+// params field, so the cost of receiving a notification is a single HashMap lookup + null check.
+// WeakHashMap so listeners don't pin their host view past the activity lifetime.
+private val settingNotifyReceivers = java.util.WeakHashMap<View, (View, Map<String, Any>) -> Unit>()
+
+/**
+ * Broadcast a change to every row that registered `onNotifyed`. The caller supplies the params
+ * map; each receiver decides which keys it cares about. Receivers should early-return on a
+ * missing/typed-mismatched key (the contract is "cheap to ignore").
+ *
+ * Performance note: the trigger view (the one whose onChanged fired this) is NOT skipped from
+ * the iteration — the caller can include any "source" sentinel in params and let receivers
+ * filter. This keeps the dispatch loop branch-free.
+ */
+private fun notifySettingChange(trigger: View, params: Map<String, Any>) {
+    val snapshot = settingNotifyReceivers.entries.toList()
+    for ((view, receiver) in snapshot) {
+        if (view.isAttachedToWindow) receiver(view, params)
+    }
+}
+
 /**
  * One entry in the top-level list; [build] fills the detail page with that category's rows.
  * Must be public (not private): the @Mixin body merges into moye.wearqq.SettingsActivity, and a
@@ -161,7 +190,7 @@ class 设置页 : SettingsActivity() {
         val root = settingsRoot ?: return
         root.removeAllViews()
         root.content {
-            section("NWear QQ Pro / Max", "by 爅峫 · java30433 · AILIFE")
+            section("NWearQQ / QQPro / QQMax / QQMaxPhone", "by 爅峫 · java30433 · AILIFE · iamRJ")
             for (cat in buildCategories()) {
                 actionCard(cat.title, cat.subtitle) { showCategory(cat) }
             }
@@ -318,7 +347,34 @@ class 设置页 : SettingsActivity() {
             textInput("语音键文字", "聊天页语音键上显示的文字", Settings.voiceBtnText)
         },
         SettingsCategory("聊天显示", "缩放、气泡、图片与背景") {
-            slider("缩放倍数", "整体界面缩放，返回聊天页即时生效", Settings.scale)
+            // AutoSize is the watch-tuned density adapter the original QQ app ships. On a phone
+            // it inflates every measurement 2-3× (the "UI 异常" effect). Default ON: keep it
+            // disabled for the phone build. When ON, the "缩放倍数" slider is dead (the
+            // AutoSizeConfig class is still installed but no longer mutates density), so we
+            // render it greyed out and non-interactive. Toggle off only if you actually want the
+            // original watch-tuned density back (e.g. running this on a real watch).
+            switch("禁用 AutoSize", "阻止 AutoSize 改写屏幕密度。关闭后手机 UI 可能会过于大",
+                Settings.disableAutoSize,
+                onChanged = { v ->
+                    notifySettingChange(
+                        /* trigger view: dummy switch — onNotifyed receivers only check params keys,
+                         not trigger identity */
+                        v,
+                        mapOf("disableAutoSize" to Settings.disableAutoSize.value)
+                    )
+                })
+            // 缩放倍数：AutoSize 启用时作为 AutoSizeConfig 的设计尺寸除数（手表模式），AutoSize
+            // 禁用时此 slider 灰显不可调。onNotifyed 读 disableAutoSize，读不出来直接 early-return。
+            slider("缩放倍数",
+                "AutoSize 关闭时生效；禁用 AutoSize 时不可调",
+                Settings.scale,
+                min = 0.5f, max = 1.5f,
+                onNotifyed = { v, params ->
+                    val enabled = (params["disableAutoSize"] as? Boolean) ?: return@slider
+                    val seek = v as? android.widget.SeekBar ?: return@slider
+                    seek.isEnabled = enabled
+                    seek.alpha = if (enabled) 1f else 0.4f
+                })
             slider("聊天文本缩放", "聊天气泡内文字大小", Settings.chatScale)
             // 双击消息的动作，三选一。底层仍是 double_speak / double_reply 两个开关(基座 app 读取)，
             // 这里把它们合并成一个下拉：无 / 回复 / 朗读。朗读优先于回复(两者都开时朗读生效)。
@@ -472,7 +528,9 @@ class 设置页 : SettingsActivity() {
     private fun GroupScopeFix.switch(
         title: String,
         desc: String,
-        pref: Pref<Boolean>
+        pref: Pref<Boolean>,
+        onChanged: ((M3Switch) -> Unit)? = null,
+        onNotifyed: ((View, Map<String, Any>) -> Unit)? = null,
     ) = card { card ->
         card.content {
             titleColumn(title, desc).weight(1f)
@@ -480,7 +538,11 @@ class 设置页 : SettingsActivity() {
             // native toggle so it follows the user's theme color.
             val sw = M3Switch(this@设置页)
             sw.setChecked(pref.value, notify = false)
-            sw.onChange = { pref.value = it }
+            sw.onChange = {
+                pref.value = it
+                onChanged?.invoke(sw)
+            }
+            onNotifyed?.let { settingNotifyReceivers[sw] = it }
             add(sw)
         }
     }
@@ -861,7 +923,10 @@ class 设置页 : SettingsActivity() {
         desc: String,
         pref: Pref<Float>,
         min: Float = 0.1f,
-        max: Float = 1.2f
+        max: Float = 1.2f,
+        enabled: Boolean = true,
+        onChanged: ((SeekBar) -> Unit)? = null,
+        onNotifyed: ((View, Map<String, Any>) -> Unit)? = null,
     ) = card { card ->
         card.vertical()
         lateinit var valueLabel: TextView
@@ -873,19 +938,27 @@ class 设置页 : SettingsActivity() {
                     valueLabel = add<TextView>()
                         .text(format(pref.value))
                         .textSize(14f)
-                        .textColor(ACCENT)
+                        .textColor(if (enabled) ACCENT else M3.onSurfaceVariant)
                         .gravity(Gravity.CENTER_VERTICAL)
                 }
         }
         val steps = ((max - min) * 100).roundToInt()
         val seek = mdSeekBar()
-            .progressMax(steps)
-            .onProgressChanged { p, fromUser ->
-                val v = min + p / 100f
-                valueLabel.text = format(v)
-                if (fromUser) pref.value = v
-            }
+        seek.progressMax(steps)
         seek.progress = ((pref.value - min) * 100).roundToInt().coerceIn(0, steps)
+        if (!enabled) {
+            seek.isEnabled = false
+            seek.alpha = 0.4f
+        }
+        seek.onProgressChanged { p, fromUser ->
+            val v = min + p / 100f
+            valueLabel.text = format(v)
+            if (fromUser && enabled) {
+                pref.value = v
+                onChanged?.invoke(seek)
+            }
+        }
+        onNotifyed?.let { settingNotifyReceivers[seek] = it }
         card.addView(seek, LinearLayout.LayoutParams(FILL, 36.dp).apply {
             topMargin = 4.dp
         })
@@ -950,7 +1023,7 @@ class 设置页 : SettingsActivity() {
     private inline fun GroupScopeFix.card(block: (LinearLayout) -> Unit) {
         val card = add<LinearLayout>()
             .width(FILL)
-            .padding(12.dp)
+            .padding(16.dp) // 12→16dp: M3 list-item phone padding
         card.background(GradientDrawable().apply {
             setColor(M3.surfaceContainer)
             cornerRadius = 14.dp.toFloat()

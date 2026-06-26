@@ -139,10 +139,10 @@ object M3 {
 
     // ── Phone-class component dimensions (dp) ───────────────────────────────────
     // Material 3 reference dimensions for a phone-class screen — these replace the watch's small-screen
-    // defaults so every screen the materialize helpers render reads as a real phone UI (status bar +
-    // 56dp app bar + 72dp bottom nav, FAB / icon-button / touch targets = 48dp or larger).
+    // Phone-class component dimensions (matches phone QQ: title_bar_height=50dp,
+    // 72dp bottom nav, 48dp touch targets, etc.).
     val touchTargetMin get() = 48.dp
-    val appBarHeight get() = 56.dp
+    val appBarHeight get() = 50.dp
     val bottomNavHeight get() = 72.dp
     val fabSize get() = 56.dp
     val fabExtendedHeight get() = 56.dp
@@ -296,6 +296,7 @@ object M3 {
         title: CharSequence,
         subtitle: CharSequence? = null,
         navIcon: Drawable? = null,
+        showBackButton: Boolean = true,
         onNav: (() -> Unit)? = null,
         actions: List<Drawable> = emptyList(),
         onAction: ((Int) -> Unit)? = null,
@@ -304,10 +305,12 @@ object M3 {
         return AppBar(ctx).apply {
             setTitle(title)
             if (subtitle != null) setSubtitle(subtitle)
-            if (navIcon != null) {
-                setNavIcon(navIcon)
-                if (onNav != null) setOnNavClick(onNav)
+            when {
+                navIcon != null -> setNavIcon(navIcon)
+                showBackButton -> setNavVisible(true) // default; back arrow already wired in init
+                else -> setNavVisible(false)
             }
+            if (onNav != null) setOnNavClick(onNav)
             // Add action buttons (48×48dp touch target).
             actions.forEachIndexed { index, d ->
                 addAction(d) {

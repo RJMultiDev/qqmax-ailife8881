@@ -163,14 +163,14 @@ object ContactTopBar {
             gravity = Gravity.CENTER
             clipChildren = false
             clipToPadding = false
-            setPadding(8.dp, 6.dp, 8.dp, 4.dp)
+            setPadding(12.dp, 8.dp, 12.dp, 6.dp)
             for (b in listOf(add, friend, group, search)) {
                 // Fixed circular button centered in a weighted cell so the row spreads evenly.
                 val cell = LinearLayout(ctx).apply {
                     gravity = Gravity.CENTER
                     clipChildren = false
                     clipToPadding = false
-                    addView(b, LinearLayout.LayoutParams(30.dp, 30.dp))
+                    addView(b, LinearLayout.LayoutParams(48.dp, 48.dp))
                 }
                 addView(cell, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             }
@@ -223,9 +223,9 @@ object ContactTopBar {
         val row = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(8.dp, 6.dp, 12.dp, 4.dp)
+            setPadding(12.dp, 8.dp, 12.dp, 6.dp)
             visibility = View.GONE
-            addView(back, LinearLayout.LayoutParams(30.dp, 30.dp).apply { marginEnd = 6.dp })
+            addView(back, LinearLayout.LayoutParams(M3.touchTargetMin, M3.touchTargetMin).apply { marginEnd = 8.dp })
             addView(et, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
         return row to et

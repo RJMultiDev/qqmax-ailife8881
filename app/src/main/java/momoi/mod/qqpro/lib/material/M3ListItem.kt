@@ -48,7 +48,7 @@ class M3ListItem(ctx: Context) : LinearLayout(ctx) {
     }
     private var leadingView: View? = null
     private var trailingView: View? = null
-    private var minHeightOverride: Int = M3.listItemMinHeight
+    private var minimumHeightOverride: Int = M3.listItemMinHeight
 
     init {
         orientation = HORIZONTAL
@@ -57,7 +57,7 @@ class M3ListItem(ctx: Context) : LinearLayout(ctx) {
         // horizontal gutters so titles never feel cramped against the screen edge.
         setPadding(16.dp, 8.dp, 16.dp, 8.dp)
         // Minimum 56dp height so a one-line row still meets the M3 list-item spec.
-        minHeight = M3.listItemMinHeight
+        minimumHeight = M3.listItemMinHeight
         background = M3.ripple(null)
         textCol.addView(overlineView)
         textCol.addView(titleView)
@@ -74,7 +74,7 @@ class M3ListItem(ctx: Context) : LinearLayout(ctx) {
             subtitleView.text = text
             subtitleView.visibility = View.VISIBLE
             // Two-line row → 72dp; with overline it'd be 88dp (set via [overline]).
-            if (overlineView.visibility != View.VISIBLE) minHeight = M3.listItemTwoLine
+            if (overlineView.visibility != View.VISIBLE) minimumHeight = M3.listItemTwoLine
         }
     }
 
@@ -88,7 +88,7 @@ class M3ListItem(ctx: Context) : LinearLayout(ctx) {
             // Three-line row → 88dp (overline + title + subtitle). With a single-line title the
             // 72dp default still reads fine; we bump to 88 only when both overline and subtitle are
             // present.
-            if (subtitleView.visibility == View.VISIBLE) minHeight = M3.listItemThreeLine
+            if (subtitleView.visibility == View.VISIBLE) minimumHeight = M3.listItemThreeLine
         }
     }
 
@@ -113,5 +113,5 @@ class M3ListItem(ctx: Context) : LinearLayout(ctx) {
     }
 
     /** Override the minimum row height (defaults to 56dp). Useful for compact secondary lists. */
-    fun rowHeight(dp: Int): M3ListItem = apply { minHeightOverride = dp.dp; minHeight = dp.dp }
+    fun rowHeight(dp: Int): M3ListItem = apply { minimumHeightOverride = dp.dp; minimumHeight = dp.dp }
 }

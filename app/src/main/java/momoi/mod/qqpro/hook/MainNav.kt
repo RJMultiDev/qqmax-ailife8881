@@ -3,6 +3,7 @@ package momoi.mod.qqpro.hook
 import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.graphics.drawable.GradientDrawable
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.animation.PathInterpolator
 import android.view.View
@@ -27,6 +28,7 @@ import momoi.mod.qqpro.Settings
 import momoi.mod.qqpro.findAll
 import momoi.mod.qqpro.hook.action.RecentContacts
 import momoi.mod.qqpro.hook.view.smoothScrollToStart
+import momoi.mod.qqpro.lib.WRAP
 import momoi.mod.qqpro.lib.dp
 import momoi.mod.qqpro.lib.material.M3
 import momoi.mod.qqpro.lib.material.MaterialSymbol
@@ -87,6 +89,7 @@ object MainNav {
         val nav: LinearLayout,
         val pager: PagerCtl,
         val iconMap: Map<Int, String>,
+        val labelMap: Map<Int, String>,
         val pageCount: Int,
     ) {
         val cells = ArrayList<Cell>()
@@ -99,7 +102,14 @@ object MainNav {
         var lastCurrent = -1
     }
 
-    class Cell(val frame: FrameLayout, val pill: View, val icon: ImageView, val dot: View, val badge: TextView) {
+    class Cell(
+        val frame: FrameLayout,
+        val pill: View,
+        val icon: ImageView,
+        val dot: View,
+        val badge: TextView,
+        val label: TextView,
+    ) {
         // The icon's currently-displayed tint, so a selection change can crossfade from it.
         var iconColor = 0
         // Running icon color crossfade, cancelled before starting a new one.
@@ -188,6 +198,7 @@ object MainNav {
             val pageCount = pager.count()
             if (pageCount <= 0) { Utils.log("MainNav: empty pager"); return }
             val iconMap = materialIconMapOf(pageCount)
+            val labelMap = materialLabelMapOf(pageCount)
 
             // Remove a nav we built on a previous onViewCreated (returning to the home page).
             (parent.findAll { it.tag == NAV_TAG } as? ViewGroup)?.let { parent.removeView(it) }
@@ -206,14 +217,15 @@ object MainNav {
                 // surface so it matches the materialized pages (chat list etc.) seamlessly.
                 setBackgroundColor(M3.surface)
             }
-            val state = NavState(nav, pager, iconMap, pageCount)
+            val state = NavState(nav, pager, iconMap, labelMap, pageCount)
             state.current = pager.current()
             active = state
 
-            buildCells(state)
+            val barHeight = buildCells(state)
             parent.clipChildren = false
             parent.clipToPadding = false
-            val barHeight = Settings.mainNavHeight.value.toInt().coerceIn(8, 80).dp + 6.dp
+            // Bar height is content-driven (icon band + label band); mainNavHeight no longer constrains
+            // it — that setting only sizes the icon/pill within the icon band.
             parent.addView(nav, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, barHeight))
 
             pager.observe { render(state) }
@@ -274,7 +286,7 @@ object MainNav {
         }.onFailure { Utils.log("MainNav(native) failed: $it") }
     }
 
-    private fun buildCells(state: NavState) {
+    private fun buildCells(state: NavState): Int {
         val nav = state.nav
         val ctx = nav.context
         val square = Settings.mainNavSquare.value
@@ -285,7 +297,11 @@ object MainNav {
         val pillW = (iconSize * 1.5f).toInt()
         val pillH = iconSize + 4.dp
         val cellW = pillW + 4.dp
-        val barHeight = pillH + 2.dp
+        // mainNavHeight is now ONLY used to size icon + pill — the bar height is content-driven so
+        // the label (textNavLabel = 12sp) always fits below the icon regardless of the setting.
+        val iconBand = pillH + 2.dp
+        val labelBand = M3.textNavLabel.toInt().dp + 6.dp
+        val barHeight = iconBand + labelBand
 
         state.cells.clear()
         nav.removeAllViews()
@@ -316,22 +332,39 @@ object MainNav {
                 minWidth = 12.dp
                 visibility = View.GONE
             }
-            // Inner container sized to the icon and centered in the cell. The badge anchors to the
-            // inner's top-right so it hugs the icon even when the cell is stretched (square mode).
-            val inner = FrameLayout(ctx).apply { clipChildren = false; clipToPadding = false }
-            val innerW = iconSize + 6.dp
-            inner.addView(pill, FrameLayout.LayoutParams(pillW, pillH, Gravity.CENTER))
-            inner.addView(icon, FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER))
-            inner.addView(dot, FrameLayout.LayoutParams(dotSize, dotSize, Gravity.CENTER))
-            inner.addView(badge, FrameLayout.LayoutParams(
+            val label = TextView(ctx).apply {
+                text = state.labelMap[i].orEmpty()
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, M3.textNavLabel)
+                gravity = Gravity.CENTER
+                isSingleLine = true
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(IDLE_ICON)
+            }
+            // Vertical stack: icon pill (centered) on top, label underneath. The badge anchors to the
+            // icon frame's top-right so it hugs the icon even when the cell is stretched (square mode).
+            val stack = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                clipChildren = false; clipToPadding = false
+            }
+            val iconFrame = FrameLayout(ctx).apply { clipChildren = false; clipToPadding = false }
+            iconFrame.addView(pill, FrameLayout.LayoutParams(pillW, pillH, Gravity.CENTER))
+            iconFrame.addView(icon, FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER))
+            iconFrame.addView(dot, FrameLayout.LayoutParams(dotSize, dotSize, Gravity.CENTER))
+            iconFrame.addView(badge, FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT, 12.dp, Gravity.TOP or Gravity.END))
-            frame.addView(inner, FrameLayout.LayoutParams(innerW, barHeight, Gravity.CENTER))
+            stack.addView(iconFrame, LinearLayout.LayoutParams(WRAP, iconBand))
+            stack.addView(label, LinearLayout.LayoutParams(WRAP, labelBand))
+
+            frame.addView(stack, FrameLayout.LayoutParams(WRAP, barHeight, Gravity.CENTER))
 
             val pos = i
             frame.isClickable = true
             frame.setOnClickListener { handleNavTap(state, pos) }
 
-            // Fixed cell width (or weighted in square mode) so the pill never reflows the row.
+            // square = stretch cells across the full width; non-square = content-sized (centered).
+            // The label lives inside the cell, so cellW only constrains the icon band; we keep the
+            // legacy margin to maintain visual parity with the previous compact layout.
             val lp = if (square) {
                 LinearLayout.LayoutParams(0, barHeight, 1f)
             } else {
@@ -340,8 +373,9 @@ object MainNav {
                 }
             }
             nav.addView(frame, lp)
-            state.cells.add(Cell(frame, pill, icon, dot, badge).apply { iconColor = IDLE_ICON })
+            state.cells.add(Cell(frame, pill, icon, dot, badge, label).apply { iconColor = IDLE_ICON })
         }
+        return barHeight
     }
 
     private fun render(state: NavState, force: Boolean = false) {
@@ -414,6 +448,9 @@ object MainNav {
         } else {
             (cell.dot.background as? GradientDrawable)?.setColor(if (selected) ACCENT else DOT_COLOR)
         }
+        // Label follows the icon tint (accent when selected, muted otherwise) — instant is fine,
+        // the label is small and the icon animation is the dominant cue.
+        cell.label.setTextColor(if (selected) ACCENT else IDLE_ICON)
     }
 
     /** Show/hide [v] with an alpha crossfade when [animate], else instantly. */
@@ -590,8 +627,21 @@ object MainNav {
         MaterialSymbols.settings,
     )
 
+    // Chinese labels rendered below each icon. Indices align with PAGE_ICONS. Extra pages beyond
+    // this list render with an empty label (icon only).
+    private val PAGE_LABELS = listOf(
+        "消息",
+        "联系人",
+        "空间",
+        "我的",
+    )
+
     private fun materialIconMapOf(pageCount: Int): Map<Int, String> = buildMap {
         for (i in 0 until minOf(pageCount, PAGE_ICONS.size)) put(i, PAGE_ICONS[i])
+    }
+
+    private fun materialLabelMapOf(pageCount: Int): Map<Int, String> = buildMap {
+        for (i in 0 until minOf(pageCount, PAGE_LABELS.size)) put(i, PAGE_LABELS[i])
     }
 
     /**

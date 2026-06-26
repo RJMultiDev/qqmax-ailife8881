@@ -54,11 +54,18 @@ abstract class 缩小文本 : BaseWatchItemCell<WatchAIOMsgItem, View>() {
             // displayMetrics at a stale density; using SP would then make chat text shrink until a
             // restart. Computing px from the config keeps the size correct regardless. (We must NOT
             // re-adapt the activity at runtime — that desyncs the conversation list RecyclerView.)
-            view.setTextSize(TypedValue.COMPLEX_UNIT_PX, chatTextPx(15f * Settings.chatScale.value))
+            view.setTextSize(TypedValue.COMPLEX_UNIT_PX, chatTextPx(15.75f * Settings.chatScale.value))
         }
     }
 
     private fun chatTextPx(sp: Float): Float {
+        // Branch on the disableAutoSize setting. When AutoSize is active, keep the original
+        // auto-converted density path (so chat text tracks the watch-tuned scale). When
+        // disabled, use the system scaledDensity directly so the text renders at the phone's
+        // native size.
+        if (Settings.disableAutoSize.value) {
+            return sp * Utils.application.resources.displayMetrics.scaledDensity
+        }
         val cfg = AutoSizeConfig.getInstance()
         val designWidthDp = cfg.designWidthInDp.toFloat()
         if (designWidthDp <= 0f || cfg.screenWidth <= 0 || cfg.initDensity <= 0f) {

@@ -63,19 +63,16 @@ class 滚轮适配 : MainActivity() {
     private var targetView: View? = null
     private var action: (Any.(Float)->Unit)? = null
 
-    // AutoSize only patches the shared/app DisplayMetrics density at activity create/start.
-    // Visiting the QQPro settings activity or the system file/image picker resets the shared
-    // metrics to the small system density, and any access to it between RecyclerView item binds
-    // leaves the list with mixed-size rows (some adapted, some at the system density) until an
-    // app restart; the same gap means 缩放倍数 changes only take effect after a restart.
-    //
-    // Re-pin the adapted density on EVERY resources access (AutoSize's own recommended fix), so
-    // every measure/bind pass sees one consistent density for the current scale. Guard to the
-    // main thread because AutoSizeCompat asserts it. Then a relayout on resume re-measures any
-    // views laid out while the density was stale.
+    // AutoSize re-pins the activity's density on every resources access. Visiting the QQPro
+    // settings activity or the system file/image picker resets the shared metrics to the small
+    // system density, and any access between RecyclerView item binds leaves the list with
+    // mixed-size rows until an app restart. Re-pin on every getResources / onResume to fix it
+    // when AutoSize is active; skip entirely when Settings.disableAutoSize is on (no-op
+    // AutoSizeCompat in hook/DisableAutoSize.kt, so this is the only remaining trigger).
     override fun getResources(): Resources {
         val res = super.getResources()
-        if (Looper.myLooper() == Looper.getMainLooper()) {
+        if (!Settings.disableAutoSize.value &&
+            Looper.myLooper() == Looper.getMainLooper()) {
             runCatching { AutoSizeCompat.autoConvertDensityOfGlobal(res) }
         }
         return res
@@ -84,7 +81,9 @@ class 滚轮适配 : MainActivity() {
     override fun onResume() {
         super.onResume()
         runCatching {
-            AutoSizeCompat.autoConvertDensityOfGlobal(resources)
+            if (!Settings.disableAutoSize.value) {
+                AutoSizeCompat.autoConvertDensityOfGlobal(resources)
+            }
             window?.decorView?.requestLayout()
         }.onFailure { Utils.log("onResume re-adapt failed: $it") }
     }

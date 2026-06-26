@@ -70,7 +70,8 @@ fun com.tencent.widget.SingleLineTextView.keepEmojiFitToText(ratio: Float = 1.25
         return changed
     }
     viewTreeObserver.addOnPreDrawListener {
-        if (fit()) { setText(android.text.SpannableString(text)); false } else true
+        if (fit()) {
+            text = android.text.SpannableString(text); false } else true
     }
 }
 
@@ -94,6 +95,7 @@ fun ViewGroup.findAll(block: (View) -> Boolean): View? {
     }
     return null
 }
+
 fun ViewGroup.anyAll(block: (View) -> Boolean) = findAll(block) != null
 
 fun String.removeBefore(key: String) = split(key, limit = 2)[1]
@@ -136,7 +138,7 @@ fun <T> Class<T>.findMethod(name: String, args: List<Class<Any>>? = null): Metho
     return try {
         if (args == null) getDeclaredMethod(name)
         else getDeclaredMethod(name, *args.toTypedArray())
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         superclass.findMethod(name, args)
     }
 }

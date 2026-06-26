@@ -12,13 +12,18 @@ object Settings {
     val ota: SharedPreferences = Utils.application.getSharedPreferences("OTAManager2Prefs", 0)
 
     // ===== QQ Pro 设置 (by java30433) =====
-    val scale = FloatPref("scale", 0.7f)
+    // 缩放倍数：1.0 = 按系统原生密度。AutoSize 启用时作为 AutoSizeConfig 的设计尺寸除数（手
+    // 表模式），禁用时为占位不生效（slider 灰显，见 设置页.kt）。
+    val scale = FloatPref("scale", 1.0f)
     val chatScale = FloatPref("chatScale", 0.8f)
     val enableSmoothScroll = BooleanPref("enableSmoothScroll", true)
     // Multiplier applied to the rotary-encoder scroll distance (1.0 = system default).
     val encoderScrollSpeed = FloatPref("encoderScrollSpeed", 1.0f)
     val blockBack = BooleanPref("blockBack", false)
     val disableSwipeBack = BooleanPref("disableSwipeBack", false)
+    // Disable the AutoSize density adaptation (phone UI explodes without this). Default ON for
+    // the phone build, since AutoSize is watch-tuned and would inflate every measurement.
+    val disableAutoSize = BooleanPref("disableAutoSize", true)
     val swapCenterKeyboard = BooleanPref("swapCenterKeyboard", true)
 
     // ===== QQ Max 设置 (by AILIFE) =====

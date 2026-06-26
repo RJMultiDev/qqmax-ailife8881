@@ -5,6 +5,7 @@
       <module name="ApkModder" target="11" />
       <module name="ApkModder.main" target="11" />
       <module name="ApkModder.test" target="11" />
+      <module name="QQPro.app" target="21" />
     </bytecodeTargetLevel>
   </component>
 </project>
